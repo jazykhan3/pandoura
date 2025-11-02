@@ -1,4 +1,5 @@
-import { ReactNode, useMemo } from 'react'
+import { useMemo } from 'react'
+import type { ReactNode } from 'react'
 import { useUiStore } from '../store/uiStore'
 import type { RouteKey } from '../store/uiStore'
 import { motion, AnimatePresence } from 'framer-motion'
@@ -36,8 +37,6 @@ export function Layout({ children }: { children: ReactNode }) {
     const current = navItems.find((n) => n.key === active)
     return `Pandaura > ${current?.label ?? ''}`
   }, [active])
-
-  const sidebarWidth = 'w-60 xl:w-60 lg:w-16' // 240px on large screens, 64px on smaller
 
   return (
     <Tooltip.Provider delayDuration={300}>
