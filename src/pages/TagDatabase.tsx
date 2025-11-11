@@ -1,22 +1,46 @@
 import { useState, useEffect } from 'react'
 import { Card } from '../components/Card'
 import { mockTags } from '../data/mockData'
+import { useSyncStore } from '../store/syncStore'
+import { tagApi } from '../services/api'
 import type { Tag } from '../types'
 
 export function TagDatabase() {
   const [tags, setTags] = useState<Tag[]>([])
   const [searchTerm, setSearchTerm] = useState('')
+  const [isLoading, setIsLoading] = useState(false)
+  const syncTags = useSyncStore((s) => s.syncTags)
 
   useEffect(() => {
-    setTags(mockTags)
+    loadTags()
   }, [])
+
+  const loadTags = async () => {
+    setIsLoading(true)
+    try {
+      const loadedTags = await tagApi.getAll()
+      setTags(loadedTags)
+    } catch (error) {
+      console.error('Failed to load tags:', error)
+      setTags(mockTags)
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  const handleSyncTags = async () => {
+    await syncTags()
+    await loadTags()
+    alert('Tags synced to shadow runtime!')
+  }
 
   const filteredTags = tags.filter(tag =>
     tag.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
     tag.type.toLowerCase().includes(searchTerm.toLowerCase())
   )
 
-  const formatValue = (value: string | number | boolean) => {
+  const formatValue = (value: string | number | boolean | null) => {
+    if (value === null) return 'NULL'
     if (typeof value === 'boolean') return value ? 'TRUE' : 'FALSE'
     return value.toString()
   }
@@ -25,23 +49,27 @@ export function TagDatabase() {
     <div className="space-y-6">
       <h1 className="text-2xl font-bold">Tag Database</h1>
       <Card>
-        <div className="flex items-center justify-between mb-4">
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 mb-4">
           <input
             type="text"
             placeholder="Search tags..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="px-3 py-2 text-sm border border-neutral-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#FF6A00] focus:border-transparent"
+            className="flex-1 sm:flex-initial sm:w-64 px-3 py-2 text-sm border border-neutral-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#FF6A00] focus:border-transparent"
           />
           <div className="flex gap-2">
-            <button className="px-3 py-1.5 text-sm bg-neutral-200 text-neutral-600 rounded-md cursor-not-allowed transition-opacity hover:bg-neutral-300">
+            <button className="flex-1 sm:flex-initial px-3 py-1.5 text-sm bg-neutral-200 text-neutral-600 rounded-md cursor-not-allowed transition-opacity hover:bg-neutral-300">
               Import
             </button>
-            <button className="px-3 py-1.5 text-sm bg-neutral-200 text-neutral-600 rounded-md cursor-not-allowed transition-opacity hover:bg-neutral-300">
+            <button className="flex-1 sm:flex-initial px-3 py-1.5 text-sm bg-neutral-200 text-neutral-600 rounded-md cursor-not-allowed transition-opacity hover:bg-neutral-300">
               Export
             </button>
-            <button className="px-3 py-1.5 text-sm bg-[#FF6A00] text-white rounded-md hover:bg-[#FF8020] transition-colors">
-              Sync
+            <button 
+              onClick={handleSyncTags}
+              disabled={isLoading}
+              className="flex-1 sm:flex-initial px-3 py-1.5 text-sm bg-[#FF6A00] text-white rounded-md hover:bg-[#FF8020] transition-colors disabled:opacity-50"
+            >
+              {isLoading ? 'Syncing...' : 'Sync to Shadow'}
             </button>
           </div>
         </div>

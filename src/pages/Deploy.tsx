@@ -30,7 +30,7 @@ export function Deploy() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-4">
         <h1 className="text-2xl font-bold">Deploy to Live</h1>
         <button
           onClick={handleDeploy}

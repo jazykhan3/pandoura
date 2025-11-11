@@ -14,3 +14,4 @@ export function StatusIndicator({ status, size = 'sm' }: StatusIndicatorProps) {
   return <div className={`${sizeClass} rounded-full ${colorClass}`} />
 }
 
+

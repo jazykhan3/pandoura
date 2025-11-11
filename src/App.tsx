@@ -16,8 +16,8 @@ function App() {
       {active === 'shadow' && <ShadowRuntime />}
       {active === 'tags' && <TagDatabase />}
       {active === 'logic' && <LogicEditor />}
-       {active === 'deploy' && <Deploy />}
-      {active === 'settings' && <SettingsPage />}
+      {active === 'deploy' && <Deploy />}
+      {active === 'settings' && <SettingsPage />} 
     </Layout>
   )
 }
