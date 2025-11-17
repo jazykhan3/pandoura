@@ -10,6 +10,7 @@ import {
   Database,
   Braces,
   Upload,
+  GitBranch,
   Settings,
   User,
   Menu,
@@ -28,6 +29,7 @@ const navItems: NavItem[] = [
   { key: 'tags', label: 'Tag Database', icon: <Database size={18} /> },
   { key: 'logic', label: 'Logic Editor', icon: <Braces size={18} /> },
   { key: 'deploy', label: 'Deploy', icon: <Upload size={18} /> },
+  { key: 'versioning', label: 'Versioning Center', icon: <GitBranch size={18} /> },
   { key: 'settings', label: 'Settings', icon: <Settings size={18} /> },
 ]
 

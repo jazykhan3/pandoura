@@ -6,6 +6,7 @@ export type RouteKey =
   | 'tags'
   | 'logic'
   | 'deploy'
+  | 'versioning'
   | 'settings'
 
 type UiState = {

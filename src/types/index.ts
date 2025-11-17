@@ -120,4 +120,80 @@ export type ChangePreview = {
   newContent?: string
 }
 
+// Milestone 3: Versioning Center types
+
+export type BranchStage = 'main' | 'dev' | 'qa' | 'staging' | 'prod'
+
+export type Branch = {
+  id: string
+  name: string
+  stage: BranchStage
+  createdAt: string
+  createdBy: string
+  parentBranch?: string
+  isDefault: boolean
+}
+
+export type VersionStatus = 'draft' | 'staged' | 'released'
+
+export type Version = {
+  id: string
+  version: string
+  author: string
+  timestamp: string
+  filesChanged: number
+  checksum: string
+  status: VersionStatus
+  signed: boolean
+  approvals: number
+  approvalsRequired: number
+  linkedDeploys: number
+  branch: string
+  stage: BranchStage
+  message?: string
+  tags?: string[]
+}
+
+export type FileChange = {
+  id: string
+  path: string
+  type: 'added' | 'modified' | 'deleted'
+  linesAdded: number
+  linesDeleted: number
+  diff?: string
+}
+
+export type VersionDetail = Version & {
+  files: FileChange[]
+  signature?: string
+  signedBy?: string
+  signedAt?: string
+  metadata?: Record<string, unknown>
+}
+
+export type Snapshot = {
+  id: string
+  name: string
+  versionId: string
+  createdAt: string
+  createdBy: string
+  description?: string
+  tags?: string[]
+}
+
+export type Release = {
+  id: string
+  name: string
+  version: string
+  snapshotId: string
+  createdAt: string
+  createdBy: string
+  signed: boolean
+  signature?: string
+  metadata?: Record<string, unknown>
+  bundle?: string
+  status: 'active' | 'deprecated' | 'archived'
+  tags?: string[]
+}
+
 

@@ -5,6 +5,7 @@ import { ShadowRuntime } from './pages/ShadowRuntime'
 import { TagDatabase } from './pages/TagDatabase'
 import { LogicEditor } from './pages/LogicEditor'
 import { Deploy } from './pages/Deploy'
+import { VersioningCenter } from './pages/VersioningCenter'
 import { SettingsPage } from './pages/SettingsPage'
 
 function App() {
@@ -17,6 +18,7 @@ function App() {
       {active === 'tags' && <TagDatabase />}
       {active === 'logic' && <LogicEditor />}
       {active === 'deploy' && <Deploy />}
+      {active === 'versioning' && <VersioningCenter />}
       {active === 'settings' && <SettingsPage />} 
     </Layout>
   )
