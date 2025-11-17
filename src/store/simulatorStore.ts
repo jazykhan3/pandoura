@@ -22,14 +22,7 @@ export const useSimulatorStore = create<SimulatorStoreState>((set, get) => ({
   isPaused: false,
   speed: 1,
   logs: [],
-  ioValues: {
-    Temperature_PV: 72.5,
-    Temperature_SP: 75.0,
-    Heater_Output: 0.0,
-    Pump_Run: false,
-    Emergency_Stop: false,
-    Tank_Level: 50.0,
-  },
+  ioValues: {}, // Dynamically populated from backend based on ST code
   breakpoints: [],
   currentLine: undefined,
 
@@ -41,8 +34,10 @@ export const useSimulatorStore = create<SimulatorStoreState>((set, get) => ({
           isRunning: true, 
           isPaused: false,
           currentLine: 1,
+          ioValues: result.ioValues || {}, // Load dynamic variables from backend
         })
         get().addLog('Simulator started', 'info')
+        get().addLog(`Loaded ${Object.keys(result.ioValues || {}).length} variables from code`, 'info')
         
         // Start simulation loop
         get().simulateExecution()
@@ -103,13 +98,24 @@ export const useSimulatorStore = create<SimulatorStoreState>((set, get) => ({
     }
   },
 
-  toggleBreakpoint: (line: number) => {
-    set(state => {
-      const breakpoints = state.breakpoints.includes(line)
-        ? state.breakpoints.filter(l => l !== line)
-        : [...state.breakpoints, line]
-      return { breakpoints }
-    })
+  toggleBreakpoint: async (line: number) => {
+    const state = get()
+    const newBreakpoints = state.breakpoints.includes(line)
+      ? state.breakpoints.filter(l => l !== line)
+      : [...state.breakpoints, line]
+    
+    try {
+      // Update backend
+      await simulatorApi.setBreakpoints(newBreakpoints)
+      
+      set({ breakpoints: newBreakpoints })
+      
+      const action = newBreakpoints.includes(line) ? 'set' : 'removed'
+      get().addLog(`Breakpoint ${action} at line ${line}`, 'info')
+    } catch (error) {
+      console.error('Failed to toggle breakpoint:', error)
+      get().addLog(`Failed to toggle breakpoint at line ${line}`, 'error')
+    }
   },
 
   addLog: (message: string, type: SimulatorLog['type']) => {
@@ -128,48 +134,39 @@ export const useSimulatorStore = create<SimulatorStoreState>((set, get) => ({
     set({ logs: [] })
   },
 
-  // Internal simulation logic
+  // Poll backend for simulator status
   simulateExecution: () => {
     const state = get()
     if (!state.isRunning || state.isPaused) return
 
-    // Simulate execution cycle
-    setTimeout(() => {
+    // Poll simulator status to sync with backend
+    simulatorApi.getStatus().then(status => {
       const currentState = get()
-      
-      // Simple PID simulation
-      const tempPV = currentState.ioValues.Temperature_PV as number
-      const tempSP = currentState.ioValues.Temperature_SP as number
-      const error = tempSP - tempPV
-      
-      // Simple proportional control
-      let heaterOutput = error * 2.5
-      heaterOutput = Math.max(0, Math.min(100, heaterOutput))
-      
-      // Update temperature based on heater output
-      const tempChange = (heaterOutput / 100) * 0.5 - 0.1
-      const newTemp = tempPV + tempChange
-      
-      set(state => ({
-        ioValues: {
-          ...state.ioValues,
-          Temperature_PV: Number(newTemp.toFixed(2)),
-          Heater_Output: Number(heaterOutput.toFixed(2)),
-        },
-      }))
+      if (currentState.isRunning) {
+        set({
+          currentLine: status.currentLine,
+          isPaused: status.isPaused,
+          ioValues: status.ioValues || currentState.ioValues,
+          breakpoints: status.breakpoints || currentState.breakpoints
+        })
 
-      // Check for breakpoints
-      if (currentState.currentLine && currentState.breakpoints.includes(currentState.currentLine)) {
-        get().pause()
-        get().addLog(`Hit breakpoint at line ${currentState.currentLine}`, 'warning')
-        return
+        // Check if execution was paused by breakpoint
+        if (status.isPaused && !currentState.isPaused) {
+          get().addLog(`Hit breakpoint at line ${status.currentLine}`, 'warning')
+        }
+
+        // Continue polling
+        if (currentState.isRunning && !currentState.isPaused) {
+          setTimeout(() => get().simulateExecution(), 1000 / currentState.speed)
+        }
       }
-
-      // Continue execution
+    }).catch(error => {
+      console.error('Failed to get simulator status:', error)
+      // Retry polling after error
       if (get().isRunning && !get().isPaused) {
-        setTimeout(() => get().simulateExecution(), 1000 / state.speed)
+        setTimeout(() => get().simulateExecution(), 2000)
       }
-    }, 1000 / state.speed)
+    })
   },
 }))
 

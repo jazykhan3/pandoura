@@ -1,4 +1,5 @@
 import { useSimulatorStore } from '../store/simulatorStore'
+import { useSyncStore } from '../store/syncStore'
 import { Play, Pause, Square, SkipForward, Download, Trash2 } from 'lucide-react'
 
 export function Simulator() {
@@ -18,6 +19,8 @@ export function Simulator() {
     setIOValue,
     clearLogs,
   } = useSimulatorStore()
+
+  const { deployedLogic } = useSyncStore()
 
   const handleToggleBoolean = (name: string) => {
     const currentValue = ioValues[name] as boolean
@@ -50,8 +53,13 @@ export function Simulator() {
           <div className="flex items-center gap-2">
             {!isRunning ? (
               <button
-                onClick={() => run('(* Current logic *)')}
-                className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 transition-colors"
+                onClick={() => deployedLogic ? run(deployedLogic.content) : run('(* No logic deployed *)')}
+                disabled={!deployedLogic}
+                className={`flex items-center gap-2 px-4 py-2 rounded-md transition-colors ${
+                  deployedLogic 
+                    ? 'bg-green-600 text-white hover:bg-green-700' 
+                    : 'bg-neutral-200 text-neutral-500 cursor-not-allowed'
+                }`}
               >
                 <Play className="w-4 h-4" />
                 Start
@@ -131,6 +139,14 @@ export function Simulator() {
             }`}>
               {isRunning ? (isPaused ? 'Paused' : 'Running') : 'Stopped'}
             </div>
+
+            <div className={`px-3 py-1 rounded-md text-sm font-medium ${
+              deployedLogic 
+                ? 'bg-blue-100 text-blue-800' 
+                : 'bg-red-100 text-red-800'
+            }`}>
+              {deployedLogic ? `Logic: ${deployedLogic.name}` : 'No Logic Deployed'}
+            </div>
           </div>
         </div>
       </div>
@@ -140,116 +156,103 @@ export function Simulator() {
         <div className="bg-white rounded-lg border border-neutral-200 p-4">
           <h3 className="font-semibold mb-4">I/O Panel</h3>
           
-          <div className="space-y-4">
-            {/* Boolean I/O */}
-            <div>
-              <div className="text-sm font-medium text-neutral-700 mb-2">Digital I/O</div>
-              <div className="space-y-2">
-                <div className="flex items-center justify-between p-2 bg-neutral-50 rounded">
-                  <span className="text-sm font-mono">Pump_Run</span>
-                  <button
-                    onClick={() => handleToggleBoolean('Pump_Run')}
-                    className={`px-3 py-1 rounded-md text-sm font-medium transition-colors ${
-                      ioValues.Pump_Run
-                        ? 'bg-green-600 text-white'
-                        : 'bg-neutral-300 text-neutral-700'
-                    }`}
-                  >
-                    {ioValues.Pump_Run ? 'ON' : 'OFF'}
-                  </button>
-                </div>
-
-                <div className="flex items-center justify-between p-2 bg-neutral-50 rounded">
-                  <span className="text-sm font-mono">Emergency_Stop</span>
-                  <button
-                    onClick={() => handleToggleBoolean('Emergency_Stop')}
-                    className={`px-3 py-1 rounded-md text-sm font-medium transition-colors ${
-                      ioValues.Emergency_Stop
-                        ? 'bg-red-600 text-white'
-                        : 'bg-neutral-300 text-neutral-700'
-                    }`}
-                  >
-                    {ioValues.Emergency_Stop ? 'STOP' : 'OK'}
-                  </button>
-                </div>
-              </div>
+          {Object.keys(ioValues).length === 0 ? (
+            <div className="text-sm text-neutral-500 text-center py-8">
+              No variables loaded. Start the simulator to see I/O values.
             </div>
-
-            {/* Analog I/O */}
-            <div>
-              <div className="text-sm font-medium text-neutral-700 mb-2">Analog I/O</div>
-              <div className="space-y-3">
-                <div className="p-2 bg-neutral-50 rounded">
-                  <div className="flex items-center justify-between mb-1">
-                    <span className="text-sm font-mono">Temperature_PV</span>
-                    <span className="text-sm font-medium">{ioValues.Temperature_PV}°C</span>
+          ) : (
+            <div className="space-y-4">
+              {/* Boolean I/O - Auto-detect */}
+              {Object.entries(ioValues).some(([_, value]) => typeof value === 'boolean') && (
+                <div>
+                  <div className="text-sm font-medium text-neutral-700 mb-2">Digital I/O</div>
+                  <div className="space-y-2">
+                    {Object.entries(ioValues)
+                      .filter(([_, value]) => typeof value === 'boolean')
+                      .map(([name, value]) => (
+                        <div key={name} className="flex items-center justify-between p-2 bg-neutral-50 rounded">
+                          <span className="text-sm font-mono">{name}</span>
+                          <button
+                            onClick={() => handleToggleBoolean(name)}
+                            className={`px-3 py-1 rounded-md text-sm font-medium transition-colors ${
+                              value
+                                ? 'bg-green-600 text-white'
+                                : 'bg-neutral-300 text-neutral-700'
+                            }`}
+                          >
+                            {value ? 'ON' : 'OFF'}
+                          </button>
+                        </div>
+                      ))}
                   </div>
-                  <input
-                    type="range"
-                    min="0"
-                    max="150"
-                    step="0.1"
-                    value={ioValues.Temperature_PV as number}
-                    onChange={(e) => handleSetNumeric('Temperature_PV', Number(e.target.value))}
-                    className="w-full"
-                  />
                 </div>
+              )}
 
-                <div className="p-2 bg-neutral-50 rounded">
-                  <div className="flex items-center justify-between mb-1">
-                    <span className="text-sm font-mono">Temperature_SP</span>
-                    <span className="text-sm font-medium">{ioValues.Temperature_SP}°C</span>
+              {/* Numeric I/O - Auto-detect */}
+              {Object.entries(ioValues).some(([_, value]) => typeof value === 'number') && (
+                <div>
+                  <div className="text-sm font-medium text-neutral-700 mb-2">Analog I/O</div>
+                  <div className="space-y-3">
+                    {Object.entries(ioValues)
+                      .filter(([_, value]) => typeof value === 'number')
+                      .map(([name, value]) => {
+                        // Determine if this is a read-only output variable
+                        const isOutput = name.includes('Output') || name.includes('output')
+                        const isPercentage = name.includes('Level') || name.includes('Output') || name.includes('Humidity')
+                        const isTemperature = name.includes('Temp') || name.includes('temp')
+                        
+                        const min = 0
+                        const max = isPercentage ? 100 : isTemperature ? 150 : 100
+                        const unit = isTemperature ? '°C' : isPercentage ? '%' : ''
+                        
+                        return (
+                          <div 
+                            key={name} 
+                            className={`p-2 rounded ${isOutput ? 'bg-blue-50 border border-blue-200' : 'bg-neutral-50'}`}
+                          >
+                            <div className="flex items-center justify-between mb-1">
+                              <span className="text-sm font-mono">{name}</span>
+                              <span className={`text-sm font-medium ${isOutput ? 'text-blue-800' : ''}`}>
+                                {typeof value === 'number' ? value.toFixed(2) : value}{unit}
+                              </span>
+                            </div>
+                            {!isOutput && (
+                              <input
+                                type="range"
+                                min={min}
+                                max={max}
+                                step="0.1"
+                                value={value as number}
+                                onChange={(e) => handleSetNumeric(name, Number(e.target.value))}
+                                className="w-full"
+                              />
+                            )}
+                            {isOutput && (
+                              <>
+                                <div className="mt-1 w-full bg-neutral-200 rounded-full h-2">
+                                  <div 
+                                    className="bg-blue-600 h-2 rounded-full transition-all"
+                                    style={{ width: `${Math.min(100, Math.max(0, value as number))}%` }}
+                                  />
+                                </div>
+                                <div className="text-xs text-neutral-600 mt-1">Output (read-only)</div>
+                              </>
+                            )}
+                          </div>
+                        )
+                      })}
                   </div>
-                  <input
-                    type="range"
-                    min="0"
-                    max="150"
-                    step="0.1"
-                    value={ioValues.Temperature_SP as number}
-                    onChange={(e) => handleSetNumeric('Temperature_SP', Number(e.target.value))}
-                    className="w-full"
-                  />
                 </div>
-
-                <div className="p-2 bg-neutral-50 rounded">
-                  <div className="flex items-center justify-between mb-1">
-                    <span className="text-sm font-mono">Tank_Level</span>
-                    <span className="text-sm font-medium">{ioValues.Tank_Level}%</span>
-                  </div>
-                  <input
-                    type="range"
-                    min="0"
-                    max="100"
-                    step="0.1"
-                    value={ioValues.Tank_Level as number}
-                    onChange={(e) => handleSetNumeric('Tank_Level', Number(e.target.value))}
-                    className="w-full"
-                  />
-                </div>
-
-                {/* Read-only output */}
-                <div className="p-2 bg-blue-50 rounded border border-blue-200">
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm font-mono">Heater_Output</span>
-                    <span className="text-sm font-medium text-blue-800">{ioValues.Heater_Output}%</span>
-                  </div>
-                  <div className="mt-1 w-full bg-neutral-200 rounded-full h-2">
-                    <div 
-                      className="bg-blue-600 h-2 rounded-full transition-all"
-                      style={{ width: `${ioValues.Heater_Output}%` }}
-                    />
-                  </div>
-                  <div className="text-xs text-neutral-600 mt-1">Output (read-only)</div>
-                </div>
-              </div>
+              )}
             </div>
-          </div>
+          )}
 
           {/* Snapshot */}
           <div className="mt-4 pt-4 border-t border-neutral-200">
             <button
               className="w-full px-3 py-2 text-sm bg-white border border-neutral-300 text-neutral-800 rounded-md hover:bg-neutral-50 transition-colors"
               onClick={() => alert('Snapshot saved')}
+              disabled={Object.keys(ioValues).length === 0}
             >
               Save I/O Snapshot
             </button>

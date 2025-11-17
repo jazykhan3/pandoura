@@ -9,6 +9,8 @@ export function TagDatabase() {
   const [tags, setTags] = useState<Tag[]>([])
   const [searchTerm, setSearchTerm] = useState('')
   const [isLoading, setIsLoading] = useState(false)
+  const [showImportDialog, setShowImportDialog] = useState(false)
+  const [replaceExisting, setReplaceExisting] = useState(false)
   const syncTags = useSyncStore((s) => s.syncTags)
 
   useEffect(() => {
@@ -32,6 +34,41 @@ export function TagDatabase() {
     await syncTags()
     await loadTags()
     alert('Tags synced to shadow runtime!')
+  }
+
+  const handleExport = async () => {
+    try {
+      const blob = await tagApi.exportTags()
+      const url = window.URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `tags-export-${Date.now()}.json`
+      document.body.appendChild(a)
+      a.click()
+      document.body.removeChild(a)
+      window.URL.revokeObjectURL(url)
+    } catch (error) {
+      console.error('Export failed:', error)
+      alert('Failed to export tags')
+    }
+  }
+
+  const handleImport = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0]
+    if (!file) return
+
+    setIsLoading(true)
+    try {
+      const result = await tagApi.importTags(file, replaceExisting)
+      await loadTags()
+      alert(`Import complete!\nCreated: ${result.created}\nUpdated: ${result.updated}\nSkipped: ${result.skipped}`)
+      setShowImportDialog(false)
+    } catch (error) {
+      console.error('Import failed:', error)
+      alert('Failed to import tags: ' + (error as Error).message)
+    } finally {
+      setIsLoading(false)
+    }
   }
 
   const filteredTags = tags.filter(tag =>
@@ -58,10 +95,20 @@ export function TagDatabase() {
             className="flex-1 sm:flex-initial sm:w-64 px-3 py-2 text-sm border border-neutral-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#FF6A00] focus:border-transparent"
           />
           <div className="flex gap-2">
-            <button className="flex-1 sm:flex-initial px-3 py-1.5 text-sm bg-neutral-200 text-neutral-600 rounded-md cursor-not-allowed transition-opacity hover:bg-neutral-300">
+            <label className="flex-1 sm:flex-initial px-3 py-1.5 text-sm bg-[#FF6A00] text-white rounded-md hover:bg-[#FF8020] transition-colors cursor-pointer text-center">
               Import
-            </button>
-            <button className="flex-1 sm:flex-initial px-3 py-1.5 text-sm bg-neutral-200 text-neutral-600 rounded-md cursor-not-allowed transition-opacity hover:bg-neutral-300">
+              <input
+                type="file"
+                accept=".json"
+                onChange={handleImport}
+                className="hidden"
+              />
+            </label>
+            <button 
+              onClick={handleExport}
+              disabled={isLoading || tags.length === 0}
+              className="flex-1 sm:flex-initial px-3 py-1.5 text-sm bg-[#FF6A00] text-white rounded-md hover:bg-[#FF8020] transition-colors disabled:opacity-50"
+            >
               Export
             </button>
             <button 
@@ -86,7 +133,7 @@ export function TagDatabase() {
               </tr>
             </thead>
             <tbody>
-              {filteredTags.map((tag, index) => (
+              {filteredTags?.map((tag, index) => (
                 <tr key={tag.id} className={index % 2 === 0 ? 'bg-white' : 'bg-neutral-50'}>
                   <td className="py-2 px-4 font-mono text-neutral-900">{tag.name}</td>
                   <td className="py-2 px-4">
@@ -96,7 +143,7 @@ export function TagDatabase() {
                   </td>
                   <td className="py-2 px-4 font-mono text-neutral-900">{formatValue(tag.value)}</td>
                   <td className="py-2 px-4 font-mono text-neutral-600">{tag.address}</td>
-                  <td className="py-2 px-4 text-neutral-500">{tag.lastUpdate.toLocaleTimeString()}</td>
+                  <td className="py-2 px-4 text-neutral-500">{tag.lastUpdate?.toLocaleTimeString()}</td>
                 </tr>
               ))}
             </tbody>

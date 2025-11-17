@@ -1,23 +1,61 @@
 import { create } from 'zustand'
 import type { LogicFile, ValidationResult } from '../types'
 import { logicApi } from '../services/api'
+import { sessionService } from '../services/session'
+
+type EditorTab = {
+  id: string
+  name: string
+  unsaved: boolean
+}
+
+type ChangeMarker = {
+  line: number
+  type: 'added' | 'modified' | 'removed'
+}
 
 type LogicState = {
   currentFile: LogicFile | null
   files: LogicFile[]
+  openTabs: EditorTab[]
+  unsavedChanges: Record<string, string> // fileId -> content
   isModified: boolean
   isSaving: boolean
+  isValidating: boolean
   validationResult: ValidationResult | null
+  changeMarkers: ChangeMarker[]
+  showDiffs: boolean
   vendor: 'neutral' | 'rockwell' | 'siemens' | 'beckhoff'
+  autoSave: boolean
   
   // Actions
   loadFile: (id: string) => Promise<void>
   loadAllFiles: () => Promise<void>
   createFile: (name: string) => Promise<void>
   updateContent: (content: string) => void
-  saveFile: () => Promise<void>
-  validate: () => Promise<void>
+  saveFile: (fileId?: string) => Promise<void>
+  validate: (content?: string) => Promise<void>
   setVendor: (vendor: LogicState['vendor']) => void
+  
+  // Tab management
+  openTab: (file: LogicFile) => void
+  closeTab: (fileId: string) => void
+  switchTab: (fileId: string) => void
+  
+  // Change tracking
+  getUnsavedContent: (fileId: string) => string | null
+  hasUnsavedChanges: (fileId?: string) => boolean
+  discardChanges: (fileId: string) => void
+  toggleShowDiffs: () => void
+  updateChangeMarkers: () => Promise<void>
+  
+  // Settings
+  setAutoSave: (enabled: boolean) => void
+  
+  // Session management
+  loadSession: () => Promise<void>
+  saveSession: () => Promise<void>
+  
   reset: () => void
 }
 

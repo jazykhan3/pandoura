@@ -1,13 +1,71 @@
+import { useState, useEffect } from 'react'
 import { useSyncStore } from '../store/syncStore'
+import { useLogicStore } from '../store/enhancedLogicStore'
 import { Activity, AlertCircle, CheckCircle, XCircle, Wifi, WifiOff } from 'lucide-react'
+import { ConflictResolutionModal } from './ConflictResolutionModal'
+import { PreviewChangesModal } from './PreviewChangesModal'
 
 export function SyncConsole() {
-  const { status, events, isPushing, resolveConflict, syncTags } = useSyncStore()
+  const { status, events, isPushing, resolveConflict, syncTags, pushToLive, simulateConflicts } = useSyncStore()
+  const { currentFile } = useLogicStore()
+  const [showConflictModal, setShowConflictModal] = useState(false)
+  const [showPreviewModal, setShowPreviewModal] = useState(false)
+  const [tagUpdates, setTagUpdates] = useState<Array<{ name: string; value: any; timestamp: string }>>([])
 
   const unresolvedConflicts = status.conflicts.filter(c => !c.resolved)
 
+  // Start tag streaming and poll for updates
+  useEffect(() => {
+    // Start streaming on mount
+    fetch('http://localhost:8000/api/sync/start-streaming', { method: 'POST' })
+      .catch(err => console.error('Failed to start streaming:', err))
+    
+    // Poll for tag updates every second
+    const interval = setInterval(async () => {
+      try {
+        const response = await fetch('http://localhost:8000/api/sync/stream-tags')
+        const data = await response.json()
+        
+        if (data.tags && data.streaming) {
+          // Convert tags object to array of updates
+          const updates = Object.entries(data.tags).map(([name, value]) => ({
+            name,
+            value,
+            timestamp: data.timestamp || new Date().toISOString()
+          }))
+          setTagUpdates(prev => [...updates, ...prev].slice(0, 20)) // Keep last 20
+        }
+      } catch (error) {
+        console.error('Failed to fetch tag stream:', error)
+      }
+    }, 1000)
+    
+    return () => clearInterval(interval)
+  }, [])
+
   const handleResolveConflict = (conflictId: string, resolution: 'shadow' | 'live') => {
     resolveConflict(conflictId, resolution)
+  }
+
+  const handleResolveAllConflicts = (resolution: 'shadow' | 'live') => {
+    unresolvedConflicts.forEach(conflict => {
+      resolveConflict(conflict.id, resolution)
+    })
+  }
+
+  const handlePreviewChanges = () => {
+    if (unresolvedConflicts.length > 0) {
+      setShowConflictModal(true)
+    } else {
+      setShowPreviewModal(true)
+    }
+  }
+
+  const handleConfirmPush = async () => {
+    if (currentFile) {
+      setShowPreviewModal(false)
+      await pushToLive(currentFile.id)
+    }
   }
 
   return (
@@ -40,7 +98,15 @@ export function SyncConsole() {
               ) : (
                 <XCircle className="w-4 h-4 text-neutral-400" />
               )}
-              <span className="text-sm font-medium">{status.shadowOk ? 'OK' : 'Not Ready'}</span>
+              <div className="flex flex-col">
+                <span className="text-sm font-medium">{status.shadowOk ? 'OK' : 'Not Ready'}</span>
+                {status.executionMode && (
+                  <span className="text-xs text-neutral-500">
+                    {status.executionMode === 'simulation' ? 'Simulation' : 
+                     status.executionMode === 'beremiz' ? 'Beremiz' : 'Failed'}
+                  </span>
+                )}
+              </div>
             </div>
           </div>
 
@@ -126,26 +192,23 @@ export function SyncConsole() {
         <div className="bg-white rounded-lg border border-neutral-200 p-4">
           <div className="flex items-center justify-between mb-3">
             <h3 className="font-semibold text-sm">Live Tag Stream</h3>
-            <Activity className="w-4 h-4 text-green-600" />
+            <Activity className="w-4 h-4 text-green-600 animate-pulse" />
           </div>
           <div className="space-y-2 max-h-48 overflow-y-auto text-xs">
-            {events
-              .filter(e => e.type === 'TAG_UPDATE')
-              .slice(0, 10)
-              .map((event) => {
-                const payload = event.payload as { name: string; value: unknown; timestamp: string }
-                return (
-                  <div key={event.id} className="flex items-center justify-between py-1 border-b border-neutral-100 last:border-0">
-                    <div className="font-mono text-neutral-900">{payload.name}</div>
-                    <div className="flex items-center gap-2">
-                      <span className="font-mono text-neutral-600">{String(payload.value)}</span>
-                      <span className="text-neutral-400">{new Date(payload.timestamp).toLocaleTimeString()}</span>
-                    </div>
+            {tagUpdates.length > 0 ? (
+              tagUpdates.map((tag, index) => (
+                <div key={`live-${tag.name}-${index}`} className="flex items-center justify-between py-1 border-b border-neutral-100 last:border-0">
+                  <div className="font-mono text-neutral-900">{tag.name}</div>
+                  <div className="flex items-center gap-2">
+                    <span className="font-mono text-neutral-600">
+                      {typeof tag.value === 'number' ? tag.value.toFixed(1) : String(tag.value)}
+                    </span>
+                    <span className="text-neutral-400">{new Date(tag.timestamp).toLocaleTimeString()}</span>
                   </div>
-                )
-              })}
-            {events.filter(e => e.type === 'TAG_UPDATE').length === 0 && (
-              <div className="text-neutral-500 text-center py-4">No tag updates yet</div>
+                </div>
+              ))
+            ) : (
+              <div className="text-neutral-500 text-center py-4">Starting tag stream...</div>
             )}
           </div>
         </div>
@@ -154,10 +217,24 @@ export function SyncConsole() {
         <div className="bg-white rounded-lg border border-neutral-200 p-4">
           <div className="flex items-center justify-between mb-3">
             <h3 className="font-semibold text-sm">Shadow Tag Stream</h3>
-            <Activity className="w-4 h-4 text-blue-600" />
+            <Activity className="w-4 h-4 text-blue-600 animate-pulse" />
           </div>
           <div className="space-y-2 max-h-48 overflow-y-auto text-xs">
-            <div className="text-neutral-500 text-center py-4">Mirror of live stream (testing mode)</div>
+            {tagUpdates.length > 0 ? (
+              tagUpdates.map((tag, index) => (
+                <div key={`shadow-${tag.name}-${index}`} className="flex items-center justify-between py-1 border-b border-neutral-100 last:border-0">
+                  <div className="font-mono text-neutral-900">{tag.name}</div>
+                  <div className="flex items-center gap-2">
+                    <span className="font-mono text-neutral-600">
+                      {typeof tag.value === 'number' ? tag.value.toFixed(1) : String(tag.value)}
+                    </span>
+                    <span className="text-neutral-400">{new Date(tag.timestamp).toLocaleTimeString()}</span>
+                  </div>
+                </div>
+              ))
+            ) : (
+              <div className="text-neutral-500 text-center py-4">Starting tag stream...</div>
+            )}
           </div>
         </div>
       </div>
@@ -166,12 +243,21 @@ export function SyncConsole() {
       <div className="bg-white rounded-lg border border-neutral-200 p-4">
         <div className="flex items-center justify-between mb-3">
           <h3 className="font-semibold text-sm">Recent Sync Log</h3>
-          <button
-            onClick={() => syncTags()}
-            className="px-3 py-1.5 text-xs bg-[#FF6A00] text-white rounded hover:bg-[#FF8020] transition-colors"
-          >
-            Sync Tags Now
-          </button>
+          <div className="flex gap-2">
+            <button
+              onClick={() => syncTags()}
+              className="px-3 py-1.5 text-xs bg-[#FF6A00] text-white rounded hover:bg-[#FF8020] transition-colors"
+            >
+              Sync Tags Now
+            </button>
+            <button
+              onClick={() => simulateConflicts()}
+              className="px-3 py-1.5 text-xs bg-amber-600 text-white rounded hover:bg-amber-700 transition-colors"
+              title="Simulate conflicts for demo"
+            >
+              Demo Conflicts
+            </button>
+          </div>
         </div>
         <div className="space-y-2 max-h-48 overflow-y-auto">
           {events.slice(0, 20).map((event) => (
@@ -201,7 +287,7 @@ export function SyncConsole() {
             Push current shadow logic to live runtime. This will update the production PLC.
           </div>
           <button
-            onClick={() => alert('Preview Changes modal (feature ready for Milestone 3)')}
+            onClick={handlePreviewChanges}
             className="w-full px-4 py-2 text-sm bg-neutral-100 border border-neutral-300 text-neutral-800 rounded-md hover:bg-neutral-200 transition-colors"
           >
             Preview Changes
@@ -221,6 +307,25 @@ export function SyncConsole() {
           </div>
         </div>
       </div>
+
+      {/* Modals */}
+      <ConflictResolutionModal
+        isOpen={showConflictModal}
+        onClose={() => setShowConflictModal(false)}
+        conflicts={status.conflicts}
+        onResolve={handleResolveConflict}
+        onResolveAll={handleResolveAllConflicts}
+      />
+
+      <PreviewChangesModal
+        isOpen={showPreviewModal}
+        onClose={() => setShowPreviewModal(false)}
+        onConfirm={handleConfirmPush}
+        logicName={currentFile?.name || 'Unknown Logic'}
+        shadowLogic={currentFile?.content || ''}
+        liveLogic="" // In real implementation, this would be fetched from live runtime
+        targetRuntime="live"
+      />
     </div>
   )
 }

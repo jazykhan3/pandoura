@@ -99,6 +99,7 @@ export type SyncStatus = {
   lastSync: string | null
   latency: number
   conflicts: SyncConflict[]
+  executionMode?: 'interpreter' | 'stopped'
 }
 
 export type SyncConflict = {
@@ -108,6 +109,8 @@ export type SyncConflict = {
   liveValue: unknown
   timestamp: string
   resolved: boolean
+  type?: 'VALUE_CONFLICT' | 'TYPE_CONFLICT' | 'ACCESS_CONFLICT'
+  description?: string
 }
 
 export type ChangePreview = {

@@ -1,9 +1,9 @@
 import type { LogicFile, Tag, ValidationResult, SimulatorLog } from '../types'
 
-const API_BASE = 'http://localhost:8000'
+const API_BASE = 'http://localhost:8000/api'
 
-// Dummy responses for development (no actual backend needed)
-const DUMMY_MODE = true
+// Switch to false to use real backend
+const DUMMY_MODE = false
 
 // Helper to simulate API delay
 const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms))
@@ -94,7 +94,7 @@ export const logicApi = {
     return res.json()
   },
 
-  async validate(content: string): Promise<ValidationResult> {
+  async validate(content: string, vendor: string = 'neutral'): Promise<ValidationResult> {
     if (DUMMY_MODE) {
       await delay(500)
       const errors: Array<{
@@ -104,10 +104,32 @@ export const logicApi = {
         message: string
       }> = []
       
-      // Simple validation rules
+      // Enhanced validation rules with scope awareness
       const lines = content.split('\n')
+      const variables = new Set<string>()
+      const keywords = new Set(['PROGRAM', 'END_PROGRAM', 'FUNCTION', 'END_FUNCTION', 'FUNCTION_BLOCK', 'END_FUNCTION_BLOCK', 'VAR', 'END_VAR', 'VAR_INPUT', 'VAR_OUTPUT', 'VAR_IN_OUT', 'VAR_GLOBAL', 'VAR_TEMP', 'IF', 'THEN', 'ELSIF', 'ELSE', 'END_IF', 'FOR', 'TO', 'BY', 'DO', 'END_FOR', 'WHILE', 'END_WHILE', 'REPEAT', 'UNTIL', 'END_REPEAT', 'CASE', 'OF', 'END_CASE', 'RETURN', 'EXIT', 'AND', 'OR', 'NOT', 'XOR', 'MOD', 'TRUE', 'FALSE'])
+      
+      let inVarSection = false
+      let varSectionCount = 0
+      
       for (let i = 0; i < lines.length; i++) {
         const line = lines[i].trim()
+        
+        // Track VAR sections
+        if (line.toUpperCase().startsWith('VAR')) {
+          inVarSection = true
+          varSectionCount++
+        } else if (line.toUpperCase() === 'END_VAR') {
+          inVarSection = false
+        }
+        
+        // Collect variable declarations
+        if (inVarSection && line.includes(':')) {
+          const match = line.match(/^\s*(\w+)\s*:/)
+          if (match) {
+            variables.add(match[1])
+          }
+        }
         
         // Check for missing semicolons
         if (line.length > 0 && !line.startsWith('(*') && !line.endsWith(';') && 
@@ -122,18 +144,28 @@ export const logicApi = {
           })
         }
         
-        // Check for undefined tags (basic)
-        if (line.includes(':=') && !line.includes('VAR')) {
+        // Enhanced undefined variable detection
+        if (line.includes(':=') && !inVarSection) {
           const match = line.match(/(\w+)\s*:=/)
-          if (match && !content.includes(`${match[1]} :`)) {
+          if (match && !variables.has(match[1]) && !keywords.has(match[1].toUpperCase())) {
             errors.push({
               line: i + 1,
               column: 0,
-              severity: 'warning',
-              message: `Tag '${match[1]}' may not be defined`,
+              severity: 'error',
+              message: `Undeclared variable '${match[1]}' - not found in any VAR section`,
             })
           }
         }
+      }
+      
+      // Check for multiple VAR sections (warning)
+      if (varSectionCount > 1) {
+        errors.push({
+          line: 1,
+          column: 0,
+          severity: 'info',
+          message: `Found ${varSectionCount} VAR sections - consider consolidating for better readability`,
+        })
       }
       
       return {
@@ -144,7 +176,104 @@ export const logicApi = {
     const res = await fetch(`${API_BASE}/logic/validate`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ content }),
+      body: JSON.stringify({ content, vendor }),
+    })
+    return res.json()
+  },
+
+  async loadSamples(): Promise<{
+    samples: Array<{
+      id: string;
+      name: string;
+      content: string;
+      vendor: string;
+      author: string;
+      lastModified: string;
+      isSample: boolean;
+    }>;
+  }> {
+    if (DUMMY_MODE) {
+      return dummyFetch({
+        samples: [
+          {
+            id: 'sample-samplepumplogic',
+            name: 'SamplePumpLogic.st',
+            content: '(* Sample Pump Logic *)\nPROGRAM PumpControl\nVAR\n  Tank_Level : REAL := 50.0;\nEND_VAR\nEND_PROGRAM',
+            vendor: 'neutral',
+            author: 'System',
+            lastModified: new Date().toISOString(),
+            isSample: true
+          }
+        ]
+      }, 200)
+    }
+    const res = await fetch(`${API_BASE}/logic/samples`)
+    return res.json()
+  },
+
+  async loadSample(sampleId: string): Promise<{
+    success: boolean;
+    logicFile?: any;
+    message?: string;
+    error?: string;
+  }> {
+    if (DUMMY_MODE) {
+      return dummyFetch({
+        success: true,
+        message: 'Sample loaded successfully'
+      }, 200)
+    }
+    const res = await fetch(`${API_BASE}/logic/load-sample`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ sampleId }),
+    })
+    return res.json()
+  },
+
+  async format(content: string, options: any = {}): Promise<{ success: boolean; formatted: string }> {
+    if (DUMMY_MODE) {
+      // Client-side formatting for dummy mode
+      await delay(200)
+      const lines = content.split('\n')
+      const formatted = []
+      let indentLevel = 0
+      const indentSize = options.tabSize || 2
+      const indent = ' '.repeat(indentSize)
+      
+      for (const line of lines) {
+        const trimmedLine = line.trim()
+        if (trimmedLine === '') {
+          formatted.push('')
+          continue
+        }
+        
+        if (trimmedLine.toUpperCase().includes('END_')) {
+          indentLevel = Math.max(0, indentLevel - 1)
+        }
+        
+        formatted.push(indent.repeat(indentLevel) + trimmedLine)
+        
+        if (trimmedLine.toUpperCase().includes('VAR') || 
+            trimmedLine.toUpperCase().includes('IF') ||
+            trimmedLine.toUpperCase().includes('FOR') ||
+            trimmedLine.toUpperCase().includes('WHILE') ||
+            trimmedLine.toUpperCase().includes('PROGRAM') ||
+            trimmedLine.toUpperCase().includes('FUNCTION')) {
+          indentLevel++
+        }
+      }
+      
+      return {
+        success: true,
+        formatted: formatted.join('\n')
+      }
+    }
+    
+    const res = await fetch(`${API_BASE}/logic/format`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ content, options }),
     })
     return res.json()
   },
@@ -159,10 +288,9 @@ export const syncApi = {
         message: 'Logic pushed to shadow runtime successfully',
       }, 800)
     }
-    const res = await fetch(`${API_BASE}/sync/push`, {
+    const res = await fetch(`${API_BASE}/logic/${logicId}/push-to-shadow`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ logicId, target: 'shadow' }),
     })
     return res.json()
   },
@@ -195,28 +323,91 @@ export const syncApi = {
     })
     return res.json()
   },
+
+  async generateConflicts(): Promise<{ success: boolean; conflicts: any[] }> {
+    if (DUMMY_MODE) {
+      return dummyFetch({
+        success: true,
+        conflicts: [],
+      }, 400)
+    }
+    const res = await fetch(`${API_BASE}/sync/generate-conflicts`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+    })
+    return res.json()
+  },
+
+  async resolveConflict(conflictId: string, resolution: 'shadow' | 'live'): Promise<{ success: boolean; message: string }> {
+    if (DUMMY_MODE) {
+      return dummyFetch({
+        success: true,
+        message: 'Conflict resolved',
+      }, 300)
+    }
+    const res = await fetch(`${API_BASE}/sync/resolve-conflict`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ conflictId, resolution }),
+    })
+    return res.json()
+  },
 }
 
 // Simulator APIs
 export const simulatorApi = {
-  async run(logicContent: string): Promise<{ success: boolean; message: string }> {
+  async run(logicContent: string, options?: {
+    cycleTime?: number;
+    initialValues?: Record<string, any>;
+  }): Promise<{ 
+    success: boolean; 
+    message: string;
+    executionMode?: string;
+    variableCount?: number;
+    logicSource?: string;
+    logicName?: string;
+  }> {
     if (DUMMY_MODE) {
       return dummyFetch({
         success: true,
-        message: 'Simulator started',
+        message: 'Simulator started with ST interpreter',
+        executionMode: 'interpreter',
+        variableCount: 8,
+        logicSource: 'direct',
+        logicName: 'Unknown'
       }, 400)
     }
     const res = await fetch(`${API_BASE}/simulate/run`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ logic: logicContent }),
+      body: JSON.stringify({ 
+        logic: logicContent,
+        ...options
+      }),
     })
     return res.json()
   },
 
-  async step(): Promise<{ success: boolean }> {
+  async step(): Promise<{ 
+    success: boolean;
+    cycleCount?: number;
+    isPaused?: boolean;
+    ioValues?: Record<string, any>;
+    variables?: Array<{ name: string; value: any }>;
+    executionMode?: string;
+  }> {
     if (DUMMY_MODE) {
-      return dummyFetch({ success: true }, 100)
+      return dummyFetch({ 
+        success: true,
+        cycleCount: 142,
+        isPaused: false,
+        ioValues: {
+          Tank_Level: 55.3,
+          Temperature_PV: 74.1,
+          Pump_Motor: true
+        },
+        executionMode: 'interpreter'
+      }, 100)
     }
     const res = await fetch(`${API_BASE}/simulate/step`, {
       method: 'POST',
@@ -253,6 +444,127 @@ export const simulatorApi = {
       ])
     }
     const res = await fetch(`${API_BASE}/simulate/logs`)
+    return res.json()
+  },
+
+  async pause(): Promise<{ 
+    success: boolean; 
+    isPaused?: boolean; 
+    message?: string; 
+  }> {
+    if (DUMMY_MODE) {
+      return dummyFetch({ 
+        success: true, 
+        isPaused: true, 
+        message: 'Simulator paused' 
+      }, 100)
+    }
+    const res = await fetch(`${API_BASE}/simulate/pause`, {
+      method: 'POST',
+    })
+    return res.json()
+  },
+
+  async getStatus(): Promise<{
+    isRunning: boolean;
+    isPaused: boolean;
+    currentLine?: number;
+    executionMode?: string;
+    cycleCount?: number;
+    ioValues?: Record<string, any>;
+    breakpoints?: number[];
+    variables?: Array<{ name: string; value: any }>;
+  }> {
+    if (DUMMY_MODE) {
+      return dummyFetch({
+        isRunning: false,
+        isPaused: false,
+        currentLine: 1,
+        executionMode: 'interpreter',
+        cycleCount: 0,
+        ioValues: {
+          Tank_Level: 50.0,
+          Temperature_PV: 72.5,
+          Pump_Motor: false
+        },
+        breakpoints: [],
+        variables: []
+      }, 200)
+    }
+    const res = await fetch(`${API_BASE}/simulate/status`)
+    return res.json()
+  },
+
+  async reset(): Promise<{ success: boolean; message?: string }> {
+    if (DUMMY_MODE) {
+      return dummyFetch({ success: true, message: 'Runtime reset' }, 100)
+    }
+    const res = await fetch(`${API_BASE}/simulate/reset`, {
+      method: 'POST',
+    })
+    return res.json()
+  },
+
+  async getVariables(): Promise<{ success: boolean; variables: Record<string, any> }> {
+    if (DUMMY_MODE) {
+      return dummyFetch({ 
+        success: true,
+        variables: {
+          Tank_Level: 50.0,
+          Temperature_PV: 72.5,
+          Temperature_SP: 75.0,
+          Pump_Motor: false,
+          Heater_Output: 0.0
+        }
+      }, 100)
+    }
+    const res = await fetch(`${API_BASE}/simulate/variables`)
+    return res.json()
+  },
+
+  async getVariable(name: string): Promise<{ success: boolean; variable: string; value: any }> {
+    if (DUMMY_MODE) {
+      return dummyFetch({ 
+        success: true,
+        variable: name,
+        value: 72.5
+      }, 100)
+    }
+    const res = await fetch(`${API_BASE}/simulate/variables/${name}`)
+    return res.json()
+  },
+
+  async setVariable(name: string, value: any): Promise<{ success: boolean; variable: string; value: any }> {
+    if (DUMMY_MODE) {
+      return dummyFetch({ 
+        success: true,
+        variable: name,
+        value
+      }, 100)
+    }
+    const res = await fetch(`${API_BASE}/simulate/variables/${name}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ value }),
+    })
+    return res.json()
+  },
+
+  async setBreakpoints(breakpoints: number[]): Promise<{ 
+    success: boolean; 
+    breakpoints?: number[];
+  }> {
+    if (DUMMY_MODE) {
+      return dummyFetch({ 
+        success: true, 
+        breakpoints 
+      }, 100)
+    }
+    const res = await fetch(`${API_BASE}/simulate/breakpoint`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ breakpoints }),
+    })
     return res.json()
   },
 
@@ -313,6 +625,64 @@ export const tagApi = {
           lastUpdate: new Date(),
           source: 'live' as const,
         },
+        { 
+          id: '5', 
+          name: 'Tank_Level', 
+          type: 'REAL' as const, 
+          value: 50.0, 
+          address: 'DB1.DBD12', 
+          lastUpdate: new Date(),
+          source: 'live' as const,
+          metadata: { description: 'Tank Level', units: '%' },
+        },
+        { 
+          id: '6', 
+          name: 'Emergency_Stop', 
+          type: 'BOOL' as const, 
+          value: false, 
+          address: 'DB1.DBX12.1', 
+          lastUpdate: new Date(),
+          source: 'live' as const,
+        },
+        { 
+          id: '7', 
+          name: 'Error', 
+          type: 'REAL' as const, 
+          value: 2.5, 
+          address: 'DB1.DBD16', 
+          lastUpdate: new Date(),
+          source: 'shadow' as const,
+        },
+        { 
+          id: '8', 
+          name: 'Kp', 
+          type: 'REAL' as const, 
+          value: 2.5, 
+          address: 'DB1.DBD20', 
+          lastUpdate: new Date(),
+          source: 'shadow' as const,
+          metadata: { description: 'Proportional Gain' },
+        },
+        { 
+          id: '9', 
+          name: 'Ki', 
+          type: 'REAL' as const, 
+          value: 0.1, 
+          address: 'DB1.DBD24', 
+          lastUpdate: new Date(),
+          source: 'shadow' as const,
+          metadata: { description: 'Integral Gain' },
+        },
+        { 
+          id: '10', 
+          name: 'Kd', 
+          type: 'REAL' as const, 
+          value: 0.5, 
+          address: 'DB1.DBD28', 
+          lastUpdate: new Date(),
+          source: 'shadow' as const,
+          metadata: { description: 'Derivative Gain' },
+        },
       ])
     }
     const res = await fetch(`${API_BASE}/tags`)
@@ -358,10 +728,303 @@ export const tagApi = {
     })
     return res.json()
   },
+
+  async exportTags(): Promise<Blob> {
+    const res = await fetch(`${API_BASE}/tags/export`)
+    return res.blob()
+  },
+
+  async importTags(file: File, replaceExisting: boolean = false): Promise<{
+    success: boolean
+    created: number
+    updated: number
+    skipped: number
+    errors?: Array<{ tag: string; error: string }>
+  }> {
+    const text = await file.text()
+    const data = JSON.parse(text)
+    
+    const res = await fetch(`${API_BASE}/tags/import`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        tags: data.tags,
+        replaceExisting
+      }),
+    })
+    return res.json()
+  },
+
+  async syncFromSimulator(): Promise<{
+    success: boolean
+    created: number
+    updated: number
+  }> {
+    const res = await fetch(`${API_BASE}/tags/sync-from-simulator`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({}),
+    })
+    return res.json()
+  },
 }
 
-// Mock ST content
-const mockSTContent = `(* PID Temperature Control Loop *)
+// PLC Execution APIs
+export const plcApi = {
+  async execute(stCode: string, options?: {
+    programName?: string;
+    timeout?: number;
+    simulateOnly?: boolean;
+  }): Promise<{
+    success: boolean;
+    data?: {
+      executionMode: 'beremiz' | 'simulation';
+      result: {
+        variables?: Record<string, any>;
+        executionLog?: Array<{
+          line: number;
+          statement: string;
+          executed: boolean;
+          timestamp: string;
+        }>;
+        output?: string;
+        errors?: string;
+        cycleTime?: number;
+        status?: string;
+        note?: string;
+      };
+      variables?: Array<{
+        name: string;
+        type: string;
+        initialValue?: string;
+      }>;
+      xmlGenerated?: boolean;
+    };
+    error?: string;
+  }> {
+    if (DUMMY_MODE) {
+      return dummyFetch({
+        success: true,
+        data: {
+          executionMode: 'simulation' as const,
+          result: {
+            variables: {
+              'Temperature_PV': 72.5,
+              'Temperature_SP': 75.0,
+              'Heater_Output': 45.2,
+              'Pump_Run': true
+            },
+            executionLog: [
+              { line: 1, statement: 'Error := Temperature_SP - Temperature_PV;', executed: true, timestamp: new Date().toISOString() },
+              { line: 2, statement: 'Integral := Integral + Error;', executed: true, timestamp: new Date().toISOString() }
+            ],
+            cycleTime: 5.2,
+            status: 'completed',
+            note: 'Execution simulated - Beremiz runtime not available'
+          },
+          variables: [
+            { name: 'Temperature_PV', type: 'REAL', initialValue: '72.5' },
+            { name: 'Temperature_SP', type: 'REAL', initialValue: '75.0' }
+          ],
+          xmlGenerated: true
+        }
+      }, 800);
+    }
+
+    const res = await fetch(`${API_BASE}/plc/execute`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        stCode,
+        ...options
+      }),
+    });
+    return res.json();
+  },
+
+  async validate(stCode: string): Promise<{
+    success: boolean;
+    validation?: {
+      isValid: boolean;
+      errors: Array<{
+        line: number;
+        message: string;
+        type: string;
+      }>;
+      warnings: Array<{
+        line: number;
+        message: string;
+        type: string;
+      }>;
+      hasVariables: boolean;
+    };
+    error?: string;
+  }> {
+    if (DUMMY_MODE) {
+      return dummyFetch({
+        success: true,
+        validation: {
+          isValid: true,
+          errors: [],
+          warnings: [
+            { line: 15, message: 'Statement might be missing semicolon', type: 'syntax' }
+          ],
+          hasVariables: true
+        }
+      }, 300);
+    }
+
+    const res = await fetch(`${API_BASE}/plc/validate`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ stCode }),
+    });
+    return res.json();
+  },
+
+  async getStatus(): Promise<{
+    success: boolean;
+    status?: {
+      isRunning: boolean;
+      currentExecution?: {
+        startTime: string;
+        programName: string;
+        codeLength: number;
+      };
+      lastResult?: {
+        success: boolean;
+        executionMode: string;
+        variableCount: number;
+      };
+      executionHistory: Array<{
+        startTime: string;
+        endTime: string;
+        result: string;
+        executionMode: string;
+        programName: string;
+      }>;
+    };
+    error?: string;
+  }> {
+    if (DUMMY_MODE) {
+      return dummyFetch({
+        success: true,
+        status: {
+          isRunning: false,
+          lastResult: {
+            success: true,
+            executionMode: 'simulation',
+            variableCount: 4
+          },
+          executionHistory: []
+        }
+      }, 200);
+    }
+
+    const res = await fetch(`${API_BASE}/plc/status`);
+    return res.json();
+  },
+
+  async getCapabilities(): Promise<{
+    success: boolean;
+    capabilities?: {
+      beremizAvailable: boolean;
+      supportedLanguages: string[];
+      supportedFormats: string[];
+      simulationMode: boolean;
+      realTimeExecution: boolean;
+      features: {
+        syntaxValidation: boolean;
+        variableExtraction: boolean;
+        xmlGeneration: boolean;
+        executionHistory: boolean;
+      };
+    };
+    error?: string;
+  }> {
+    if (DUMMY_MODE) {
+      return dummyFetch({
+        success: true,
+        capabilities: {
+          beremizAvailable: false,
+          supportedLanguages: ['ST'],
+          supportedFormats: ['PLCOpen XML'],
+          simulationMode: true,
+          realTimeExecution: false,
+          features: {
+            syntaxValidation: true,
+            variableExtraction: true,
+            xmlGeneration: true,
+            executionHistory: true
+          }
+        }
+      }, 200);
+    }
+
+    const res = await fetch(`${API_BASE}/plc/capabilities`);
+    return res.json();
+  },
+
+  async convertToXml(stCode: string, programName?: string): Promise<{
+    success: boolean;
+    data?: {
+      xmlContent: string;
+      variables: Array<{
+        name: string;
+        type: string;
+        initialValue?: string;
+      }>;
+      programName: string;
+      generatedAt: string;
+    };
+    error?: string;
+  }> {
+    if (DUMMY_MODE) {
+      return dummyFetch({
+        success: true,
+        data: {
+          xmlContent: '<?xml version="1.0" encoding="UTF-8"?>...',
+          variables: [
+            { name: 'Temperature_PV', type: 'REAL', initialValue: '72.5' }
+          ],
+          programName: programName || 'Main',
+          generatedAt: new Date().toISOString()
+        }
+      }, 400);
+    }
+
+    const res = await fetch(`${API_BASE}/plc/convert-to-xml`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        stCode,
+        programName
+      }),
+    });
+    return res.json();
+  },
+
+  async clearHistory(): Promise<{
+    success: boolean;
+    message?: string;
+    error?: string;
+  }> {
+    if (DUMMY_MODE) {
+      return dummyFetch({
+        success: true,
+        message: 'Execution history cleared'
+      }, 200);
+    }
+
+    const res = await fetch(`${API_BASE}/plc/clear-history`, {
+      method: 'DELETE'
+    });
+    return res.json();
+  }
+}
+
+// Mock data
+const mockSTContent = `(* Temperature Control System *)
 PROGRAM Temperature_Control
 VAR
   Temperature_PV : REAL := 72.5;      (* Process Variable *)

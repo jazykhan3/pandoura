@@ -3,10 +3,21 @@ import type { SyncStatus, SyncConflict, SyncEvent } from '../types'
 import { syncWebSocket } from '../services/websocket'
 import { syncApi } from '../services/api'
 
+type DeployedLogic = {
+  id: string
+  name: string
+  content: string
+  vendor?: string
+  author?: string
+  deployedAt: string
+  status: string
+}
+
 type SyncState = {
   status: SyncStatus
   events: SyncEvent[]
   isPushing: boolean
+  deployedLogic: DeployedLogic | null
   
   // Actions
   connect: (projectId: string) => void
@@ -15,9 +26,11 @@ type SyncState = {
   pushToLive: (logicId: string) => Promise<boolean>
   resolveConflict: (conflictId: string, resolution: 'shadow' | 'live') => void
   syncTags: () => Promise<void>
+  simulateConflicts: () => void
+  fetchDeployedLogic: () => Promise<void>
 }
 
-export const useSyncStore = create<SyncState>((set) => ({
+export const useSyncStore = create<SyncState>((set, get) => ({
   status: {
     connected: false,
     shadowOk: false,
@@ -28,9 +41,13 @@ export const useSyncStore = create<SyncState>((set) => ({
   },
   events: [],
   isPushing: false,
+  deployedLogic: null,
 
   connect: (projectId: string) => {
     syncWebSocket.connect(projectId)
+
+    // Fetch initial sync status and deployed logic
+    get().fetchDeployedLogic()
 
     // Listen to WebSocket messages
     syncWebSocket.on((message) => {
@@ -118,6 +135,23 @@ export const useSyncStore = create<SyncState>((set) => ({
         payload: { logicId, target: 'shadow' },
       })
       
+      // Update status on success
+      if (result.success) {
+        set(state => ({
+          status: {
+            ...state.status,
+            shadowOk: true,
+            lastSync: new Date().toISOString(),
+          },
+          isPushing: false
+        }))
+        
+        // Fetch the deployed logic immediately after successful push
+        await get().fetchDeployedLogic()
+      } else {
+        set({ isPushing: false })
+      }
+      
       return result.success
     } catch (error) {
       console.error('Failed to push to shadow:', error)
@@ -137,6 +171,29 @@ export const useSyncStore = create<SyncState>((set) => ({
         payload: { logicId, target: 'live' },
       })
       
+      // Add event log for successful push
+      if (result.success) {
+        set(state => ({
+          status: {
+            ...state.status,
+            liveOk: true,
+            lastSync: new Date().toISOString(),
+          },
+          events: [
+            {
+              id: `event-${Date.now()}`,
+              type: 'LOGIC_PUSH',
+              timestamp: new Date().toISOString(),
+              payload: { logicId, target: 'live', success: true, warnings: result.warnings },
+            },
+            ...state.events,
+          ].slice(0, 100),
+          isPushing: false
+        }))
+      } else {
+        set({ isPushing: false })
+      }
+      
       return result.success
     } catch (error) {
       console.error('Failed to push to live:', error)
@@ -145,18 +202,38 @@ export const useSyncStore = create<SyncState>((set) => ({
     }
   },
 
-  resolveConflict: (conflictId: string, resolution: 'shadow' | 'live') => {
-    set(state => ({
-      status: {
-        ...state.status,
-        conflicts: state.status.conflicts.map(c =>
-          c.id === conflictId ? { ...c, resolved: true } : c
-        ),
-      },
-    }))
-
-    // In a real implementation, this would send the resolution to the backend
-    console.log(`Resolved conflict ${conflictId} with ${resolution}`)
+  resolveConflict: async (conflictId: string, resolution: 'shadow' | 'live') => {
+    try {
+      // Call backend to resolve conflict
+      await syncApi.resolveConflict(conflictId, resolution)
+      
+      // Update local state
+      set(state => ({
+        status: {
+          ...state.status,
+          conflicts: state.status.conflicts.map(c =>
+            c.id === conflictId ? { ...c, resolved: true, resolution } : c
+          ),
+        },
+      }))
+      
+      // Add event log
+      set(state => ({
+        events: [
+          {
+            id: `event-${Date.now()}`,
+            type: 'CONFLICT_RESOLVED',
+            timestamp: new Date().toISOString(),
+            payload: { conflictId, resolution },
+          },
+          ...state.events,
+        ].slice(0, 100), // Keep last 100 events
+      }))
+      
+      console.log(`Resolved conflict ${conflictId} with ${resolution}`)
+    } catch (error) {
+      console.error('Failed to resolve conflict:', error)
+    }
   },
 
   syncTags: async () => {
@@ -167,6 +244,67 @@ export const useSyncStore = create<SyncState>((set) => ({
       }))
     } catch (error) {
       console.error('Failed to sync tags:', error)
+    }
+  },
+
+  // Simulate conflicts for demo purposes
+  simulateConflicts: async () => {
+    try {
+      // Call backend to generate mock conflicts
+      const result = await syncApi.generateConflicts()
+      
+      if (result.success) {
+        // Fetch updated status with conflicts
+        await get().fetchDeployedLogic()
+      }
+    } catch (error) {
+      console.error('Failed to generate conflicts:', error)
+      
+      // Fallback to client-side simulation if backend fails
+      const mockConflicts = [
+      {
+        id: 'conflict-1',
+        tagName: 'Temperature_SP',
+        shadowValue: 75.0,
+        liveValue: 72.5,
+        timestamp: new Date().toISOString(),
+        type: 'VALUE_CONFLICT' as const,
+        resolved: false,
+        description: 'Setpoint value differs between shadow and live runtime'
+      },
+      {
+        id: 'conflict-2', 
+        tagName: 'Pump_Run',
+        shadowValue: true,
+        liveValue: false,
+        timestamp: new Date().toISOString(),
+        type: 'VALUE_CONFLICT' as const,
+        resolved: false,
+        description: 'Pump control state mismatch detected'
+      }
+      ]
+
+      set(state => ({
+        status: {
+          ...state.status,
+          conflicts: [...state.status.conflicts, ...mockConflicts]
+        }
+      }))
+    }
+  },
+
+  // Fetch deployed logic from backend
+  fetchDeployedLogic: async () => {
+    try {
+      const response = await fetch('http://localhost:8000/api/sync/status')
+      const status = await response.json()
+      
+      set(state => ({
+        status: { ...state.status, ...status },
+        deployedLogic: status.deployedLogic || null
+      }))
+    } catch (error) {
+      console.error('Failed to fetch deployed logic:', error)
     }
   },
 }))
