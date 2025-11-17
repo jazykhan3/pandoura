@@ -196,4 +196,96 @@ export type Release = {
   tags?: string[]
 }
 
+// Enhanced Logic Editor types
+
+export type SymbolType = 'function' | 'program' | 'function_block' | 'variable' | 'udt' | 'constant'
+
+export type Symbol = {
+  id: string
+  name: string
+  type: SymbolType
+  dataType?: string
+  line: number
+  scope: string
+  references: number
+  children?: Symbol[]
+  description?: string
+  isUsed: boolean
+}
+
+export type LocalHistoryEntry = {
+  id: string
+  timestamp: string
+  content: string
+  message?: string
+  author: string
+}
+
+export type CodeAction = {
+  id: string
+  title: string
+  kind: 'refactor' | 'quickfix' | 'source'
+  command: string
+  description?: string
+}
+
+export type TestCase = {
+  id: string
+  name: string
+  routine: string
+  inputs: Record<string, unknown>
+  expectedOutputs: Record<string, unknown>
+  status: 'pending' | 'running' | 'passed' | 'failed'
+  actualOutputs?: Record<string, unknown>
+  error?: string
+  executionTime?: number
+  coverage?: number
+  trace?: string[]
+}
+
+export type DiagnosticSeverity = 'error' | 'warning' | 'info' | 'hint'
+
+export type SemanticDiagnostic = {
+  id: string
+  severity: DiagnosticSeverity
+  message: string
+  line: number
+  column: number
+  category: 'resource' | 'race_condition' | 'uninitialized' | 'unsafe_io' | 'performance'
+  suggestion?: string
+}
+
+export type SafetyRule = {
+  id: string
+  name: string
+  severity: 'critical' | 'high' | 'medium' | 'low'
+  category: string
+  description: string
+  violations: Array<{
+    line: number
+    message: string
+    canOverride: boolean
+    approved: boolean
+  }>
+}
+
+export type ReplaceScope = 'current_file' | 'open_files' | 'project'
+
+export type ReplaceMatch = {
+  file: string
+  line: number
+  column: number
+  matchText: string
+  contextBefore: string
+  contextAfter: string
+  selected: boolean
+}
+
+export type CodeLens = {
+  line: number
+  command: string
+  title: string
+  args?: unknown[]
+}
+
 

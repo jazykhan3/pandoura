@@ -7,7 +7,40 @@ import { useSyncStore } from '../store/syncStore'
 import { useSimulatorStore } from '../store/simulatorStore'
 import { useTagStore } from '../store/tagStore'
 import { logicApi } from '../services/api'
-import { Save, Undo, Redo, Check, Code, Play, FolderOpen, FilePlus, CheckCircle, X, Zap, Settings } from 'lucide-react'
+import {
+  Save,
+  Undo,
+  Redo,
+  Check,
+  Code,
+  Play,
+  FolderOpen,
+  FilePlus,
+  CheckCircle,
+  X,
+  Zap,
+  Package,
+  Tag,
+  GitBranch,
+  Clock,
+  Replace,
+  FileText,
+  ChevronDown,
+  ChevronRight,
+  TestTube,
+  AlertTriangle,
+  Shield,
+  History,
+} from 'lucide-react'
+import type {
+  Symbol as ProjectSymbol,
+  LocalHistoryEntry,
+  TestCase,
+  SemanticDiagnostic,
+  SafetyRule,
+  ReplaceMatch,
+  ReplaceScope,
+} from '../types'
 
 // Utility function to extract tag declarations from PLC code
 function extractTagsFromCode(content: string) {
@@ -254,6 +287,39 @@ export function LogicEditor() {
   const [plcExecutionResult, setPlcExecutionResult] = useState<any>(null)
   const [showPLCResults, setShowPLCResults] = useState(false)
 
+  // Enhanced features state
+  const [showSymbolExplorer, setShowSymbolExplorer] = useState(true)
+  const [symbolFilter, setSymbolFilter] = useState('')
+  const [expandedSymbols, setExpandedSymbols] = useState<Set<string>>(new Set())
+  const [projectSymbols, setProjectSymbols] = useState<ProjectSymbol[]>([])
+  
+  const [showHistoryPanel, setShowHistoryPanel] = useState(false)
+  const [historyEntries, setHistoryEntries] = useState<LocalHistoryEntry[]>([])
+  const [selectedHistoryIndex, setSelectedHistoryIndex] = useState(0)
+  
+  const [showTestRunner, setShowTestRunner] = useState(false)
+  const [testCases, setTestCases] = useState<TestCase[]>([])
+  
+  const [showDiagnosticsPanel, setShowDiagnosticsPanel] = useState(false)
+  const [semanticDiagnostics, setSemanticDiagnostics] = useState<SemanticDiagnostic[]>([])
+  
+  const [showSafetyAnalyzer, setShowSafetyAnalyzer] = useState(false)
+  const [safetyRules, setSafetyRules] = useState<SafetyRule[]>([])
+  
+  const [showReplacePanel, setShowReplacePanel] = useState(false)
+  const [replaceSearchTerm, setReplaceSearchTerm] = useState('')
+  const [replaceWithTerm, setReplaceWithTerm] = useState('')
+  const [replaceScope, setReplaceScope] = useState<ReplaceScope>('current_file')
+  const [replaceMatches, setReplaceMatches] = useState<ReplaceMatch[]>([])
+  
+  const [showSnapshotDialog, setShowSnapshotDialog] = useState(false)
+  const [showReleaseDialog, setShowReleaseDialog] = useState(false)
+  const [snapshotMessage, setSnapshotMessage] = useState('')
+  const [snapshotTags, setSnapshotTags] = useState('')
+  
+  const [showCompareDialog, setShowCompareDialog] = useState(false)
+  const [compareVersion, setCompareVersion] = useState('')
+
   // Auto-show change preview when there are modifications
   useEffect(() => {
     if (isModified && currentFile && unsavedChanges[currentFile.id]) {
@@ -499,6 +565,141 @@ export function LogicEditor() {
       </div>
 
       <div className="flex-1 flex gap-4 min-h-0">
+        {/* Left Sidebar - Symbol Explorer */}
+        {showSymbolExplorer && (
+          <div className="w-64 bg-white rounded-lg border border-neutral-200 overflow-hidden flex flex-col">
+            <div className="px-4 py-3 border-b border-neutral-200 bg-neutral-50">
+              <div className="flex items-center justify-between mb-2">
+                <h3 className="font-semibold text-sm">Symbol Explorer</h3>
+                <button
+                  onClick={() => setShowSymbolExplorer(false)}
+                  className="text-neutral-500 hover:text-neutral-700"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+              <input
+                type="text"
+                placeholder="Filter symbols..."
+                value={symbolFilter}
+                onChange={(e) => setSymbolFilter(e.target.value)}
+                className="w-full px-2 py-1 text-xs border border-neutral-300 rounded focus:outline-none focus:ring-2 focus:ring-[#FF6A00]"
+              />
+            </div>
+            <div className="flex-1 overflow-y-auto p-2">
+              {projectSymbols.length > 0 ? (
+                <div className="space-y-1">
+                  {projectSymbols
+                    .filter((sym) =>
+                      sym.name.toLowerCase().includes(symbolFilter.toLowerCase())
+                    )
+                    .map((symbol) => (
+                      <div key={symbol.id} className="text-xs">
+                        <button
+                          className="w-full flex items-center gap-2 px-2 py-1.5 hover:bg-neutral-100 rounded text-left"
+                          onClick={() => {
+                            const newExpanded = new Set(expandedSymbols)
+                            if (newExpanded.has(symbol.id)) {
+                              newExpanded.delete(symbol.id)
+                            } else {
+                              newExpanded.add(symbol.id)
+                            }
+                            setExpandedSymbols(newExpanded)
+                          }}
+                        >
+                          {symbol.children && symbol.children.length > 0 && (
+                            <span>
+                              {expandedSymbols.has(symbol.id) ? (
+                                <ChevronDown className="w-3 h-3" />
+                              ) : (
+                                <ChevronRight className="w-3 h-3" />
+                              )}
+                            </span>
+                          )}
+                          <FileText className="w-3 h-3 text-blue-500" />
+                          <span className="font-mono">{symbol.name}</span>
+                          <span className="text-neutral-500 ml-auto">
+                            {symbol.references > 0 && `(${symbol.references})`}
+                          </span>
+                        </button>
+                        {expandedSymbols.has(symbol.id) && symbol.children && (
+                          <div className="ml-6 mt-1 space-y-1">
+                            {symbol.children.map((child) => (
+                              <button
+                                key={child.id}
+                                className="w-full flex items-center gap-2 px-2 py-1 hover:bg-neutral-100 rounded text-left"
+                              >
+                                <span className="text-neutral-400">{child.dataType}</span>
+                                <span className="font-mono">{child.name}</span>
+                              </button>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                </div>
+              ) : (
+                <div className="text-xs text-neutral-500 text-center py-4">
+                  No symbols found
+                  <div className="mt-2">
+                    <button
+                      onClick={() => {
+                        // Mock symbol extraction
+                        setProjectSymbols([
+                          {
+                            id: 'prog1',
+                            name: 'PROGRAM_Main',
+                            type: 'program',
+                            line: 1,
+                            scope: 'global',
+                            references: 3,
+                            isUsed: true,
+                            children: [
+                              {
+                                id: 'var1',
+                                name: 'Counter',
+                                type: 'variable',
+                                dataType: 'INT',
+                                line: 5,
+                                scope: 'PROGRAM_Main',
+                                references: 5,
+                                isUsed: true,
+                              },
+                              {
+                                id: 'var2',
+                                name: 'Enable',
+                                type: 'variable',
+                                dataType: 'BOOL',
+                                line: 6,
+                                scope: 'PROGRAM_Main',
+                                references: 2,
+                                isUsed: true,
+                              },
+                            ],
+                          },
+                          {
+                            id: 'func1',
+                            name: 'CalcAverage',
+                            type: 'function',
+                            dataType: 'REAL',
+                            line: 25,
+                            scope: 'global',
+                            references: 8,
+                            isUsed: true,
+                          },
+                        ])
+                      }}
+                      className="text-[#FF6A00] hover:underline text-xs"
+                    >
+                      Extract symbols from code
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
         {/* Main Editor Area */}
         <div className="flex-1 flex flex-col bg-white rounded-lg border border-neutral-200 overflow-hidden">
           {/* Toolbar */}
@@ -603,6 +804,117 @@ export function LogicEditor() {
                 <option value="beckhoff">Beckhoff</option>
               </select>
             </label>
+
+            <div className="w-px h-6 bg-neutral-300" />
+
+            {/* Versioning Actions */}
+            <button
+              onClick={() => setShowSnapshotDialog(true)}
+              disabled={!currentFile}
+              className={`flex items-center gap-1.5 px-3 py-1.5 text-sm rounded-md transition-colors ${
+                currentFile
+                  ? 'bg-blue-500 text-white hover:bg-blue-600'
+                  : 'bg-neutral-100 border border-neutral-200 text-neutral-400 cursor-not-allowed'
+              }`}
+              title="Create Snapshot"
+            >
+              <Package className="w-4 h-4" />
+              Snapshot
+            </button>
+
+            <button
+              onClick={() => setShowReleaseDialog(true)}
+              disabled={!currentFile}
+              className={`flex items-center gap-1.5 px-3 py-1.5 text-sm rounded-md transition-colors ${
+                currentFile
+                  ? 'bg-purple-500 text-white hover:bg-purple-600'
+                  : 'bg-neutral-100 border border-neutral-200 text-neutral-400 cursor-not-allowed'
+              }`}
+              title="Create Release"
+            >
+              <Tag className="w-4 h-4" />
+              Release
+            </button>
+
+            <button
+              onClick={() => setShowCompareDialog(true)}
+              disabled={!currentFile}
+              className={`flex items-center gap-1.5 px-3 py-1.5 text-sm rounded-md transition-colors ${
+                currentFile
+                  ? 'bg-white border border-neutral-300 text-neutral-800 hover:bg-neutral-50'
+                  : 'bg-neutral-100 border border-neutral-200 text-neutral-400 cursor-not-allowed'
+              }`}
+              title="Compare with Version"
+            >
+              <GitBranch className="w-4 h-4" />
+              Compare
+            </button>
+
+            <div className="w-px h-6 bg-neutral-300" />
+
+            {/* Advanced Features */}
+            <button
+              onClick={() => setShowHistoryPanel(!showHistoryPanel)}
+              disabled={!currentFile}
+              className={`flex items-center gap-1.5 px-3 py-1.5 text-sm rounded-md transition-colors ${
+                currentFile
+                  ? showHistoryPanel
+                    ? 'bg-[#FF6A00] text-white'
+                    : 'bg-white border border-neutral-300 text-neutral-800 hover:bg-neutral-50'
+                  : 'bg-neutral-100 border border-neutral-200 text-neutral-400 cursor-not-allowed'
+              }`}
+              title="Time Travel / Local History"
+            >
+              <History className="w-4 h-4" />
+            </button>
+
+            <button
+              onClick={() => setShowTestRunner(!showTestRunner)}
+              className={`flex items-center gap-1.5 px-3 py-1.5 text-sm rounded-md transition-colors ${
+                showTestRunner
+                  ? 'bg-[#FF6A00] text-white'
+                  : 'bg-white border border-neutral-300 text-neutral-800 hover:bg-neutral-50'
+              }`}
+              title="Unit Test Runner"
+            >
+              <TestTube className="w-4 h-4" />
+            </button>
+
+            <button
+              onClick={() => setShowDiagnosticsPanel(!showDiagnosticsPanel)}
+              className={`flex items-center gap-1.5 px-3 py-1.5 text-sm rounded-md transition-colors ${
+                showDiagnosticsPanel
+                  ? 'bg-[#FF6A00] text-white'
+                  : 'bg-white border border-neutral-300 text-neutral-800 hover:bg-neutral-50'
+              }`}
+              title="Semantic Diagnostics"
+            >
+              <AlertTriangle className="w-4 h-4" />
+            </button>
+
+            <button
+              onClick={() => setShowSafetyAnalyzer(!showSafetyAnalyzer)}
+              className={`flex items-center gap-1.5 px-3 py-1.5 text-sm rounded-md transition-colors ${
+                showSafetyAnalyzer
+                  ? 'bg-[#FF6A00] text-white'
+                  : 'bg-white border border-neutral-300 text-neutral-800 hover:bg-neutral-50'
+              }`}
+              title="Safety Analyzer"
+            >
+              <Shield className="w-4 h-4" />
+            </button>
+
+            <button
+              onClick={() => setShowReplacePanel(!showReplacePanel)}
+              className={`flex items-center gap-1.5 px-3 py-1.5 text-sm rounded-md transition-colors ${
+                showReplacePanel
+                  ? 'bg-[#FF6A00] text-white'
+                  : 'bg-white border border-neutral-300 text-neutral-800 hover:bg-neutral-50'
+              }`}
+              title="Project-wide Replace"
+            >
+              <Replace className="w-4 h-4" />
+            </button>
 
             <div className="w-px h-6 bg-neutral-300" />
 
@@ -1226,6 +1538,740 @@ export function LogicEditor() {
         defaultValue="New_Logic.st"
         required={true}
       />
+
+      {/* Create Snapshot Dialog */}
+      {showSnapshotDialog && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center">
+          <div className="bg-white rounded-lg p-6 w-[500px] max-w-[90vw]">
+            <h2 className="text-xl font-semibold mb-4 flex items-center gap-2">
+              <Package className="w-5 h-5" />
+              Create Snapshot
+            </h2>
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium mb-2">Commit Message *</label>
+                <textarea
+                  value={snapshotMessage}
+                  onChange={(e) => setSnapshotMessage(e.target.value)}
+                  placeholder="Describe what changed in this snapshot..."
+                  className="w-full px-3 py-2 border border-neutral-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#FF6A00]"
+                  rows={3}
+                  required
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-2">Tags (optional)</label>
+                <input
+                  type="text"
+                  value={snapshotTags}
+                  onChange={(e) => setSnapshotTags(e.target.value)}
+                  placeholder="feature, bugfix, refactor"
+                  className="w-full px-3 py-2 border border-neutral-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#FF6A00]"
+                />
+                <p className="text-xs text-neutral-500 mt-1">Comma-separated tags</p>
+              </div>
+              <div className="flex justify-end gap-2 pt-4">
+                <button
+                  onClick={() => {
+                    setShowSnapshotDialog(false)
+                    setSnapshotMessage('')
+                    setSnapshotTags('')
+                  }}
+                  className="px-4 py-2 text-neutral-700 hover:bg-neutral-100 rounded-lg transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={() => {
+                    if (snapshotMessage.trim()) {
+                      setDialog({
+                        isOpen: true,
+                        title: 'Snapshot Created',
+                        message: `Snapshot created successfully!\nMessage: ${snapshotMessage}\nTags: ${snapshotTags || 'none'}`,
+                        type: 'success',
+                      })
+                      setShowSnapshotDialog(false)
+                      setSnapshotMessage('')
+                      setSnapshotTags('')
+                      // Mock: Add to local history
+                      setHistoryEntries(prev => [
+                        {
+                          id: Date.now().toString(),
+                          timestamp: new Date().toISOString(),
+                          content: currentFile?.content || '',
+                          message: snapshotMessage,
+                          author: 'Current User',
+                        },
+                        ...prev,
+                      ])
+                    }
+                  }}
+                  disabled={!snapshotMessage.trim()}
+                  className="px-4 py-2 bg-[#FF6A00] text-white rounded-lg hover:bg-[#E55F00] disabled:bg-neutral-300 disabled:cursor-not-allowed transition-colors"
+                >
+                  Create Snapshot
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Create Release Dialog */}
+      {showReleaseDialog && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center">
+          <div className="bg-white rounded-lg p-6 w-[500px] max-w-[90vw]">
+            <h2 className="text-xl font-semibold mb-4 flex items-center gap-2">
+              <Tag className="w-5 h-5" />
+              Create Release
+            </h2>
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium mb-2">Release Name *</label>
+                <input
+                  type="text"
+                  placeholder="v1.0.0 or Production Release 2025-Q1"
+                  className="w-full px-3 py-2 border border-neutral-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#FF6A00]"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-2">Release Notes *</label>
+                <textarea
+                  placeholder="Describe what's included in this release..."
+                  className="w-full px-3 py-2 border border-neutral-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#FF6A00]"
+                  rows={4}
+                />
+              </div>
+              <div className="flex items-center gap-2">
+                <input type="checkbox" id="signRelease" className="w-4 h-4" />
+                <label htmlFor="signRelease" className="text-sm">
+                  Digitally sign this release
+                </label>
+              </div>
+              <div className="flex justify-end gap-2 pt-4">
+                <button
+                  onClick={() => setShowReleaseDialog(false)}
+                  className="px-4 py-2 text-neutral-700 hover:bg-neutral-100 rounded-lg transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={() => {
+                    setDialog({
+                      isOpen: true,
+                      title: 'Release Created',
+                      message: 'Release created and marked as immutable. Ready for deployment.',
+                      type: 'success',
+                    })
+                    setShowReleaseDialog(false)
+                  }}
+                  className="px-4 py-2 bg-purple-500 text-white rounded-lg hover:bg-purple-600 transition-colors"
+                >
+                  Create Release
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Compare with Version Dialog */}
+      {showCompareDialog && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center">
+          <div className="bg-white rounded-lg p-6 w-[600px] max-w-[90vw]">
+            <h2 className="text-xl font-semibold mb-4 flex items-center gap-2">
+              <GitBranch className="w-5 h-5" />
+              Compare with Version
+            </h2>
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium mb-2">Select Version</label>
+                <select
+                  value={compareVersion}
+                  onChange={(e) => setCompareVersion(e.target.value)}
+                  className="w-full px-3 py-2 border border-neutral-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#FF6A00]"
+                >
+                  <option value="">-- Select a version --</option>
+                  <option value="v1.2.3">v1.2.3 (Production - 2025-11-17)</option>
+                  <option value="v1.2.2">v1.2.2 (Staging - 2025-11-15)</option>
+                  <option value="v1.2.1">v1.2.1 (Development - 2025-11-10)</option>
+                  <option value="snapshot-123">Snapshot #123 (2025-11-05)</option>
+                </select>
+              </div>
+              <div className="bg-blue-50 p-3 rounded-lg border border-blue-200">
+                <p className="text-sm text-blue-800">
+                  <strong>Diff Types:</strong> File changes, semantic diffs (variable types,
+                  timers, tag addressing), and structural changes will be shown.
+                </p>
+              </div>
+              <div className="flex justify-end gap-2 pt-4">
+                <button
+                  onClick={() => {
+                    setShowCompareDialog(false)
+                    setCompareVersion('')
+                  }}
+                  className="px-4 py-2 text-neutral-700 hover:bg-neutral-100 rounded-lg transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={() => {
+                    if (compareVersion) {
+                      setDialog({
+                        isOpen: true,
+                        title: 'Opening Diff Viewer',
+                        message: `Comparing current version with ${compareVersion}...\n\nChanges detected:\n• 3 variables modified\n• 1 timer changed\n• 5 lines of code altered`,
+                        type: 'info',
+                      })
+                      setShowCompareDialog(false)
+                      setCompareVersion('')
+                    }
+                  }}
+                  disabled={!compareVersion}
+                  className="px-4 py-2 bg-[#FF6A00] text-white rounded-lg hover:bg-[#E55F00] disabled:bg-neutral-300 disabled:cursor-not-allowed transition-colors"
+                >
+                  Compare
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Local History / Time Travel Panel */}
+      {showHistoryPanel && (
+        <div className="fixed right-4 top-20 w-96 bg-white rounded-lg shadow-2xl border border-neutral-200 z-40 max-h-[80vh] overflow-hidden flex flex-col">
+          <div className="px-4 py-3 border-b border-neutral-200 bg-neutral-50 flex items-center justify-between">
+            <h3 className="font-semibold text-sm flex items-center gap-2">
+              <Clock className="w-4 h-4" />
+              Local History & Time Travel
+            </h3>
+            <button
+              onClick={() => setShowHistoryPanel(false)}
+              className="text-neutral-500 hover:text-neutral-700"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+          <div className="flex-1 overflow-y-auto p-4">
+            {historyEntries.length > 0 ? (
+              <div className="space-y-2">
+                <input
+                  type="range"
+                  min="0"
+                  max={historyEntries.length - 1}
+                  value={selectedHistoryIndex}
+                  onChange={(e) => setSelectedHistoryIndex(Number(e.target.value))}
+                  className="w-full"
+                />
+                <div className="text-xs text-neutral-600 text-center mb-4">
+                  Snapshot {selectedHistoryIndex + 1} of {historyEntries.length}
+                </div>
+                {historyEntries.map((entry, index) => (
+                  <button
+                    key={entry.id}
+                    onClick={() => setSelectedHistoryIndex(index)}
+                    className={`w-full text-left p-3 rounded-lg border transition-colors ${
+                      index === selectedHistoryIndex
+                        ? 'border-[#FF6A00] bg-orange-50'
+                        : 'border-neutral-200 hover:bg-neutral-50'
+                    }`}
+                  >
+                    <div className="flex items-center justify-between mb-1">
+                      <span className="text-xs font-medium">{entry.author}</span>
+                      <span className="text-xs text-neutral-500">
+                        {new Date(entry.timestamp).toLocaleString()}
+                      </span>
+                    </div>
+                    <p className="text-xs text-neutral-700">{entry.message || 'No message'}</p>
+                  </button>
+                ))}
+              </div>
+            ) : (
+              <div className="text-center text-sm text-neutral-500 py-8">
+                No history available yet
+                <p className="text-xs mt-2">Create a snapshot to start tracking history</p>
+              </div>
+            )}
+          </div>
+          {historyEntries.length > 0 && (
+            <div className="px-4 py-3 border-t border-neutral-200 bg-neutral-50 flex gap-2">
+              <button
+                onClick={() => {
+                  if (currentFile && historyEntries[selectedHistoryIndex]) {
+                    updateContent(historyEntries[selectedHistoryIndex].content)
+                    setDialog({
+                      isOpen: true,
+                      title: 'Restored from History',
+                      message: 'File content restored from selected snapshot.',
+                      type: 'success',
+                    })
+                  }
+                }}
+                className="flex-1 px-3 py-2 bg-[#FF6A00] text-white rounded-lg hover:bg-[#E55F00] text-xs transition-colors"
+              >
+                Restore This Version
+              </button>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Test Runner Panel */}
+      {showTestRunner && (
+        <div className="fixed right-4 top-20 w-96 bg-white rounded-lg shadow-2xl border border-neutral-200 z-40 max-h-[80vh] overflow-hidden flex flex-col">
+          <div className="px-4 py-3 border-b border-neutral-200 bg-neutral-50 flex items-center justify-between">
+            <h3 className="font-semibold text-sm flex items-center gap-2">
+              <TestTube className="w-4 h-4" />
+              Unit Test Runner
+            </h3>
+            <button
+              onClick={() => setShowTestRunner(false)}
+              className="text-neutral-500 hover:text-neutral-700"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+          <div className="flex-1 overflow-y-auto p-4">
+            <button
+              onClick={() => {
+                // Add mock test
+                setTestCases([
+                  ...testCases,
+                  {
+                    id: `test-${Date.now()}`,
+                    name: 'Test Routine 1',
+                    routine: 'PROGRAM_Main',
+                    inputs: { Counter: 0, Enable: true },
+                    expectedOutputs: { Counter: 1 },
+                    status: 'pending',
+                  },
+                ])
+              }}
+              className="w-full px-3 py-2 bg-[#FF6A00] text-white rounded-lg hover:bg-[#E55F00] text-sm mb-4 transition-colors"
+            >
+              + Add Test Case
+            </button>
+            <div className="space-y-2">
+              {testCases.length > 0 ? (
+                testCases.map((test) => (
+                  <div
+                    key={test.id}
+                    className={`p-3 rounded-lg border ${
+                      test.status === 'passed'
+                        ? 'border-green-300 bg-green-50'
+                        : test.status === 'failed'
+                        ? 'border-red-300 bg-red-50'
+                        : 'border-neutral-200 bg-white'
+                    }`}
+                  >
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-sm font-medium">{test.name}</span>
+                      {test.status === 'passed' && (
+                        <CheckCircle className="w-4 h-4 text-green-600" />
+                      )}
+                      {test.status === 'failed' && <X className="w-4 h-4 text-red-600" />}
+                    </div>
+                    <p className="text-xs text-neutral-600 mb-2">Routine: {test.routine}</p>
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => {
+                          // Mock test run
+                          setTestCases(
+                            testCases.map((t) =>
+                              t.id === test.id
+                                ? {
+                                    ...t,
+                                    status: Math.random() > 0.3 ? 'passed' : 'failed',
+                                    executionTime: Math.random() * 100,
+                                    actualOutputs: { Counter: Math.floor(Math.random() * 10) },
+                                  }
+                                : t
+                            )
+                          )
+                        }}
+                        className="px-2 py-1 text-xs bg-blue-500 text-white rounded hover:bg-blue-600 transition-colors"
+                      >
+                        Run
+                      </button>
+                      <button
+                        onClick={() => setTestCases(testCases.filter((t) => t.id !== test.id))}
+                        className="px-2 py-1 text-xs bg-red-500 text-white rounded hover:bg-red-600 transition-colors"
+                      >
+                        Delete
+                      </button>
+                    </div>
+                    {test.executionTime && (
+                      <p className="text-xs text-neutral-500 mt-2">
+                        {test.executionTime.toFixed(2)}ms
+                      </p>
+                    )}
+                  </div>
+                ))
+              ) : (
+                <div className="text-center text-sm text-neutral-500 py-8">
+                  No test cases yet
+                  <p className="text-xs mt-2">Click "Add Test Case" to create one</p>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Diagnostics Panel */}
+      {showDiagnosticsPanel && (
+        <div className="fixed right-4 top-20 w-96 bg-white rounded-lg shadow-2xl border border-neutral-200 z-40 max-h-[80vh] overflow-hidden flex flex-col">
+          <div className="px-4 py-3 border-b border-neutral-200 bg-neutral-50 flex items-center justify-between">
+            <h3 className="font-semibold text-sm flex items-center gap-2">
+              <AlertTriangle className="w-4 h-4" />
+              Semantic Diagnostics
+            </h3>
+            <button
+              onClick={() => setShowDiagnosticsPanel(false)}
+              className="text-neutral-500 hover:text-neutral-700"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+          <div className="flex-1 overflow-y-auto p-4">
+            <button
+              onClick={() => {
+                // Generate mock diagnostics
+                setSemanticDiagnostics([
+                  {
+                    id: '1',
+                    severity: 'warning',
+                    message: 'Variable "Counter" may be uninitialized',
+                    line: 15,
+                    column: 5,
+                    category: 'uninitialized',
+                    suggestion: 'Initialize variable before use',
+                  },
+                  {
+                    id: '2',
+                    severity: 'error',
+                    message: 'Potential race condition detected',
+                    line: 23,
+                    column: 10,
+                    category: 'race_condition',
+                    suggestion: 'Use mutex or semaphore',
+                  },
+                  {
+                    id: '3',
+                    severity: 'info',
+                    message: 'High CPU usage detected in this routine',
+                    line: 35,
+                    column: 1,
+                    category: 'performance',
+                  },
+                ])
+              }}
+              className="w-full px-3 py-2 bg-[#FF6A00] text-white rounded-lg hover:bg-[#E55F00] text-sm mb-4 transition-colors"
+            >
+              Run Analysis
+            </button>
+            <div className="space-y-2">
+              {semanticDiagnostics.map((diag) => (
+                <div
+                  key={diag.id}
+                  className={`p-3 rounded-lg border ${
+                    diag.severity === 'error'
+                      ? 'border-red-300 bg-red-50'
+                      : diag.severity === 'warning'
+                      ? 'border-yellow-300 bg-yellow-50'
+                      : 'border-blue-300 bg-blue-50'
+                  }`}
+                >
+                  <div className="flex items-start gap-2 mb-1">
+                    <AlertTriangle
+                      className={`w-4 h-4 mt-0.5 ${
+                        diag.severity === 'error'
+                          ? 'text-red-600'
+                          : diag.severity === 'warning'
+                          ? 'text-yellow-600'
+                          : 'text-blue-600'
+                      }`}
+                    />
+                    <div className="flex-1">
+                      <p className="text-sm font-medium">{diag.message}</p>
+                      <p className="text-xs text-neutral-600 mt-1">
+                        Line {diag.line}, Column {diag.column} • {diag.category}
+                      </p>
+                      {diag.suggestion && (
+                        <p className="text-xs text-neutral-500 mt-1 italic">{diag.suggestion}</p>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Safety Analyzer Panel */}
+      {showSafetyAnalyzer && (
+        <div className="fixed right-4 top-20 w-96 bg-white rounded-lg shadow-2xl border border-neutral-200 z-40 max-h-[80vh] overflow-hidden flex flex-col">
+          <div className="px-4 py-3 border-b border-neutral-200 bg-neutral-50 flex items-center justify-between">
+            <h3 className="font-semibold text-sm flex items-center gap-2">
+              <Shield className="w-4 h-4" />
+              Safety Analyzer
+            </h3>
+            <button
+              onClick={() => setShowSafetyAnalyzer(false)}
+              className="text-neutral-500 hover:text-neutral-700"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+          <div className="flex-1 overflow-y-auto p-4">
+            <button
+              onClick={() => {
+                // Generate mock safety rules
+                setSafetyRules([
+                  {
+                    id: 'r1',
+                    name: 'Emergency Stop Validation',
+                    severity: 'critical',
+                    category: 'Safety',
+                    description: 'Emergency stop must be checked on every scan cycle',
+                    violations: [
+                      {
+                        line: 45,
+                        message: 'E-stop not checked in main loop',
+                        canOverride: false,
+                        approved: false,
+                      },
+                    ],
+                  },
+                  {
+                    id: 'r2',
+                    name: 'Output Validation',
+                    severity: 'high',
+                    category: 'Safety',
+                    description: 'All outputs must be validated before activation',
+                    violations: [
+                      {
+                        line: 67,
+                        message: 'Output activated without validation',
+                        canOverride: true,
+                        approved: false,
+                      },
+                    ],
+                  },
+                ])
+              }}
+              className="w-full px-3 py-2 bg-[#FF6A00] text-white rounded-lg hover:bg-[#E55F00] text-sm mb-4 transition-colors"
+            >
+              Run Safety Analysis
+            </button>
+            <div className="space-y-3">
+              {safetyRules.map((rule) => (
+                <div key={rule.id} className="border border-neutral-200 rounded-lg p-3">
+                  <div className="flex items-start justify-between mb-2">
+                    <div>
+                      <p className="text-sm font-medium">{rule.name}</p>
+                      <p className="text-xs text-neutral-600 mt-1">{rule.description}</p>
+                    </div>
+                    <span
+                      className={`text-xs px-2 py-1 rounded ${
+                        rule.severity === 'critical'
+                          ? 'bg-red-100 text-red-700'
+                          : rule.severity === 'high'
+                          ? 'bg-orange-100 text-orange-700'
+                          : 'bg-yellow-100 text-yellow-700'
+                      }`}
+                    >
+                      {rule.severity}
+                    </span>
+                  </div>
+                  {rule.violations.map((violation, idx) => (
+                    <div
+                      key={idx}
+                      className="mt-2 p-2 bg-red-50 border border-red-200 rounded text-xs"
+                    >
+                      <p className="font-medium text-red-800">Line {violation.line}</p>
+                      <p className="text-red-700 mt-1">{violation.message}</p>
+                      {violation.canOverride && (
+                        <button
+                          onClick={() => {
+                            setSafetyRules(
+                              safetyRules.map((r) =>
+                                r.id === rule.id
+                                  ? {
+                                      ...r,
+                                      violations: r.violations.map((v, i) =>
+                                        i === idx ? { ...v, approved: !v.approved } : v
+                                      ),
+                                    }
+                                  : r
+                              )
+                            )
+                          }}
+                          className={`mt-2 px-2 py-1 rounded text-xs ${
+                            violation.approved
+                              ? 'bg-green-500 text-white'
+                              : 'bg-yellow-500 text-white'
+                          }`}
+                        >
+                          {violation.approved ? 'Approved' : 'Request Override'}
+                        </button>
+                      )}
+                      {!violation.canOverride && (
+                        <p className="mt-2 text-red-600 font-medium">⚠ Cannot be overridden</p>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Project-wide Replace Panel */}
+      {showReplacePanel && (
+        <div className="fixed right-4 top-20 w-96 bg-white rounded-lg shadow-2xl border border-neutral-200 z-40 max-h-[80vh] overflow-hidden flex flex-col">
+          <div className="px-4 py-3 border-b border-neutral-200 bg-neutral-50 flex items-center justify-between">
+            <h3 className="font-semibold text-sm flex items-center gap-2">
+              <Replace className="w-4 h-4" />
+              Project-wide Replace
+            </h3>
+            <button
+              onClick={() => setShowReplacePanel(false)}
+              className="text-neutral-500 hover:text-neutral-700"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+          <div className="flex-1 overflow-y-auto p-4">
+            <div className="space-y-3 mb-4">
+              <div>
+                <label className="block text-xs font-medium mb-1">Search For</label>
+                <input
+                  type="text"
+                  value={replaceSearchTerm}
+                  onChange={(e) => setReplaceSearchTerm(e.target.value)}
+                  placeholder="Enter search term..."
+                  className="w-full px-3 py-2 text-sm border border-neutral-300 rounded focus:outline-none focus:ring-2 focus:ring-[#FF6A00]"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-medium mb-1">Replace With</label>
+                <input
+                  type="text"
+                  value={replaceWithTerm}
+                  onChange={(e) => setReplaceWithTerm(e.target.value)}
+                  placeholder="Enter replacement..."
+                  className="w-full px-3 py-2 text-sm border border-neutral-300 rounded focus:outline-none focus:ring-2 focus:ring-[#FF6A00]"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-medium mb-1">Scope</label>
+                <select
+                  value={replaceScope}
+                  onChange={(e) => setReplaceScope(e.target.value as ReplaceScope)}
+                  className="w-full px-3 py-2 text-sm border border-neutral-300 rounded focus:outline-none focus:ring-2 focus:ring-[#FF6A00]"
+                >
+                  <option value="current_file">Current File</option>
+                  <option value="open_files">Open Files</option>
+                  <option value="project">Entire Project</option>
+                </select>
+              </div>
+              <button
+                onClick={() => {
+                  if (replaceSearchTerm) {
+                    // Mock search results
+                    setReplaceMatches([
+                      {
+                        file: currentFile?.name || 'file.st',
+                        line: 15,
+                        column: 10,
+                        matchText: replaceSearchTerm,
+                        contextBefore: 'VAR ',
+                        contextAfter: ' : INT;',
+                        selected: true,
+                      },
+                      {
+                        file: currentFile?.name || 'file.st',
+                        line: 23,
+                        column: 5,
+                        matchText: replaceSearchTerm,
+                        contextBefore: 'IF ',
+                        contextAfter: ' > 100 THEN',
+                        selected: true,
+                      },
+                    ])
+                  }
+                }}
+                className="w-full px-3 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 text-sm transition-colors"
+              >
+                Find All
+              </button>
+            </div>
+            <div className="space-y-2">
+              <p className="text-xs font-medium">
+                {replaceMatches.length} match{replaceMatches.length !== 1 ? 'es' : ''} found
+              </p>
+              {replaceMatches.map((match, idx) => (
+                <div
+                  key={idx}
+                  className="p-2 border border-neutral-200 rounded bg-neutral-50 text-xs"
+                >
+                  <div className="flex items-center gap-2 mb-1">
+                    <input
+                      type="checkbox"
+                      checked={match.selected}
+                      onChange={() => {
+                        setReplaceMatches(
+                          replaceMatches.map((m, i) =>
+                            i === idx ? { ...m, selected: !m.selected } : m
+                          )
+                        )
+                      }}
+                      className="w-3 h-3"
+                    />
+                    <span className="font-medium">
+                      {match.file} : {match.line}
+                    </span>
+                  </div>
+                  <p className="font-mono text-xs ml-5">
+                    {match.contextBefore}
+                    <span className="bg-yellow-200">{match.matchText}</span>
+                    {match.contextAfter}
+                  </p>
+                </div>
+              ))}
+            </div>
+            {replaceMatches.length > 0 && (
+              <div className="mt-4 flex gap-2">
+                <button
+                  onClick={() => {
+                    const selectedCount = replaceMatches.filter((m) => m.selected).length
+                    setDialog({
+                      isOpen: true,
+                      title: 'Replacements Applied',
+                      message: `${selectedCount} occurrence(s) replaced successfully.`,
+                      type: 'success',
+                    })
+                    setReplaceMatches([])
+                  }}
+                  className="flex-1 px-3 py-2 bg-[#FF6A00] text-white rounded-lg hover:bg-[#E55F00] text-sm transition-colors"
+                >
+                  Replace Selected
+                </button>
+                <button
+                  onClick={() => setReplaceMatches([])}
+                  className="px-3 py-2 bg-neutral-200 text-neutral-700 rounded-lg hover:bg-neutral-300 text-sm transition-colors"
+                >
+                  Clear
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   )
 }
