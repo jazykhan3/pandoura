@@ -16,7 +16,7 @@ type RuntimeMetrics = {
 export function ShadowRuntime() {
   const [activeTab, setActiveTab] = useState<'overview' | 'sync' | 'simulator'>('overview')
   const syncStatus = useSyncStore((s) => s.status)
-  const { isRunning, isPaused, currentLine } = useSimulatorStore()
+  const { isRunning, isPaused, currentLine, ioValues } = useSimulatorStore()
   
   const [metrics, setMetrics] = useState<RuntimeMetrics>({
     latency: 0,
@@ -26,15 +26,6 @@ export function ShadowRuntime() {
   })
 
   const [deployedLogic, setDeployedLogic] = useState<any>(null)
-
-  const [liveValues, setLiveValues] = useState({
-    Tank_Level: 50.0,
-    Temperature_PV: 72.5,
-    Temperature_SP: 75.0,
-    Pump_Run: false,
-    Heater_Output: 0.0,
-    Emergency_Stop: false,
-  })
 
   useEffect(() => {
     // Fetch deployed logic status
@@ -55,17 +46,9 @@ export function ShadowRuntime() {
     // Poll for deployed logic updates every 3 seconds
     const logicPollInterval = setInterval(fetchDeployedLogic, 3000)
 
-    // Poll for real tag values and simulator metrics every second
+    // Poll for simulator metrics every second
     const dataInterval = setInterval(async () => {
       try {
-        // Fetch tag stream values
-        const tagResponse = await fetch('http://localhost:8000/api/sync/stream-tags')
-        const tagData = await tagResponse.json()
-        
-        if (tagData.tags && tagData.streaming) {
-          setLiveValues(tagData.tags)
-        }
-        
         // Fetch simulator status for metrics
         const simResponse = await fetch('http://localhost:8000/api/simulate/status')
         const simData = await simResponse.json()
@@ -172,37 +155,100 @@ export function ShadowRuntime() {
       {activeTab === 'overview' && (
         <>
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <Card className="h-64">
+            <Card>
               <CardHeader>Live Process Mirror</CardHeader>
-              <div className="space-y-3 text-sm">
-                <div className="flex justify-between items-center">
-                  <span className="text-neutral-600">Tank Level:</span>
-                  <span className="font-mono text-neutral-900">{typeof liveValues.Tank_Level === 'number' ? liveValues.Tank_Level.toFixed(1) : liveValues.Tank_Level} %</span>
-                </div>
-                <div className="flex justify-between items-center">
-                  <span className="text-neutral-600">Temperature PV:</span>
-                  <span className="font-mono text-neutral-900">{typeof liveValues.Temperature_PV === 'number' ? liveValues.Temperature_PV.toFixed(1) : liveValues.Temperature_PV} °C</span>
-                </div>
-                <div className="flex justify-between items-center">
-                  <span className="text-neutral-600">Temperature SP:</span>
-                  <span className="font-mono text-neutral-900">{typeof liveValues.Temperature_SP === 'number' ? liveValues.Temperature_SP.toFixed(1) : liveValues.Temperature_SP} °C</span>
-                </div>
-                <div className="flex justify-between items-center">
-                  <span className="text-neutral-600">Heater Output:</span>
-                  <span className="font-mono text-neutral-900">{typeof liveValues.Heater_Output === 'number' ? liveValues.Heater_Output.toFixed(1) : liveValues.Heater_Output} %</span>
-                </div>
-                <div className="flex justify-between items-center">
-                  <span className="text-neutral-600">Pump Run:</span>
-                  <span className={`font-mono font-semibold ${liveValues.Pump_Run ? 'text-green-600' : 'text-neutral-400'}`}>{liveValues.Pump_Run ? 'ON' : 'OFF'}</span>
-                </div>
-                <div className="mt-4 pt-3 border-t border-neutral-200">
-                  <div className="text-xs text-neutral-500">Last update: {new Date().toLocaleTimeString()}</div>
-                  <div className="text-xs text-green-600 mt-1">● Live data from tag stream</div>
-                </div>
+              <div className="space-y-4 max-h-[500px] overflow-y-auto">
+                {Object.keys(ioValues).length === 0 ? (
+                  <div className="text-sm text-neutral-500 text-center py-8">
+                    No I/O values available. Start the simulator to see live data.
+                  </div>
+                ) : (
+                  <>
+                    {/* Boolean I/O - Digital Inputs/Outputs */}
+                    {Object.entries(ioValues).some(([_, value]) => typeof value === 'boolean') && (
+                      <div>
+                        <div className="text-sm font-medium text-neutral-700 mb-2">Digital I/O</div>
+                        <div className="space-y-2">
+                          {Object.entries(ioValues)
+                            .filter(([_, value]) => typeof value === 'boolean')
+                            .map(([name, value]) => (
+                              <div key={name} className="flex items-center justify-between p-2 bg-neutral-50 rounded">
+                                <span className="text-sm font-mono">{name}</span>
+                                <span className={`px-3 py-1 rounded-md text-sm font-medium ${
+                                  value
+                                    ? 'bg-green-600 text-white'
+                                    : 'bg-neutral-300 text-neutral-700'
+                                }`}>
+                                  {value ? 'ON' : 'OFF'}
+                                </span>
+                              </div>
+                            ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Numeric I/O - Analog Inputs/Outputs */}
+                    {Object.entries(ioValues).some(([_, value]) => typeof value === 'number') && (
+                      <div>
+                        <div className="text-sm font-medium text-neutral-700 mb-2">Analog I/O</div>
+                        <div className="space-y-3">
+                          {Object.entries(ioValues)
+                            .filter(([_, value]) => typeof value === 'number')
+                            .map(([name, value]) => {
+                              // Determine if this is an output variable (read-only)
+                              const isOutput = name.includes('Output') || name.includes('output')
+                              const isPercentage = name.includes('Level') || name.includes('Output') || name.includes('Humidity')
+                              const isTemperature = name.includes('Temp') || name.includes('temp')
+                              
+                              const unit = isTemperature ? '°C' : isPercentage ? '%' : ''
+                              
+                              return (
+                                <div 
+                                  key={name} 
+                                  className={`p-2 rounded ${isOutput ? 'bg-blue-50 border border-blue-200' : 'bg-neutral-50'}`}
+                                >
+                                  <div className="flex items-center justify-between mb-1">
+                                    <span className="text-sm font-mono">{name}</span>
+                                    <span className={`text-sm font-medium ${isOutput ? 'text-blue-800' : 'text-neutral-900'}`}>
+                                      {typeof value === 'number' ? value.toFixed(2) : value}{unit}
+                                    </span>
+                                  </div>
+                                  {isOutput && (
+                                    <>
+                                      <div className="mt-1 w-full bg-neutral-200 rounded-full h-2">
+                                        <div 
+                                          className="bg-blue-600 h-2 rounded-full transition-all"
+                                          style={{ width: `${Math.min(100, Math.max(0, value as number))}%` }}
+                                        />
+                                      </div>
+                                      <div className="text-xs text-neutral-600 mt-1">Calculated Output</div>
+                                    </>
+                                  )}
+                                  {!isOutput && (
+                                    <div className="mt-1 w-full bg-neutral-200 rounded-full h-2">
+                                      <div 
+                                        className="bg-green-600 h-2 rounded-full transition-all"
+                                        style={{ width: `${Math.min(100, Math.max(0, value as number))}%` }}
+                                      />
+                                    </div>
+                                  )}
+                                </div>
+                              )
+                            })}
+                        </div>
+                      </div>
+                    )}
+
+                    <div className="pt-3 border-t border-neutral-200">
+                      <div className="text-xs text-neutral-500">Last update: {new Date().toLocaleTimeString()}</div>
+                      <div className="text-xs text-green-600 mt-1">● Live data from simulator</div>
+                    </div>
+                  </>
+                )}
               </div>
             </Card>
 
-            <Card className="h-64">
+            <Card>
               <CardHeader>
                 <div className="flex items-center justify-between">
                   <span>Shadow Logic Status</span>
