@@ -288,4 +288,40 @@ export type CodeLens = {
   args?: unknown[]
 }
 
+// Project Management types
+
+export type ConnectionProfile = {
+  vendor: 'neutral' | 'rockwell' | 'siemens' | 'beckhoff'
+  ip: string
+  slot: number
+  rack: number
+  port: number
+}
+
+export type Project = {
+  id: string
+  name: string
+  description?: string
+  created_at: string
+  last_opened: string
+  file_path: string
+  connection_profile?: ConnectionProfile
+  stats?: {
+    logicFiles: number
+    tags: number
+    versions: number
+  }
+}
+
+export type CreateProjectRequest = {
+  name: string
+  description?: string
+}
+
+export type CreateProjectResponse = {
+  success: boolean
+  project?: Project
+  error?: string
+}
+
 

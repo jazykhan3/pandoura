@@ -1,7 +1,8 @@
-import { useMemo, useState } from 'react'
+import { useMemo, useState, useEffect } from 'react'
 import type { ReactNode } from 'react'
 import { useUiStore } from '../store/uiStore'
 import type { RouteKey } from '../store/uiStore'
+import { useProjectStore } from '../store/projectStore'
 import { motion, AnimatePresence } from 'framer-motion'
 import * as Tooltip from '@radix-ui/react-tooltip'
 import {
@@ -11,10 +12,13 @@ import {
   Braces,
   Upload,
   GitBranch,
+  FolderKanban,
   Settings,
   User,
   Menu,
   X,
+  ChevronDown,
+  FolderOpen,
 } from 'lucide-react'
 
 type NavItem = {
@@ -25,6 +29,7 @@ type NavItem = {
 
 const navItems: NavItem[] = [
   { key: 'dashboard', label: 'Dashboard', icon: <Home size={18} /> },
+  { key: 'projects', label: 'Projects', icon: <FolderKanban size={18} /> },
   { key: 'shadow', label: 'Shadow Runtime', icon: <Activity size={18} /> },
   { key: 'tags', label: 'Tag Database', icon: <Database size={18} /> },
   { key: 'logic', label: 'Logic Editor', icon: <Braces size={18} /> },
@@ -36,12 +41,32 @@ const navItems: NavItem[] = [
 export function Layout({ children }: { children: ReactNode }) {
   const active = useUiStore((s) => s.activeRoute)
   const setRoute = useUiStore((s) => s.setActiveRoute)
+  const { projects, activeProject, isLoading, setActiveProject, loadProjects } = useProjectStore()
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
+  const [projectDropdownOpen, setProjectDropdownOpen] = useState(false)
+
+  useEffect(() => {
+    loadProjects()
+  }, [loadProjects])
+
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (projectDropdownOpen) {
+        const target = e.target as HTMLElement
+        if (!target.closest('[data-project-dropdown]')) {
+          setProjectDropdownOpen(false)
+        }
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [projectDropdownOpen])
 
   const breadcrumb = useMemo(() => {
     const current = navItems.find((n) => n.key === active)
-    return `Pandaura > ${current?.label ?? ''}`
-  }, [active])
+    const projectPrefix = activeProject ? `[${activeProject.name}] — ` : ''
+    return `${projectPrefix}${current?.label ?? ''}`
+  }, [active, activeProject])
 
   const handleNavClick = (route: RouteKey) => {
     setRoute(route)
@@ -152,7 +177,71 @@ export function Layout({ children }: { children: ReactNode }) {
             </button>
             <div className="text-sm text-neutral-700 truncate">{breadcrumb}</div>
           </div>
+          
           <div className="flex items-center gap-2 md:gap-3">
+            {/* Project Selector Dropdown */}
+            <div className="relative" data-project-dropdown>
+              <button
+                onClick={() => setProjectDropdownOpen(!projectDropdownOpen)}
+                className="flex items-center gap-2 px-3 py-1.5 text-sm bg-gray-50 hover:bg-gray-100 border border-gray-200 rounded-lg transition-colors"
+              >
+                <FolderOpen size={16} className="text-[#FF6A00]" />
+                <span className="hidden sm:inline text-gray-700">
+                  {isLoading ? 'Loading...' : activeProject ? activeProject.name : 'No Project'}
+                </span>
+                <ChevronDown size={14} className="text-gray-500" />
+              </button>
+
+              {projectDropdownOpen && (
+                <div className="absolute right-0 top-full mt-2 w-64 bg-white border border-gray-200 rounded-lg shadow-lg z-50 max-h-80 overflow-y-auto">
+                  {projects.length > 0 ? (
+                    <div className="py-1">
+                      {projects.map((project) => (
+                        <button
+                          key={project.id}
+                          onClick={() => {
+                            setActiveProject(project)
+                            setProjectDropdownOpen(false)
+                          }}
+                          className={`w-full px-4 py-2.5 text-left hover:bg-gray-50 transition-colors flex items-center gap-2 ${
+                            activeProject?.id === project.id ? 'bg-[#FF6A00]/5 border-l-2 border-[#FF6A00]' : ''
+                          }`}
+                        >
+                          <FolderOpen size={14} className={activeProject?.id === project.id ? 'text-[#FF6A00]' : 'text-gray-400'} />
+                          <div className="flex-1 min-w-0">
+                            <div className={`text-sm font-medium truncate ${
+                              activeProject?.id === project.id ? 'text-[#FF6A00]' : 'text-gray-700'
+                            }`}>
+                              {project.name}
+                            </div>
+                            <div className="text-xs text-gray-500 truncate">
+                              {new Date(project.last_opened).toLocaleDateString()}
+                            </div>
+                          </div>
+                        </button>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="px-4 py-3 text-sm text-gray-500 text-center">
+                      No projects available
+                    </div>
+                  )}
+                  <div className="border-t border-gray-200">
+                    <button
+                      onClick={() => {
+                        setRoute('projects')
+                        setProjectDropdownOpen(false)
+                      }}
+                      className="w-full px-4 py-2 text-sm text-[#FF6A00] hover:bg-gray-50 transition-colors flex items-center gap-2"
+                    >
+                      <FolderKanban size={14} />
+                      Manage Projects
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+
             <div className="text-xs text-neutral-500 hidden sm:block">Connected • Shadow Runtime</div>
             <div className="w-8 h-8 rounded-full bg-neutral-200 flex items-center justify-center">
               <User size={16} className="text-neutral-600" />

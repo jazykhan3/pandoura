@@ -6,6 +6,7 @@ import { TagDatabase } from './pages/TagDatabase'
 import { LogicEditor } from './pages/LogicEditor'
 import { Deploy } from './pages/Deploy'
 import { VersioningCenter } from './pages/VersioningCenter'
+import { ProjectManagement } from './pages/ProjectManagement'
 import { SettingsPage } from './pages/SettingsPage'
 
 function App() {
@@ -14,6 +15,7 @@ function App() {
   return (
     <Layout>
       {active === 'dashboard' && <Dashboard />}
+      {active === 'projects' && <ProjectManagement />}
       {active === 'shadow' && <ShadowRuntime />}
       {active === 'tags' && <TagDatabase />}
       {active === 'logic' && <LogicEditor />}
