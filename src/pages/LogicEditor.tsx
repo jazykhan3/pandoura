@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useRef } from 'react'
 import { MonacoEditor } from '../components/MonacoEditor'
 import { Dialog } from '../components/Dialog'
 import { InputDialog } from '../components/InputDialog'
@@ -6,7 +6,8 @@ import { useLogicStore } from '../store/enhancedLogicStore'
 import { useSyncStore } from '../store/syncStore'
 import { useSimulatorStore } from '../store/simulatorStore'
 import { useTagStore } from '../store/tagStore'
-import { logicApi } from '../services/api'
+import { useProjectStore } from '../store/projectStore'
+import { logicApi, versionApi } from '../services/api'
 import {
   Save,
   Undo,
@@ -22,6 +23,7 @@ import {
   Package,
   Tag,
   GitBranch,
+  GitCommit,
   Clock,
   Replace,
   FileText,
@@ -271,6 +273,10 @@ export function LogicEditor() {
   const { pushToShadow, isPushing, status } = useSyncStore()
   const { run: runSimulator, breakpoints, toggleBreakpoint, currentLine } = useSimulatorStore()
   const { tags: tagDatabaseTags, loadTags: loadTagDatabaseTags } = useTagStore()
+  const { activeProject } = useProjectStore()
+  
+  // Track previous project to detect changes
+  const prevProjectIdRef = useRef<string | null>(null)
 
   const [showFileSelector, setShowFileSelector] = useState(false)
   const [showChangePreview, setShowChangePreview] = useState(false)
@@ -316,7 +322,12 @@ export function LogicEditor() {
   const [showReleaseDialog, setShowReleaseDialog] = useState(false)
   const [snapshotMessage, setSnapshotMessage] = useState('')
   const [snapshotTags, setSnapshotTags] = useState('')
-  
+
+  const [showCreateVersionDialog, setShowCreateVersionDialog] = useState(false)
+  const [versionMessage, setVersionMessage] = useState('')
+  const [versionTags, setVersionTags] = useState('')
+  const [isCreatingVersion, setIsCreatingVersion] = useState(false)
+
   const [showCompareDialog, setShowCompareDialog] = useState(false)
   const [compareVersion, setCompareVersion] = useState('')
 
@@ -352,9 +363,21 @@ export function LogicEditor() {
   }, [currentFile?.id, currentFile?.content, unsavedChanges])
 
   useEffect(() => {
-    loadAllFiles()
-    loadTagDatabaseTags() // Load tags from database for autocomplete
-  }, [loadAllFiles, loadTagDatabaseTags])
+    // If project changed, close current file
+    if (prevProjectIdRef.current && prevProjectIdRef.current !== activeProject?.id) {
+      // Project changed - close any open file to prevent showing old project's file
+      if (currentFile) {
+        useLogicStore.setState({ currentFile: null, openTabs: [] })
+      }
+    }
+    
+    prevProjectIdRef.current = activeProject?.id || null
+    
+    if (activeProject) {
+      loadAllFiles(activeProject.id)
+      loadTagDatabaseTags() // Load tags from database for autocomplete
+    }
+  }, [activeProject?.id, loadAllFiles, loadTagDatabaseTags, currentFile])
 
   // Keyboard shortcuts
   useEffect(() => {
@@ -427,6 +450,98 @@ export function LogicEditor() {
         message: 'Failed to format code. Check console for details.',
         type: 'error'
       })
+    }
+  }
+
+  const handleCreateVersion = async () => {
+    if (!activeProject) {
+      setDialog({
+        isOpen: true,
+        title: 'No Project Selected',
+        message: 'Please select a project before creating a version.',
+        type: 'warning',
+      })
+      return
+    }
+
+    if (!versionMessage.trim()) {
+      setDialog({
+        isOpen: true,
+        title: 'Message Required',
+        message: 'Please enter a version message.',
+        type: 'warning',
+      })
+      return
+    }
+
+    setIsCreatingVersion(true)
+    try {
+      // Collect all logic files from the store
+      const versionFiles = files.map(file => ({
+        path: `logic/${file.name}`,
+        content: unsavedChanges[file.id] || file.content,
+        type: 'logic' as const,
+      }))
+
+      // Add tags as a JSON file
+      if (tagDatabaseTags.length > 0) {
+        versionFiles.push({
+          path: 'tags/tags.json',
+          content: JSON.stringify(tagDatabaseTags, null, 2),
+          type: 'config' as const,
+        })
+      }
+
+      // Get or create the 'main' branch
+      const branchesResponse = await versionApi.getBranches(activeProject.id)
+      let branchId: string | number
+      
+      // Handle the response structure { success: true, branches: [...] }
+      const branches = branchesResponse.branches || []
+      
+      if (branches.length === 0) {
+        const newBranch = await versionApi.createBranch(activeProject.id, {
+          name: 'main',
+          stage: 'dev',
+          description: 'Main development branch',
+          createdBy: 'Current User'
+        })
+        branchId = newBranch.branch?.id || newBranch.id
+      } else {
+        branchId = branches[0].id
+      }
+
+      // Create the version (projectId is already a string UUID)
+      const response = await versionApi.createVersion(activeProject.id, {
+        branch_id: branchId,
+        message: versionMessage,
+        author: 'Current User', // TODO: Get from auth context
+        tags: versionTags ? versionTags.split(',').map(t => t.trim()).filter(Boolean) : undefined,
+        files: versionFiles,
+      })
+
+      const version = response.version || response
+
+      setDialog({
+        isOpen: true,
+        title: 'Version Created',
+        message: `Version ${version.version || 'created'} successfully!\n\nFiles: ${versionFiles.length}\nBranch: main\nMessage: ${versionMessage}`,
+        type: 'success',
+      })
+
+      setShowCreateVersionDialog(false)
+      setVersionMessage('')
+      setVersionTags('')
+    } catch (error) {
+      console.error('Error creating version:', error)
+      setDialog({
+        isOpen: true,
+        title: 'Version Creation Failed',
+        message: error instanceof Error ? error.message : 'Failed to create version. Check console for details.',
+        type: 'error',
+      })
+    } finally {
+      setIsCreatingVersion(false)
     }
   }
 
@@ -515,7 +630,7 @@ export function LogicEditor() {
 
   const handleCreateFile = async (fileName: string) => {
     try {
-      await createFile(fileName)
+      await createFile(fileName, activeProject?.id)
       setDialog({
         isOpen: true,
         title: 'File Created',
@@ -1309,15 +1424,25 @@ export function LogicEditor() {
               </button>
 
               <button
-                onClick={() => alert('Snapshot created (Milestone 3 feature)')}
-                className="w-full px-3 py-2 text-sm bg-white border border-neutral-300 text-neutral-800 rounded-md hover:bg-neutral-50 transition-colors"
+                onClick={() => setShowSnapshotDialog(true)}
+                disabled={!currentFile}
+                className={`w-full px-3 py-2 text-sm rounded-md transition-colors ${
+                  currentFile
+                    ? 'bg-blue-500 text-white hover:bg-blue-600'
+                    : 'bg-neutral-200 text-neutral-500 cursor-not-allowed'
+                }`}
               >
                 Create Snapshot
               </button>
 
               <button
-                onClick={() => alert('Version creation (Milestone 3 feature)')}
-                className="w-full px-3 py-2 text-sm bg-white border border-neutral-300 text-neutral-800 rounded-md hover:bg-neutral-50 transition-colors"
+                onClick={() => setShowCreateVersionDialog(true)}
+                disabled={!activeProject || files.length === 0}
+                className={`w-full px-3 py-2 text-sm rounded-md transition-colors ${
+                  activeProject && files.length > 0
+                    ? 'bg-green-500 text-white hover:bg-green-600'
+                    : 'bg-neutral-200 text-neutral-500 cursor-not-allowed'
+                }`}
               >
                 Create Version
               </button>
@@ -1610,6 +1735,80 @@ export function LogicEditor() {
                   className="px-4 py-2 bg-[#FF6A00] text-white rounded-lg hover:bg-[#E55F00] disabled:bg-neutral-300 disabled:cursor-not-allowed transition-colors"
                 >
                   Create Snapshot
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Create Version Dialog */}
+      {showCreateVersionDialog && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center">
+          <div className="bg-white rounded-lg p-6 w-[500px] max-w-[90vw]">
+            <h2 className="text-xl font-semibold mb-4 flex items-center gap-2">
+              <GitCommit className="w-5 h-5 text-green-600" />
+              Create Version
+            </h2>
+            <p className="text-sm text-neutral-600 mb-4">
+              Create an immutable snapshot of all logic files and tags in the current project.
+            </p>
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium mb-2">Version Message *</label>
+                <textarea
+                  value={versionMessage}
+                  onChange={(e) => setVersionMessage(e.target.value)}
+                  placeholder="Describe what changed in this version..."
+                  className="w-full px-3 py-2 border border-neutral-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
+                  rows={3}
+                  required
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-2">Tags (optional)</label>
+                <input
+                  type="text"
+                  value={versionTags}
+                  onChange={(e) => setVersionTags(e.target.value)}
+                  placeholder="feature, bugfix, release"
+                  className="w-full px-3 py-2 border border-neutral-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
+                />
+                <p className="text-xs text-neutral-500 mt-1">Comma-separated tags</p>
+              </div>
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+                <p className="text-sm text-blue-800">
+                  <strong>Files to include:</strong> {files.length} logic file(s), {tagDatabaseTags.length} tag(s)
+                </p>
+              </div>
+              <div className="flex justify-end gap-2 pt-4">
+                <button
+                  onClick={() => {
+                    setShowCreateVersionDialog(false)
+                    setVersionMessage('')
+                    setVersionTags('')
+                  }}
+                  disabled={isCreatingVersion}
+                  className="px-4 py-2 text-neutral-700 hover:bg-neutral-100 rounded-lg transition-colors disabled:opacity-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleCreateVersion}
+                  disabled={!versionMessage.trim() || isCreatingVersion}
+                  className="px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 disabled:bg-neutral-300 disabled:cursor-not-allowed transition-colors flex items-center gap-2"
+                >
+                  {isCreatingVersion ? (
+                    <>
+                      <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                      Creating...
+                    </>
+                  ) : (
+                    <>
+                      <GitCommit className="w-4 h-4" />
+                      Create Version
+                    </>
+                  )}
                 </button>
               </div>
             </div>

@@ -38,8 +38,8 @@ type LogicState = {
   
   // Actions
   loadFile: (id: string) => Promise<void>
-  loadAllFiles: () => Promise<void>
-  createFile: (name: string) => Promise<void>
+  loadAllFiles: (projectId?: string) => Promise<void>
+  createFile: (name: string, projectId?: string) => Promise<void>
   updateContent: (content: string) => void
   saveFile: (fileId?: string) => Promise<void>
   validate: (content?: string) => Promise<void>
@@ -111,22 +111,23 @@ export const useLogicStore = create<LogicState>((set, get) => ({
     }
   },
 
-  loadAllFiles: async () => {
+  loadAllFiles: async (projectId?: string) => {
     try {
-      const files = await logicApi.getAll()
+      const files = await logicApi.getAll(projectId)
       set({ files })
     } catch (error) {
       console.error('Failed to load files:', error)
     }
   },
 
-  createFile: async (name: string) => {
+  createFile: async (name: string, projectId?: string) => {
     try {
       const newFile = await logicApi.create({
         name,
         content: '(* New Logic File *)\nPROGRAM New_Program\nVAR\n  (* Variables here *)\nEND_VAR\n\n(* Logic here *)\n\nEND_PROGRAM',
         vendor: get().vendor,
         author: 'Engineer',
+        projectId,
       })
       
       set(state => ({ 

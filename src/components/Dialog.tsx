@@ -1,12 +1,14 @@
-import { useEffect } from 'react'
+import { useEffect, ReactNode } from 'react'
 import { X, CheckCircle, AlertCircle, Info, AlertTriangle } from 'lucide-react'
 
 type DialogProps = {
   isOpen: boolean
   onClose: () => void
   title: string
-  message: string
+  message?: string
+  children?: ReactNode
   type?: 'success' | 'error' | 'info' | 'warning'
+  size?: 'small' | 'medium' | 'large' | 'xl'
   actions?: {
     label: string
     onClick: () => void
@@ -14,7 +16,7 @@ type DialogProps = {
   }[]
 }
 
-export function Dialog({ isOpen, onClose, title, message, type = 'info', actions }: DialogProps) {
+export function Dialog({ isOpen, onClose, title, message, children, type = 'info', size = 'medium', actions }: DialogProps) {
   useEffect(() => {
     const handleEscape = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
@@ -61,6 +63,21 @@ export function Dialog({ isOpen, onClose, title, message, type = 'info', actions
     }
   }
 
+  const getSizeClass = () => {
+    switch (size) {
+      case 'small':
+        return 'max-w-sm'
+      case 'medium':
+        return 'max-w-md'
+      case 'large':
+        return 'max-w-3xl'
+      case 'xl':
+        return 'max-w-6xl'
+      default:
+        return 'max-w-md'
+    }
+  }
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center">
       {/* Backdrop */}
@@ -70,10 +87,10 @@ export function Dialog({ isOpen, onClose, title, message, type = 'info', actions
       />
       
       {/* Dialog */}
-      <div className="relative bg-white rounded-lg shadow-xl max-w-md w-full mx-4 animate-in zoom-in-95 duration-200">
+      <div className={`relative bg-white rounded-lg shadow-xl ${getSizeClass()} w-full mx-4 animate-in zoom-in-95 duration-200`}>
         {/* Header */}
-        <div className={`flex items-center gap-3 p-4 border-b border-neutral-200 rounded-t-lg ${getHeaderColor()}`}>
-          {getIcon()}
+        <div className={`flex items-center gap-3 p-4 border-b border-neutral-200 rounded-t-lg ${message ? getHeaderColor() : 'bg-gray-50'}`}>
+          {message && getIcon()}
           <h2 className="font-semibold text-lg text-neutral-900">{title}</h2>
           <button
             onClick={onClose}
@@ -84,38 +101,46 @@ export function Dialog({ isOpen, onClose, title, message, type = 'info', actions
         </div>
 
         {/* Content */}
-        <div className="p-4">
-          <p className="text-neutral-700 whitespace-pre-line">{message}</p>
-        </div>
+        {message ? (
+          <div className="p-4">
+            <p className="text-neutral-700 whitespace-pre-line">{message}</p>
+          </div>
+        ) : (
+          <div>
+            {children}
+          </div>
+        )}
 
-        {/* Actions */}
-        <div className="flex gap-3 p-4 border-t border-neutral-200">
-          {actions && actions.length > 0 ? (
-            actions.map((action, index) => (
+        {/* Actions - Only show for message dialogs */}
+        {message && (
+          <div className="flex gap-3 p-4 border-t border-neutral-200">
+            {actions && actions.length > 0 ? (
+              actions.map((action, index) => (
+                <button
+                  key={index}
+                  onClick={() => {
+                    action.onClick()
+                    onClose()
+                  }}
+                  className={`px-4 py-2 rounded-md font-medium transition-colors ${
+                    action.variant === 'primary'
+                      ? 'bg-[#FF6A00] text-white hover:bg-[#FF8020]'
+                      : 'bg-neutral-200 text-neutral-800 hover:bg-neutral-300'
+                  }`}
+                >
+                  {action.label}
+                </button>
+              ))
+            ) : (
               <button
-                key={index}
-                onClick={() => {
-                  action.onClick()
-                  onClose()
-                }}
-                className={`px-4 py-2 rounded-md font-medium transition-colors ${
-                  action.variant === 'primary'
-                    ? 'bg-[#FF6A00] text-white hover:bg-[#FF8020]'
-                    : 'bg-neutral-200 text-neutral-800 hover:bg-neutral-300'
-                }`}
+                onClick={onClose}
+                className="ml-auto px-4 py-2 rounded-md font-medium bg-neutral-200 text-neutral-800 hover:bg-neutral-300 transition-colors"
               >
-                {action.label}
+                OK
               </button>
-            ))
-          ) : (
-            <button
-              onClick={onClose}
-              className="ml-auto px-4 py-2 rounded-md font-medium bg-neutral-200 text-neutral-800 hover:bg-neutral-300 transition-colors"
-            >
-              OK
-            </button>
-          )}
-        </div>
+            )}
+          </div>
+        )}
       </div>
     </div>
   )

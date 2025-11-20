@@ -16,7 +16,7 @@ async function dummyFetch<T>(data: T, delayMs = 300): Promise<T> {
 
 // Logic File APIs
 export const logicApi = {
-  async getAll(): Promise<LogicFile[]> {
+  async getAll(projectId?: string): Promise<LogicFile[]> {
     if (DUMMY_MODE) {
       return dummyFetch([
         {
@@ -37,7 +37,8 @@ export const logicApi = {
         },
       ])
     }
-    const res = await fetch(`${API_BASE}/logic`)
+    const url = projectId ? `${API_BASE}/logic?projectId=${projectId}` : `${API_BASE}/logic`;
+    const res = await fetch(url)
     return res.json()
   },
 
@@ -1021,6 +1022,193 @@ export const plcApi = {
     });
     return res.json();
   }
+}
+
+// Version Control APIs
+export const versionApi = {
+  // Branches
+  async getBranches(projectId: string | number) {
+    const res = await fetch(`${API_BASE}/versions/projects/${projectId}/branches`);
+    return res.json();
+  },
+
+  async createBranch(projectId: string | number, data: {
+    name: string;
+    stage: string;
+    parentBranchId?: string;
+    description?: string;
+    createdBy?: string;
+  }) {
+    const res = await fetch(`${API_BASE}/versions/projects/${projectId}/branches`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data),
+    });
+    return res.json();
+  },
+
+  async deleteBranch(branchId: string) {
+    const res = await fetch(`${API_BASE}/versions/branches/${branchId}`, {
+      method: 'DELETE',
+    });
+    return res.json();
+  },
+
+  // Versions
+  async getVersions(projectId: string, filters?: {
+    branchId?: string;
+    status?: string;
+    limit?: number;
+  }) {
+    const params = new URLSearchParams();
+    if (filters?.branchId) params.append('branchId', filters.branchId);
+    if (filters?.status) params.append('status', filters.status);
+    if (filters?.limit) params.append('limit', filters.limit.toString());
+
+    const url = `${API_BASE}/versions/projects/${projectId}/versions${params.toString() ? '?' + params.toString() : ''}`;
+    const res = await fetch(url);
+    return res.json();
+  },
+
+  async getVersionById(versionId: string) {
+    const res = await fetch(`${API_BASE}/versions/${versionId}`);
+    return res.json();
+  },
+
+  async createVersion(projectId: number | string, data: {
+    branch_id: number | string;
+    message: string;
+    author: string;
+    tags?: string[];
+    files: Array<{ path: string; content: string; type?: string }>;
+  }) {
+    const res = await fetch(`${API_BASE}/versions/projects/${projectId}/versions`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data),
+    });
+    return res.json();
+  },
+
+  async updateVersionStatus(versionId: string, status: string, actor: string) {
+    const res = await fetch(`${API_BASE}/versions/${versionId}/status`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ status, actor }),
+    });
+    return res.json();
+  },
+
+  async signVersion(versionId: string, signedBy: string) {
+    const res = await fetch(`${API_BASE}/versions/${versionId}/sign`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ signedBy }),
+    });
+    return res.json();
+  },
+
+  async approveVersion(versionId: string, approver: string) {
+    const res = await fetch(`${API_BASE}/versions/${versionId}/approve`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ approver }),
+    });
+    return res.json();
+  },
+
+  async getVersionFiles(versionId: string) {
+    const res = await fetch(`${API_BASE}/versions/${versionId}/files`);
+    return res.json();
+  },
+
+  async compareVersions(versionId1: string, versionId2: string) {
+    const res = await fetch(`${API_BASE}/versions/compare/${versionId1}/${versionId2}`);
+    return res.json();
+  },
+
+  // Snapshots
+  async getSnapshots(projectId: string) {
+    const res = await fetch(`${API_BASE}/versions/projects/${projectId}/snapshots`);
+    return res.json();
+  },
+
+  async getSnapshotById(snapshotId: string) {
+    const res = await fetch(`${API_BASE}/versions/snapshots/${snapshotId}`);
+    return res.json();
+  },
+
+  async createSnapshot(projectId: string, data: {
+    versionId: string;
+    name: string;
+    description?: string;
+    createdBy: string;
+    tags?: string[];
+  }) {
+    const res = await fetch(`${API_BASE}/versions/projects/${projectId}/snapshots`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data),
+    });
+    return res.json();
+  },
+
+  // Releases
+  async getReleases(projectId: string, filters?: { status?: string }) {
+    const params = new URLSearchParams();
+    if (filters?.status) params.append('status', filters.status);
+
+    const url = `${API_BASE}/versions/projects/${projectId}/releases${params.toString() ? '?' + params.toString() : ''}`;
+    const res = await fetch(url);
+    return res.json();
+  },
+
+  async getReleaseById(releaseId: string) {
+    const res = await fetch(`${API_BASE}/versions/releases/${releaseId}`);
+    return res.json();
+  },
+
+  async createRelease(projectId: string, data: {
+    snapshotId: string;
+    versionId: string;
+    name: string;
+    version: string;
+    description?: string;
+    createdBy: string;
+    tags?: string[];
+    metadata?: Record<string, unknown>;
+  }) {
+    const res = await fetch(`${API_BASE}/versions/projects/${projectId}/releases`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data),
+    });
+    return res.json();
+  },
+
+  async promoteRelease(releaseId: string, targetEnvironment: string, promotedBy: string) {
+    const res = await fetch(`${API_BASE}/versions/releases/${releaseId}/promote`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ targetEnvironment, promotedBy }),
+    });
+    return res.json();
+  },
+
+  // History and Stats
+  async getHistory(projectId: string, limit?: number) {
+    const params = new URLSearchParams();
+    if (limit) params.append('limit', limit.toString());
+
+    const url = `${API_BASE}/versions/projects/${projectId}/history${params.toString() ? '?' + params.toString() : ''}`;
+    const res = await fetch(url);
+    return res.json();
+  },
+
+  async getStats(projectId: string) {
+    const res = await fetch(`${API_BASE}/versions/projects/${projectId}/stats`);
+    return res.json();
+  },
 }
 
 // Mock data

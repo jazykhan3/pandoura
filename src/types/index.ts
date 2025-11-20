@@ -43,7 +43,8 @@ export type LogicFile = {
   vendor: 'neutral' | 'rockwell' | 'siemens' | 'beckhoff'
   lastModified: string
   author: string
-  snapshot?: string
+  snapshot?: boolean
+  projectId?: string
 }
 
 export type SyncEventType = 
