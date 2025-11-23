@@ -11,19 +11,157 @@ export type Connection = {
   status: 'online' | 'warning' | 'offline'
 }
 
+// Enhanced Tag types for industrial PLC systems
+export type TagScope = 'global' | 'program' | 'task'
+export type TagLifecycle = 'draft' | 'active' | 'deprecated' | 'archived'
+export type TagDataType = 'BOOL' | 'INT' | 'DINT' | 'REAL' | 'LREAL' | 'STRING' | 'TIME' | 'ARRAY' | 'UDT' | 'STRUCT'
+
+export type UDTMember = {
+  name: string
+  type: TagDataType
+  udtType?: string // For nested UDTs
+  arraySize?: number
+  defaultValue?: any
+  description?: string
+}
+
+export type UserDefinedType = {
+  id: string
+  name: string
+  description?: string
+  members: UDTMember[]
+  createdAt: string
+  createdBy: string
+  projectId?: string
+}
+
+export type TagValidationRule = {
+  id: string
+  type: 'min' | 'max' | 'range' | 'regex' | 'custom'
+  value: any
+  message?: string
+  severity?: 'error' | 'warning' | 'info'
+}
+
+export type TagAlias = {
+  id: string
+  tagId: string
+  alias: string
+  vendorAddress?: string
+  description?: string
+}
+
+export type TagDependency = {
+  tagId: string
+  dependsOnTagId: string
+  usageType: 'read' | 'write' | 'readwrite'
+  location: {
+    fileId?: string
+    fileName?: string
+    routine?: string
+    lineNumber?: number
+  }
+}
+
+export type TagHierarchyNode = {
+  id: string
+  name: string
+  type: 'area' | 'equipment' | 'routine' | 'tag'
+  parentId?: string
+  tagId?: string
+  children?: TagHierarchyNode[]
+}
+
 export type Tag = {
   id: string
   name: string
-  type: 'BOOL' | 'INT' | 'REAL' | 'STRING' | 'TIME'
+  type: TagDataType
+  udtType?: string // Reference to UDT if type is 'UDT'
   value: string | number | boolean | null
   address: string
   lastUpdate: Date
   persist?: boolean
   source?: 'live' | 'shadow' | 'simulator'
+  
+  // Enhanced features
+  scope?: TagScope
+  scopeLocked?: boolean
+  lifecycle?: TagLifecycle
+  hierarchyPath?: string // e.g., "Area1/Equipment2/Routine3"
+  area?: string
+  equipment?: string
+  routine?: string
+  
+  // Validation
+  validationRules?: TagValidationRule[]
+  alarmThresholds?: {
+    low?: number
+    high?: number
+    critical?: number
+  }
+  
+  // Permissions
+  readOnly?: boolean
+  requiresApproval?: boolean
+  allowedRoles?: string[]
+  
+  // Metadata
   metadata?: {
     description?: string
     units?: string
+    vendor?: 'rockwell' | 'siemens' | 'beckhoff' | 'neutral'
+    imported?: boolean
+    version?: number
   }
+  
+  // Relations
+  aliases?: TagAlias[]
+  dependencies?: TagDependency[]
+  
+  // Project reference
+  projectId?: string
+}
+
+export type TagImportMapping = {
+  sourceTag: string
+  targetTag: string
+  action: 'create' | 'update' | 'skip' | 'conflict'
+  conflicts?: string[]
+  udtMapping?: Record<string, string>
+}
+
+export type TagRefactoringPreview = {
+  tagId: string
+  oldName: string
+  newName: string
+  affectedFiles: {
+    fileId: string
+    fileName: string
+    occurrences: number
+    changes: {
+      line: number
+      oldText: string
+      newText: string
+    }[]
+  }[]
+  requiresApproval: boolean
+  estimatedImpact: 'low' | 'medium' | 'high'
+}
+
+export type BulkTagOperation = {
+  id: string
+  operation: 'create' | 'update' | 'delete' | 'rename' | 'copy'
+  tags: string[] // tag IDs
+  changes: Record<string, any>
+  dryRun: boolean
+  preview?: {
+    successful: number
+    failed: number
+    warnings: string[]
+  }
+  status: 'pending' | 'running' | 'completed' | 'failed'
+  createdAt: string
+  completedAt?: string
 }
 
 export type DeploymentLog = {

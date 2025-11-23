@@ -768,6 +768,113 @@ export const tagApi = {
     })
     return res.json()
   },
+
+  // Enhanced Tag Database Features
+  async getUDTs(projectId?: string): Promise<any[]> {
+    const params = projectId ? `?projectId=${projectId}` : ''
+    const res = await fetch(`${API_BASE}/tags/udts${params}`)
+    return res.json()
+  },
+
+  async createUDT(udtData: any, projectId?: string): Promise<any> {
+    const res = await fetch(`${API_BASE}/tags/udts`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ...udtData, projectId }),
+    })
+    return res.json()
+  },
+
+  async getHierarchy(projectId?: string): Promise<any[]> {
+    const params = projectId ? `?projectId=${projectId}` : ''
+    const res = await fetch(`${API_BASE}/tags/hierarchy${params}`)
+    return res.json()
+  },
+
+  async bulkOperation(operation: {
+    operation: string
+    tagIds: string[]
+    dryRun: boolean
+    projectId?: string
+  }): Promise<any> {
+    const res = await fetch(`${API_BASE}/tags/bulk`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(operation),
+    })
+    return res.json()
+  },
+
+  async getRefactoringPreview(tagId: string, newName: string, projectId?: string): Promise<any> {
+    const params = new URLSearchParams({ newName })
+    if (projectId) params.append('projectId', projectId)
+    const res = await fetch(`${API_BASE}/tags/${tagId}/refactor-preview?${params}`)
+    return res.json()
+  },
+
+  async applyRefactoring(preview: any, projectId?: string): Promise<any> {
+    const res = await fetch(`${API_BASE}/tags/refactor-apply`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ...preview, projectId }),
+    })
+    return res.json()
+  },
+
+  async previewImport(file: File, vendor: string, projectId?: string): Promise<any> {
+    const formData = new FormData()
+    formData.append('file', file)
+    formData.append('vendor', vendor)
+    if (projectId) formData.append('projectId', projectId)
+    
+    const res = await fetch(`${API_BASE}/tags/import-preview`, {
+      method: 'POST',
+      body: formData,
+    })
+    return res.json()
+  },
+
+  async getDependencies(tagId: string, projectId?: string): Promise<any> {
+    const params = projectId ? `?projectId=${projectId}` : ''
+    const res = await fetch(`${API_BASE}/tags/${tagId}/dependencies${params}`)
+    return res.json()
+  },
+
+  async addValidationRule(tagId: string, rule: any): Promise<any> {
+    const res = await fetch(`${API_BASE}/tags/${tagId}/validation-rules`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(rule),
+    })
+    return res.json()
+  },
+
+  async addAlias(tagId: string, alias: any): Promise<any> {
+    const res = await fetch(`${API_BASE}/tags/${tagId}/aliases`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(alias),
+    })
+    return res.json()
+  },
+
+  async updateLifecycle(tagId: string, lifecycle: string): Promise<any> {
+    const res = await fetch(`${API_BASE}/tags/${tagId}/lifecycle`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ lifecycle }),
+    })
+    return res.json()
+  },
+
+  async updateScope(tagId: string, scope: string, locked: boolean = false): Promise<any> {
+    const res = await fetch(`${API_BASE}/tags/${tagId}/scope`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ scope, locked }),
+    })
+    return res.json()
+  },
 }
 
 // PLC Execution APIs
