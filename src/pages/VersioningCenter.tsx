@@ -171,13 +171,44 @@ export function VersioningCenter() {
   const [showPromoteDialog, setShowPromoteDialog] = useState(false)
   const [selectedRelease, setSelectedRelease] = useState<any>(null)
   const [showNoParentDialog, setShowNoParentDialog] = useState(false)
+  const [showSuccessDialog, setShowSuccessDialog] = useState(false)
+  const [showErrorDialog, setShowErrorDialog] = useState(false)
+  const [dialogMessage, setDialogMessage] = useState('')
 
-  // Load data
+  // Load all counts initially
+  useEffect(() => {
+    if (activeProject) {
+      loadAllCounts()
+    }
+  }, [activeProject])
+
+  // Load data for active tab
   useEffect(() => {
     if (activeProject) {
       loadData()
     }
   }, [activeProject, activeTab])
+
+  const loadAllCounts = async () => {
+    if (!activeProject) return
+
+    try {
+      // Load all counts in parallel to populate statistics
+      const [branchesResult, versionsResult, snapshotsResult, releasesResult] = await Promise.all([
+        versionApi.getBranches(activeProject.id),
+        versionApi.getVersions(activeProject.id, { limit: 50 }),
+        versionApi.getSnapshots(activeProject.id),
+        versionApi.getReleases(activeProject.id),
+      ])
+      
+      if (branchesResult.success) setBranches(branchesResult.branches)
+      if (versionsResult.success) setVersions(versionsResult.versions)
+      if (snapshotsResult.success) setSnapshots(snapshotsResult.snapshots)
+      if (releasesResult.success) setReleases(releasesResult.releases)
+    } catch (error) {
+      console.error('Failed to load counts:', error)
+    }
+  }
 
   const loadData = async () => {
     if (!activeProject) return
@@ -246,12 +277,14 @@ export function VersioningCenter() {
 
       if (result.success) {
         setShowCreateSnapshot(false)
-        loadData()
-        alert('Snapshot created successfully!')
+        await loadAllCounts()
+        setDialogMessage('Snapshot created successfully!')
+        setShowSuccessDialog(true)
       }
     } catch (error) {
       console.error('Failed to create snapshot:', error)
-      alert('Failed to create snapshot')
+      setDialogMessage('Failed to create snapshot')
+      setShowErrorDialog(true)
     }
   }
 
@@ -276,12 +309,14 @@ export function VersioningCenter() {
 
       if (result.success) {
         setShowCreateRelease(false)
-        loadData()
-        alert('Release created successfully!')
+        await loadAllCounts()
+        setDialogMessage('Release created successfully!')
+        setShowSuccessDialog(true)
       }
     } catch (error) {
       console.error('Failed to create release:', error)
-      alert('Failed to create release')
+      setDialogMessage('Failed to create release')
+      setShowErrorDialog(true)
     }
   }
 
@@ -297,12 +332,14 @@ export function VersioningCenter() {
 
       if (result.success) {
         setShowPromoteDialog(false)
-        loadData()
-        alert(`Release promoted to ${targetEnvironment}!`)
+        await loadAllCounts()
+        setDialogMessage(`Release promoted to ${targetEnvironment}!`)
+        setShowSuccessDialog(true)
       }
     } catch (error) {
       console.error('Failed to promote release:', error)
-      alert('Failed to promote release')
+      setDialogMessage('Failed to promote release')
+      setShowErrorDialog(true)
     }
   }
 
@@ -310,12 +347,14 @@ export function VersioningCenter() {
     try {
       const result = await versionApi.approveVersion(version.id, 'Current User')
       if (result.success) {
-        loadData()
-        alert('Version approved!')
+        await loadAllCounts()
+        setDialogMessage('Version approved successfully!')
+        setShowSuccessDialog(true)
       }
     } catch (error: any) {
       console.error('Failed to approve version:', error)
-      alert(error.message || 'Failed to approve version')
+      setDialogMessage(error.message || 'Failed to approve version')
+      setShowErrorDialog(true)
     }
   }
 
@@ -323,12 +362,14 @@ export function VersioningCenter() {
     try {
       const result = await versionApi.signVersion(version.id, 'Current User')
       if (result.success) {
-        loadData()
-        alert('Version signed!')
+        await loadAllCounts()
+        setDialogMessage('Version signed successfully!')
+        setShowSuccessDialog(true)
       }
     } catch (error) {
       console.error('Failed to sign version:', error)
-      alert('Failed to sign version')
+      setDialogMessage('Failed to sign version')
+      setShowErrorDialog(true)
     }
   }
 
@@ -398,6 +439,54 @@ export function VersioningCenter() {
                 className="px-4 py-2 bg-blue-500 text-white rounded-lg text-sm font-medium hover:bg-blue-600 transition-colors"
               >
                 Got it
+              </button>
+            </div>
+          </div>
+        </Dialog>
+      )}
+
+      {/* Success Dialog */}
+      {showSuccessDialog && (
+        <Dialog isOpen={showSuccessDialog} onClose={() => setShowSuccessDialog(false)} title="Success">
+          <div className="p-6">
+            <div className="flex items-start gap-3 mb-4">
+              <CheckCircle size={24} className="text-green-500 flex-shrink-0 mt-0.5" />
+              <div>
+                <p className="text-sm text-gray-700">
+                  {dialogMessage}
+                </p>
+              </div>
+            </div>
+            <div className="flex justify-end">
+              <button
+                onClick={() => setShowSuccessDialog(false)}
+                className="px-4 py-2 bg-green-500 text-white rounded-lg text-sm font-medium hover:bg-green-600 transition-colors"
+              >
+                OK
+              </button>
+            </div>
+          </div>
+        </Dialog>
+      )}
+
+      {/* Error Dialog */}
+      {showErrorDialog && (
+        <Dialog isOpen={showErrorDialog} onClose={() => setShowErrorDialog(false)} title="Error">
+          <div className="p-6">
+            <div className="flex items-start gap-3 mb-4">
+              <AlertCircle size={24} className="text-red-500 flex-shrink-0 mt-0.5" />
+              <div>
+                <p className="text-sm text-gray-700">
+                  {dialogMessage}
+                </p>
+              </div>
+            </div>
+            <div className="flex justify-end">
+              <button
+                onClick={() => setShowErrorDialog(false)}
+                className="px-4 py-2 bg-red-500 text-white rounded-lg text-sm font-medium hover:bg-red-600 transition-colors"
+              >
+                OK
               </button>
             </div>
           </div>
