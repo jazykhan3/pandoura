@@ -64,7 +64,7 @@ export function Layout({ children }: { children: ReactNode }) {
 
   const breadcrumb = useMemo(() => {
     const current = navItems.find((n) => n.key === active)
-    const projectPrefix = activeProject ? `[${activeProject.name}] — ` : ''
+    const projectPrefix = activeProject ? `${activeProject.name} — ` : ''
     return `${projectPrefix}${current?.label ?? ''}`
   }, [active, activeProject])
 
@@ -187,7 +187,7 @@ export function Layout({ children }: { children: ReactNode }) {
               >
                 <FolderOpen size={16} className="text-[#FF6A00]" />
                 <span className="hidden sm:inline text-gray-700">
-                  {isLoading ? 'Loading...' : activeProject ? activeProject.name : 'No Project'}
+                  {isLoading ? 'Loading...' : activeProject ? activeProject.name : 'Select Project'}
                 </span>
                 <ChevronDown size={14} className="text-gray-500" />
               </button>

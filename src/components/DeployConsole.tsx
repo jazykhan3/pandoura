@@ -22,6 +22,8 @@ import {
   ChevronRight,
 } from 'lucide-react'
 import { Dialog } from './Dialog'
+import { deploymentApi, versionApi } from '../services/api'
+import { useProjectStore } from '../store/projectStore'
 import type { Version, Release } from '../types'
 
 type DeployTarget = {
@@ -79,13 +81,12 @@ type TagMetric = {
 }
 
 interface DeployConsoleProps {
-  release?: Release
-  version?: Version
+  environment: 'staging' | 'production'
 }
 
-export function DeployConsole({ version }: DeployConsoleProps) {
-  const [selectedEnvironment, setSelectedEnvironment] = useState<'shadow' | 'live'>('shadow')
-  const [queuedDeploys, setQueuedDeploys] = useState<QueuedDeploy[]>([])
+export function DeployConsole({ environment }: DeployConsoleProps) {
+  const { activeProject } = useProjectStore()
+  const [queuedDeploys, setQueuedDeploys] = useState<QueuedDeploy[]>([]) // These will be releases
   const [selectedDeploy, setSelectedDeploy] = useState<QueuedDeploy | null>(null)
   const [deployTargets, setDeployTargets] = useState<DeployTarget[]>([])
   const [preDeployChecks, setPreDeployChecks] = useState<PreDeployCheck[]>([])
@@ -98,149 +99,111 @@ export function DeployConsole({ version }: DeployConsoleProps) {
   const [showScheduleDialog, setShowScheduleDialog] = useState(false)
   const [showApprovalDialog, setShowApprovalDialog] = useState(false)
   const [approvalComment, setApprovalComment] = useState('')
+  const [currentDeploymentId, setCurrentDeploymentId] = useState<string | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [releases, setReleases] = useState<any[]>([])
 
-  // Initialize demo data
+  // Load releases from backend filtered by environment
   useEffect(() => {
-    initializeDemoData()
-  }, [])
+    if (activeProject) {
+      loadReleases()
+    }
+  }, [activeProject, environment])
 
-  const initializeDemoData = () => {
-    // Queued deploys
-    setQueuedDeploys([
-      {
-        id: 'deploy-1',
-        versionId: version?.id || 'v1',
-        version: version?.version || 'v2.1.5',
-        author: version?.author || 'John Doe',
-        targetRuntimes: ['PLC-01', 'PLC-02'],
-        status: 'ready',
-        priority: 'high',
-      },
-      {
-        id: 'deploy-2',
-        versionId: 'v2',
-        version: 'v2.1.4',
-        author: 'Jane Smith',
-        targetRuntimes: ['PLC-03'],
-        status: 'queued',
-        scheduledTime: new Date(Date.now() + 3600000).toISOString(),
-        priority: 'normal',
-      },
-    ])
+  const loadReleases = async () => {
+    if (!activeProject) return
+    
+    try {
+      setLoading(true)
+      // Load releases filtered by environment
+      const result = await versionApi.getReleases(activeProject.id, { environment })
+      
+      if (result.success) {
+        // Convert releases to queued deploy format for display
+        const deploysFromReleases = result.releases.map((release: any) => ({
+          id: release.id,
+          versionId: release.version_id,
+          version: release.version,
+          author: release.created_by,
+          targetRuntimes: release.metadata?.targetRuntimes || ['Runtime-01'],
+          status: 'ready' as const,
+          priority: 'normal' as const,
+          releaseData: release, // Store full release data
+        }))
+        setQueuedDeploys(deploysFromReleases)
+      }
+    } catch (error) {
+      console.error('Failed to load releases:', error)
+      setQueuedDeploys([])
+    } finally {
+      setLoading(false)
+    }
+  }
 
-    // Deploy targets
-    setDeployTargets([
-      {
-        id: 'target-1',
-        name: 'PLC-01',
-        environment: selectedEnvironment,
-        status: 'idle',
-        progress: 0,
-        logs: [],
-      },
-      {
-        id: 'target-2',
-        name: 'PLC-02',
-        environment: selectedEnvironment,
-        status: 'idle',
-        progress: 0,
-        logs: [],
-      },
-    ])
+  // Load deployment details when release is selected
+  useEffect(() => {
+    if (selectedDeploy && activeProject) {
+      loadDeploymentDetails(selectedDeploy.id)
+    }
+  }, [selectedDeploy, activeProject])
 
-    // Pre-deploy checks
-    setPreDeployChecks([
-      {
-        id: 'check-1',
-        name: 'Static Analysis',
-        status: 'passed',
-        message: 'No syntax errors found',
-      },
-      {
-        id: 'check-2',
-        name: 'Tag Dependencies',
-        status: 'passed',
-        message: 'All required tags are available',
-        details: ['Temperature_Sensor', 'Pressure_Valve', 'Motor_Speed'],
-      },
-      {
-        id: 'check-3',
-        name: 'Critical Tag Overwrites',
-        status: 'warning',
-        message: '2 critical tags will be modified',
-        details: ['Safety_Interlock', 'Emergency_Stop'],
-        severity: 'warning',
-      },
-      {
-        id: 'check-4',
-        name: 'Resource Checks',
-        status: 'passed',
-        message: 'Sufficient memory and CPU available',
-      },
-      {
-        id: 'check-5',
-        name: 'File Size Validation',
-        status: 'passed',
-        message: 'Total size: 2.3 MB (within limits)',
-      },
-      {
-        id: 'check-6',
-        name: 'Estimated Downtime',
-        status: 'passed',
-        message: 'Expected: ~15 seconds',
-        severity: 'info',
-      },
-    ])
-
-    // Approvals
-    setApprovals([
-      {
-        id: 'approval-1',
-        approver: 'Operations Manager',
-        status: 'approved',
-        timestamp: new Date(Date.now() - 3600000).toISOString(),
-        comment: 'Approved for deployment',
-      },
-      {
-        id: 'approval-2',
-        approver: 'Safety Engineer',
-        status: 'pending',
-      },
-      {
-        id: 'approval-3',
-        approver: 'Lead Developer',
-        status: 'approved',
-        timestamp: new Date(Date.now() - 1800000).toISOString(),
-      },
-    ])
-
-    // Tag metrics
-    setTagMetrics([
-      {
-        name: 'Temperature_Sensor',
-        currentValue: 72.5,
-        previousValue: 71.2,
-        changeRate: 1.8,
-        unit: '°C',
-        status: 'normal',
-      },
-      {
-        name: 'Motor_Speed',
-        currentValue: 1450,
-        previousValue: 1500,
-        changeRate: -3.3,
-        unit: 'RPM',
-        status: 'normal',
-      },
-      {
-        name: 'Pressure_Valve',
-        currentValue: 95.2,
-        previousValue: 85.0,
-        changeRate: 12.0,
-        unit: 'PSI',
-        status: 'warning',
-      },
-    ])
+  const loadDeploymentDetails = async (deployId: string) => {
+    try {
+      const result = await deploymentApi.getDeploymentById(deployId)
+      
+      if (result.success) {
+        const deployment = result.deployment
+        
+        // Update checks
+        if (deployment.checks) {
+          setPreDeployChecks(deployment.checks.map((c: any) => ({
+            id: c.id,
+            name: c.name,
+            status: c.status,
+            message: c.message,
+            details: c.details,
+            severity: c.severity,
+          })))
+        }
+        
+        // Update approvals
+        if (deployment.approvals) {
+          setApprovals(deployment.approvals.map((a: any) => ({
+            id: a.id,
+            approver: a.approverName,
+            status: a.status,
+            timestamp: a.respondedAt,
+            comment: a.comment,
+          })))
+        }
+        
+        // Update logs
+        if (deployment.logs) {
+          setDeployTargets([{
+            id: 'target-1',
+            name: 'Target Runtime',
+            environment: environment === 'staging' ? 'shadow' : 'live',
+            status: deployment.status === 'success' ? 'success' :
+                    deployment.status === 'failed' ? 'failed' :
+                    deployment.status === 'running' ? 'deploying' : 'idle',
+            progress: deployment.progress || 0,
+            logs: deployment.logs.map((log: any) => ({
+              id: log.id,
+              timestamp: log.timestamp,
+              level: log.level,
+              message: log.message,
+              step: log.step,
+            })),
+          }])
+        }
+        
+        setCurrentDeploymentId(deployId)
+        setIsDeploying(deployment.status === 'running')
+        setCanRollback(deployment.status === 'success')
+      }
+    } catch (error) {
+      console.error('Failed to load deployment details:', error)
+    }
   }
 
   const handleDryRun = async () => {
@@ -248,99 +211,113 @@ export function DeployConsole({ version }: DeployConsoleProps) {
   }
 
   const handleStartDeploy = async () => {
-    setIsDeploying(true)
-    
-    // Simulate deployment process
-    const steps = [
-      { progress: 10, message: 'Validating deployment package...', step: 'validation' },
-      { progress: 25, message: 'Backing up current configuration...', step: 'backup' },
-      { progress: 40, message: 'Uploading new logic to target...', step: 'upload' },
-      { progress: 60, message: 'Compiling logic on target...', step: 'compile' },
-      { progress: 75, message: 'Applying configuration changes...', step: 'apply' },
-      { progress: 90, message: 'Verifying deployment...', step: 'verify' },
-      { progress: 100, message: 'Deployment completed successfully!', step: 'complete' },
-    ]
-
-    for (const step of steps) {
-      await new Promise(resolve => setTimeout(resolve, 1500))
-      
-      setDeployTargets(prev => prev.map(target => ({
-        ...target,
-        status: step.progress === 100 ? 'success' : 'deploying',
-        progress: step.progress,
-        logs: [
-          ...target.logs,
-          {
-            id: `log-${Date.now()}-${Math.random()}`,
-            timestamp: new Date().toISOString(),
-            level: step.progress === 100 ? 'success' : 'info',
-            message: step.message,
-            step: step.step,
-          },
-        ],
-      })))
+    if (!currentDeploymentId) {
+      alert('No deployment selected')
+      return
     }
 
-    setIsDeploying(false)
-    setCanRollback(true)
-  }
-
-  const handlePauseDeploy = () => {
-    alert('Deployment paused. You can resume or cancel.')
-  }
-
-  const handleCancelDeploy = () => {
-    if (confirm('Are you sure you want to cancel this deployment?')) {
+    try {
+      setIsDeploying(true)
+      
+      // Start deployment via API
+      const result = await deploymentApi.startDeployment(currentDeploymentId)
+      
+      if (result.success) {
+        // Poll for updates
+        const pollInterval = setInterval(async () => {
+          try {
+            const updateResult = await deploymentApi.getDeploymentById(currentDeploymentId)
+            
+            if (updateResult.success) {
+              const deployment = updateResult.deployment
+              
+              // Update progress and logs
+              setDeployTargets(prev => prev.map(target => ({
+                ...target,
+                status: deployment.status === 'success' ? 'success' :
+                        deployment.status === 'failed' ? 'failed' :
+                        deployment.status === 'running' ? 'deploying' : 'idle',
+                progress: deployment.progress || 0,
+                logs: deployment.logs?.map((log: any) => ({
+                  id: log.id,
+                  timestamp: log.timestamp,
+                  level: log.level,
+                  message: log.message,
+                  step: log.step,
+                })) || [],
+              })))
+              
+              // Stop polling if completed or failed
+              if (deployment.status === 'success' || deployment.status === 'failed') {
+                clearInterval(pollInterval)
+                setIsDeploying(false)
+                setCanRollback(deployment.status === 'success')
+              }
+            }
+          } catch (error) {
+            console.error('Failed to poll deployment status:', error)
+            clearInterval(pollInterval)
+            setIsDeploying(false)
+          }
+        }, 2000) // Poll every 2 seconds
+      }
+    } catch (error) {
+      console.error('Failed to start deployment:', error)
+      alert('Failed to start deployment: ' + (error as Error).message)
       setIsDeploying(false)
-      setDeployTargets(prev => prev.map(target => ({
-        ...target,
-        status: 'failed',
-        logs: [
-          ...target.logs,
-          {
-            id: `log-${Date.now()}`,
-            timestamp: new Date().toISOString(),
-            level: 'warning',
-            message: 'Deployment cancelled by user',
-          },
-        ],
-      })))
+    }
+  }
+
+  const handlePauseDeploy = async () => {
+    if (!currentDeploymentId) return
+    
+    try {
+      await deploymentApi.pauseDeployment(currentDeploymentId)
+      alert('Deployment paused. You can resume or cancel.')
+    } catch (error) {
+      console.error('Failed to pause deployment:', error)
+      alert('Failed to pause deployment')
+    }
+  }
+
+  const handleCancelDeploy = async () => {
+    if (!currentDeploymentId) return
+    
+    if (confirm('Are you sure you want to cancel this deployment?')) {
+      try {
+        const result = await deploymentApi.cancelDeployment(currentDeploymentId)
+        
+        if (result.success) {
+          setIsDeploying(false)
+          await loadDeploymentDetails(currentDeploymentId)
+        }
+      } catch (error) {
+        console.error('Failed to cancel deployment:', error)
+        alert('Failed to cancel deployment')
+      }
     }
   }
 
   const handleRollback = async () => {
+    if (!currentDeploymentId) return
+    
     if (confirm('Are you sure you want to rollback to the previous version?')) {
-      setDeployTargets(prev => prev.map(target => ({
-        ...target,
-        status: 'rolled-back',
-        progress: 0,
-        logs: [
-          ...target.logs,
-          {
-            id: `log-${Date.now()}`,
-            timestamp: new Date().toISOString(),
-            level: 'info',
-            message: 'Rolling back to previous version...',
-          },
-        ],
-      })))
-
-      await new Promise(resolve => setTimeout(resolve, 2000))
-
-      setDeployTargets(prev => prev.map(target => ({
-        ...target,
-        logs: [
-          ...target.logs,
-          {
-            id: `log-${Date.now()}`,
-            timestamp: new Date().toISOString(),
-            level: 'success',
-            message: 'Rollback completed successfully',
-          },
-        ],
-      })))
-
-      setCanRollback(false)
+      try {
+        const result = await deploymentApi.executeRollback(
+          currentDeploymentId,
+          'Current User',
+          'Manual rollback initiated by user'
+        )
+        
+        if (result.success) {
+          await loadDeploymentDetails(currentDeploymentId)
+          setCanRollback(false)
+          alert('Rollback completed successfully')
+        }
+      } catch (error) {
+        console.error('Failed to execute rollback:', error)
+        alert('Failed to execute rollback')
+      }
     }
   }
 
@@ -352,19 +329,35 @@ export function DeployConsole({ version }: DeployConsoleProps) {
     setShowApprovalDialog(true)
   }
 
-  const submitApproval = () => {
-    setApprovals(prev => prev.map(approval => 
-      approval.status === 'pending' && approval.approver === 'Safety Engineer'
-        ? {
-            ...approval,
-            status: 'approved',
-            timestamp: new Date().toISOString(),
-            comment: approvalComment || 'Approved',
-          }
-        : approval
-    ))
-    setShowApprovalDialog(false)
-    setApprovalComment('')
+  const submitApproval = async () => {
+    if (!selectedDeploy) return
+    
+    // Find pending approval
+    const pendingApproval = approvals.find(a => a.status === 'pending')
+    if (!pendingApproval) {
+      alert('No pending approvals')
+      return
+    }
+
+    try {
+      const result = await deploymentApi.submitApproval(
+        pendingApproval.id,
+        pendingApproval.approver,
+        'approved',
+        approvalComment || undefined
+      )
+      
+      if (result.success) {
+        setShowApprovalDialog(false)
+        setApprovalComment('')
+        // Reload deployment details to get updated approvals
+        await loadDeploymentDetails(selectedDeploy.id)
+        alert('Approval submitted successfully')
+      }
+    } catch (error) {
+      console.error('Failed to submit approval:', error)
+      alert('Failed to submit approval')
+    }
   }
 
   const toggleFileExpanded = (fileId: string) => {
@@ -434,14 +427,9 @@ export function DeployConsole({ version }: DeployConsoleProps) {
             <h1 className="text-2xl font-semibold text-gray-800">Deploy Console</h1>
             <div className="flex items-center gap-2">
               <label className="text-sm text-gray-600">Environment:</label>
-              <select
-                value={selectedEnvironment}
-                onChange={(e) => setSelectedEnvironment(e.target.value as 'shadow' | 'live')}
-                className="px-3 py-1.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#FF6A00]"
-              >
-                <option value="shadow">Shadow Runtime</option>
-                <option value="live">Live Runtime</option>
-              </select>
+              <div className="px-3 py-1.5 bg-gray-100 border border-gray-300 rounded-lg text-sm font-medium text-gray-800">
+                {environment === 'staging' ? 'Shadow Runtime (Staging)' : 'Production Runtime'}
+              </div>
             </div>
           </div>
         </div>

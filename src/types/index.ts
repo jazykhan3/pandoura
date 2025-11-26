@@ -412,6 +412,7 @@ export type ReplaceScope = 'current_file' | 'open_files' | 'project'
 
 export type ReplaceMatch = {
   file: string
+  fileId?: string
   line: number
   column: number
   matchText: string

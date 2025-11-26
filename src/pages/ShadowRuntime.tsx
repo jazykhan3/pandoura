@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { Card, CardHeader } from '../components/Card'
 import { SyncConsole } from '../components/SyncConsole'
 import { Simulator } from '../components/Simulator'
+import { DeployConsole } from '../components/DeployConsole'
 import { useSyncStore } from '../store/syncStore'
 import { useSimulatorStore } from '../store/simulatorStore'
 import { syncApi } from '../services/api'
@@ -14,7 +15,7 @@ type RuntimeMetrics = {
 }
 
 export function ShadowRuntime() {
-  const [activeTab, setActiveTab] = useState<'overview' | 'sync' | 'simulator'>('overview')
+  const [activeTab, setActiveTab] = useState<'overview' | 'sync' | 'simulator' | 'deploy'>('overview')
   const syncStatus = useSyncStore((s) => s.status)
   const { isRunning, isPaused, currentLine, ioValues } = useSimulatorStore()
   
@@ -147,6 +148,16 @@ export function ShadowRuntime() {
             }`}
           >
             Simulator
+          </button>
+          <button
+            onClick={() => setActiveTab('deploy')}
+            className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
+              activeTab === 'deploy'
+                ? 'border-[#FF6A00] text-[#FF6A00]'
+                : 'border-transparent text-neutral-600 hover:text-neutral-900'
+            }`}
+          >
+            Deploy
           </button>
         </div>
       </div>
@@ -398,6 +409,8 @@ export function ShadowRuntime() {
       {activeTab === 'sync' && <SyncConsole />}
       
       {activeTab === 'simulator' && <Simulator />}
+      
+      {activeTab === 'deploy' && <DeployConsole environment="staging" />}
     </div>
   )
 }

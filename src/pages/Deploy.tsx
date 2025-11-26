@@ -17,7 +17,7 @@ export function Deploy() {
     )
   }
 
-  return <DeployConsole />
+  return <DeployConsole environment="production" />
 }
 
 

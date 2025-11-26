@@ -24,6 +24,7 @@ import {
 } from 'lucide-react'
 import type { Version, Branch, BranchStage } from '../types'
 import { versionApi } from '../services/api'
+import { deploymentApi } from '../services/api'
 import { Dialog } from '../components/Dialog'
 import { useProjectStore } from '../store/projectStore'
 
@@ -168,6 +169,9 @@ export function VersioningCenter() {
   const [showCreateRelease, setShowCreateRelease] = useState(false)
   const [showPromoteDialog, setShowPromoteDialog] = useState(false)
   const [selectedRelease, setSelectedRelease] = useState<any>(null)
+  const [selectedSnapshot, setSelectedSnapshot] = useState<any>(null)
+  const [showPromoteSnapshotDialog, setShowPromoteSnapshotDialog] = useState(false)
+  const [promotionStage, setPromotionStage] = useState<string>('qa')
   const [showNoParentDialog, setShowNoParentDialog] = useState(false)
   const [showSuccessDialog, setShowSuccessDialog] = useState(false)
   const [showErrorDialog, setShowErrorDialog] = useState(false)
@@ -451,6 +455,31 @@ export function VersioningCenter() {
     }
   }
 
+  const handlePromoteSnapshot = async (targetStage: string) => {
+    if (!selectedSnapshot) return
+
+    try {
+      const result = await deploymentApi.promoteSnapshot(
+        selectedSnapshot.id,
+        targetStage,
+        'Current User', // TODO: Get from auth context
+        `Promoting snapshot to ${targetStage}`
+      )
+
+      if (result.success) {
+        setShowPromoteSnapshotDialog(false)
+        setSelectedSnapshot(null)
+        await loadAllCounts()
+        setDialogMessage(`Snapshot promoted to ${targetStage} successfully!`)
+        setShowSuccessDialog(true)
+      }
+    } catch (error) {
+      console.error('Failed to promote snapshot:', error)
+      setDialogMessage('Failed to promote snapshot')
+      setShowErrorDialog(true)
+    }
+  }
+
   const toggleBranch = (branchId: string) => {
     setExpandedBranches((prev) => {
       const next = new Set(prev)
@@ -622,6 +651,81 @@ export function VersioningCenter() {
                 className="px-4 py-2 bg-green-600 text-white rounded-lg text-sm font-medium hover:bg-green-700 transition-colors"
               >
                 OK
+              </button>
+            </div>
+          </div>
+        </Dialog>
+      )}
+
+      {/* Promote Snapshot Dialog */}
+      {showPromoteSnapshotDialog && selectedSnapshot && (
+        <Dialog isOpen={showPromoteSnapshotDialog} onClose={() => setShowPromoteSnapshotDialog(false)} title="Promote Snapshot">
+          <div className="p-6">
+            <div className="mb-6">
+              <h3 className="text-lg font-semibold text-gray-800 mb-2">Promote: {selectedSnapshot.name}</h3>
+              <p className="text-sm text-gray-600">
+                Select the target environment to promote this snapshot to. Snapshots must progress through stages in order:
+                Dev → QA → Staging → Production
+              </p>
+            </div>
+
+            <div className="space-y-3 mb-6">
+              <label className="block">
+                <input
+                  type="radio"
+                  name="promotionStage"
+                  value="qa"
+                  checked={promotionStage === 'qa'}
+                  onChange={(e) => setPromotionStage(e.target.value)}
+                  className="mr-2"
+                />
+                <span className="text-sm font-medium text-gray-700">QA Environment</span>
+                <p className="text-xs text-gray-500 ml-6">For testing and quality assurance</p>
+              </label>
+
+              <label className="block">
+                <input
+                  type="radio"
+                  name="promotionStage"
+                  value="staging"
+                  checked={promotionStage === 'staging'}
+                  onChange={(e) => setPromotionStage(e.target.value)}
+                  className="mr-2"
+                />
+                <span className="text-sm font-medium text-gray-700">Staging Environment</span>
+                <p className="text-xs text-gray-500 ml-6">For final validation before production</p>
+              </label>
+
+              <label className="block">
+                <input
+                  type="radio"
+                  name="promotionStage"
+                  value="production"
+                  checked={promotionStage === 'production'}
+                  onChange={(e) => setPromotionStage(e.target.value)}
+                  className="mr-2"
+                />
+                <span className="text-sm font-medium text-gray-700">Production Environment</span>
+                <p className="text-xs text-gray-500 ml-6">Live production deployment (requires approvals)</p>
+              </label>
+            </div>
+
+            <div className="flex justify-end gap-3">
+              <button
+                onClick={() => {
+                  setShowPromoteSnapshotDialog(false)
+                  setSelectedSnapshot(null)
+                }}
+                className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg text-sm font-medium hover:bg-gray-200 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => handlePromoteSnapshot(promotionStage)}
+                className="px-4 py-2 bg-[#FF6A00] text-white rounded-lg text-sm font-medium hover:bg-[#E55F00] transition-colors flex items-center gap-2"
+              >
+                <ArrowUpCircle size={16} />
+                Promote to {promotionStage.toUpperCase()}
               </button>
             </div>
           </div>
@@ -1075,12 +1179,24 @@ export function VersioningCenter() {
                           animate={{ opacity: 1, y: 0 }}
                           className="bg-white border border-gray-200 rounded-lg p-4 hover:shadow-md transition-all"
                         >
-                          <div className="flex items-center gap-3 mb-2">
-                            <Package size={20} className="text-gray-400" />
-                            <div>
-                              <h3 className="text-base font-semibold text-gray-800">{snapshot.name}</h3>
-                              <p className="text-sm text-gray-600">{snapshot.description}</p>
+                          <div className="flex items-start justify-between">
+                            <div className="flex items-center gap-3 mb-2">
+                              <Package size={20} className="text-gray-400" />
+                              <div>
+                                <h3 className="text-base font-semibold text-gray-800">{snapshot.name}</h3>
+                                <p className="text-sm text-gray-600">{snapshot.description}</p>
+                              </div>
                             </div>
+                            <button
+                              onClick={() => {
+                                setSelectedSnapshot(snapshot)
+                                setShowPromoteSnapshotDialog(true)
+                              }}
+                              className="px-3 py-1.5 text-xs bg-[#FF6A00] text-white hover:bg-[#E55F00] rounded transition-colors flex items-center gap-1"
+                            >
+                              <ArrowUpCircle size={14} />
+                              Promote
+                            </button>
                           </div>
                           <div className="text-sm text-gray-600">
                             Created {new Date(snapshot.createdAt).toLocaleDateString()} by {snapshot.createdBy}

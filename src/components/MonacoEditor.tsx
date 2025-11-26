@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'react'
 import Editor from '@monaco-editor/react'
 import type { editor } from 'monaco-editor'
+import { extractRoutines } from '../utils/stParser'
 
 type Tag = {
   id: string
@@ -13,6 +14,12 @@ type Tag = {
   }
 }
 
+type CodeLensAction = {
+  title: string
+  command: string
+  arguments?: any[]
+}
+
 type MonacoEditorProps = {
   value: string
   onChange: (value: string) => void
@@ -22,6 +29,9 @@ type MonacoEditorProps = {
   currentLine?: number
   tags?: Tag[]
   onFormat?: () => void
+  onCodeLensAction?: (command: string, args?: any[]) => void
+  onRenameSymbol?: (oldName: string, newName?: string) => void
+  onExtractFunction?: (startLine: number, endLine: number) => void
 }
 
 // Function to format Structured Text code
@@ -79,6 +89,9 @@ export function MonacoEditor({
   currentLine,
   tags = [],
   onFormat,
+  onCodeLensAction,
+  onRenameSymbol,
+  onExtractFunction,
 }: MonacoEditorProps) {
   const editorRef = useRef<editor.IStandaloneCodeEditor | null>(null)
   const monacoRef = useRef<typeof import('monaco-editor') | null>(null)
@@ -274,6 +287,16 @@ export function MonacoEditor({
     })
 
     monaco.editor.setTheme('st-theme')
+    
+    // Register commands FIRST before Code Lens provider uses them
+    if (onCodeLensAction) {
+      // Register global command for Code Lens
+      monaco.editor.registerCommand('st.runTest', (accessor, ...args) => {
+        console.log('=== Run Test Command Executed ===')
+        console.log('Command args:', args)
+        onCodeLensAction('st.runTest', args)
+      })
+    }
 
     // Register document formatting provider
     monaco.languages.registerDocumentFormattingEditProvider('st', {
@@ -288,6 +311,240 @@ export function MonacoEditor({
         }]
       }
     })
+
+    // Register Code Lens Provider for routines
+    monaco.languages.registerCodeLensProvider('st', {
+      provideCodeLenses: (model) => {
+        const content = model.getValue()
+        const routines = extractRoutines(content)
+        
+        const lenses: any[] = []
+        
+        routines.forEach(routine => {
+          // Add "Run Test" lens only
+          lenses.push({
+            range: {
+              startLineNumber: routine.line,
+              startColumn: 1,
+              endLineNumber: routine.line,
+              endColumn: 1,
+            },
+            id: `run-test-${routine.name}`,
+            command: {
+              id: 'st.runTest',
+              title: `▶ Run Test`,
+              arguments: [routine.name, routine.type],
+            },
+          })
+        })
+        
+        console.log('Code Lenses generated:', lenses.length)
+        return { lenses, dispose: () => {} }
+      },
+      resolveCodeLens: (model, codeLens) => {
+        return codeLens
+      },
+    })
+
+    // Register Code Actions Provider (Refactoring)
+    monaco.languages.registerCodeActionProvider('st', {
+      provideCodeActions: (model, range, context) => {
+        const actions: any[] = []
+        
+        // Get the actual text at the range position dynamically
+        const selection = model.getValueInRange(range)
+        const position = range.getStartPosition()
+        const word = model.getWordAtPosition(position)
+        
+        console.log('=== Code Actions Provider ===')
+        console.log('Range:', { 
+          startLine: range.startLineNumber, 
+          startCol: range.startColumn,
+          endLine: range.endLineNumber,
+          endCol: range.endColumn 
+        })
+        console.log('Word at position:', word)
+        console.log('Selection:', selection)
+        
+        // Action 1: Rename Symbol - Only show if we have a valid word
+        if (word && word.word && word.word.length > 0) {
+          console.log('Adding rename action for:', word.word)
+          actions.push({
+            title: `✏️ Rename '${word.word}'`,
+            kind: 'refactor.rename',
+            diagnostics: [],
+            edit: undefined,
+            command: {
+              id: 'st.renameSymbol',
+              title: 'Rename Symbol',
+              // Store the word as argument - it will be read fresh when command executes
+              arguments: [word.word],
+            },
+          })
+        }
+        
+        // Action 2: Extract Function - Only for multi-line selections
+        if (selection && selection.trim().length > 10 && range.startLineNumber !== range.endLineNumber) {
+          console.log('Adding extract function action')
+          actions.push({
+            title: '📦 Extract to Function',
+            kind: 'refactor.extract',
+            diagnostics: [],
+            edit: undefined,
+            command: {
+              id: 'st.extractFunction',
+              title: 'Extract Function',
+              // Pass line numbers that will be used to re-read the selection when executed
+              arguments: [range.startLineNumber, range.endLineNumber],
+            },
+          })
+        }
+        
+        // Action 3: Convert to UDT (if multiple variables selected)
+        const lines = selection.split('\n')
+        const hasMultipleVars = lines.filter(l => l.match(/^[a-zA-Z_]\w*\s*:/)).length > 1
+        if (hasMultipleVars) {
+          console.log('Adding convert to UDT action')
+          actions.push({
+            title: '🏗️ Convert to UDT',
+            kind: 'refactor.rewrite',
+            diagnostics: [],
+            edit: undefined,
+            command: {
+              id: 'st.convertToUDT',
+              title: 'Convert to UDT',
+              arguments: [range.startLineNumber, range.endLineNumber],
+            },
+          })
+        }
+        
+        // Action 4: Add Safety Check
+        if (selection.toLowerCase().includes('output') || selection.toLowerCase().includes(':=')) {
+          console.log('Adding safety check action')
+          actions.push({
+            title: '🛡️ Add Safety Check',
+            kind: 'quickfix',
+            diagnostics: [],
+            edit: undefined,
+            command: {
+              id: 'st.addSafetyCheck',
+              title: 'Add Safety Check',
+              arguments: [range.startLineNumber, range.endLineNumber],
+            },
+          })
+        }
+        
+        console.log('Total actions created:', actions.length)
+        return { actions, dispose: () => {} }
+      },
+    })
+
+    // Register commands with Monaco's command service
+    const disposables: any[] = []
+
+    if (onCodeLensAction) {
+      // Command is already registered globally above, just add editor actions
+      
+      // Add as editor action for right-click menu
+      disposables.push(
+        editor.addAction({
+          id: 'st.runTest',
+          label: 'Run Test',
+          run: (ed, ...args) => {
+            console.log('=== Run Test Action Clicked ===')
+            console.log('Args:', args)
+            onCodeLensAction('st.runTest', args)
+          },
+        })
+      )
+      
+      // Simulate command  
+      disposables.push(
+        editor.addAction({
+          id: 'st.simulate',
+          label: 'Simulate',
+          run: (ed, ...args) => {
+            onCodeLensAction('st.simulate', args)
+          },
+        })
+      )
+      
+      // Coverage command
+      disposables.push(
+        editor.addAction({
+          id: 'st.coverage',
+          label: 'Coverage',
+          run: (ed, ...args) => {
+            onCodeLensAction('st.coverage', args)
+          },
+        })
+      )
+    }
+
+    if (onRenameSymbol) {
+      disposables.push(
+        editor.addAction({
+          id: 'st.renameSymbol',
+          label: 'Rename Symbol',
+          run: (ed) => {
+            console.log('=== Rename Symbol Action Executed ===')
+            
+            // Get current cursor position DYNAMICALLY when command runs
+            const position = ed.getPosition()
+            const model = ed.getModel()
+            
+            if (!position || !model) {
+              return
+            }
+            
+            // Get the word at the CURRENT cursor position
+            const word = model.getWordAtPosition(position)
+            
+            if (!word || !word.word || word.word.trim() === '') {
+              return
+            }
+            
+            const symbolName = word.word
+            console.log('Symbol at cursor:', symbolName)
+            
+            // Call with just the old name to trigger the dialog
+            onRenameSymbol(symbolName)
+          },
+        })
+      )
+    }
+
+    if (onExtractFunction) {
+      disposables.push(
+        editor.addAction({
+          id: 'st.extractFunction',
+          label: 'Extract Function',
+          run: (ed, ...args) => {
+            console.log('=== Extract Function Action Executed ===')
+            
+            // Get current selection DYNAMICALLY when command runs
+            const selection = ed.getSelection()
+            const model = ed.getModel()
+            
+            if (!selection || !model) {
+              return
+            }
+            
+            const startLine = selection.startLineNumber
+            const endLine = selection.endLineNumber
+            
+            console.log('Selection:', { startLine, endLine })
+            console.log('Selected text:', model.getValueInRange(selection))
+            
+            if (startLine >= endLine) {
+              return
+            }
+            
+            onExtractFunction(startLine, endLine)
+          },
+        })
+      )
+    }
 
 
     // Add gutter click listener for breakpoints

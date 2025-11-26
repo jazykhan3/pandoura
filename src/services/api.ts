@@ -1261,9 +1261,10 @@ export const versionApi = {
   },
 
   // Releases
-  async getReleases(projectId: string, filters?: { status?: string }) {
+  async getReleases(projectId: string, filters?: { status?: string; environment?: string }) {
     const params = new URLSearchParams();
     if (filters?.status) params.append('status', filters.status);
+    if (filters?.environment) params.append('environment', filters.environment);
 
     const url = `${API_BASE}/versions/projects/${projectId}/releases${params.toString() ? '?' + params.toString() : ''}`;
     const res = await fetch(url);
@@ -1314,6 +1315,140 @@ export const versionApi = {
 
   async getStats(projectId: string) {
     const res = await fetch(`${API_BASE}/versions/projects/${projectId}/stats`);
+    return res.json();
+  },
+}
+
+// Deployment APIs
+export const deploymentApi = {
+  // Create deployment
+  async createDeployment(projectId: string, deploymentData: any) {
+    const res = await fetch(`${API_BASE}/deploy/projects/${projectId}/deployments`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(deploymentData),
+    });
+    return res.json();
+  },
+
+  // Get deployments
+  async getDeployments(projectId: string, filters?: { environment?: string; status?: string; limit?: number }) {
+    const params = new URLSearchParams();
+    if (filters?.environment) params.append('environment', filters.environment);
+    if (filters?.status) params.append('status', filters.status);
+    if (filters?.limit) params.append('limit', filters.limit.toString());
+
+    const url = `${API_BASE}/deploy/projects/${projectId}/deployments${params.toString() ? '?' + params.toString() : ''}`;
+    const res = await fetch(url);
+    return res.json();
+  },
+
+  // Get deployment by ID
+  async getDeploymentById(deployId: string) {
+    const res = await fetch(`${API_BASE}/deploy/deployments/${deployId}`);
+    return res.json();
+  },
+
+  // Start deployment
+  async startDeployment(deployId: string) {
+    const res = await fetch(`${API_BASE}/deploy/deployments/${deployId}/start`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+    });
+    return res.json();
+  },
+
+  // Pause deployment
+  async pauseDeployment(deployId: string) {
+    const res = await fetch(`${API_BASE}/deploy/deployments/${deployId}/pause`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+    });
+    return res.json();
+  },
+
+  // Cancel deployment
+  async cancelDeployment(deployId: string) {
+    const res = await fetch(`${API_BASE}/deploy/deployments/${deployId}/cancel`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+    });
+    return res.json();
+  },
+
+  // Safety checks
+  async getDeploymentChecks(deployId: string) {
+    const res = await fetch(`${API_BASE}/deploy/deployments/${deployId}/checks`);
+    return res.json();
+  },
+
+  async rerunChecks(deployId: string) {
+    const res = await fetch(`${API_BASE}/deploy/deployments/${deployId}/checks/rerun`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+    });
+    return res.json();
+  },
+
+  // Approvals
+  async getDeploymentApprovals(deployId: string) {
+    const res = await fetch(`${API_BASE}/deploy/deployments/${deployId}/approvals`);
+    return res.json();
+  },
+
+  async submitApproval(approvalId: string, approverName: string, status: 'approved' | 'rejected', comment?: string) {
+    const res = await fetch(`${API_BASE}/deploy/approvals/${approvalId}/submit`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ approverName, status, comment }),
+    });
+    return res.json();
+  },
+
+  // Deployment logs
+  async getDeploymentLogs(deployId: string, filters?: { limit?: number; level?: string }) {
+    const params = new URLSearchParams();
+    if (filters?.limit) params.append('limit', filters.limit.toString());
+    if (filters?.level) params.append('level', filters.level);
+
+    const url = `${API_BASE}/deploy/deployments/${deployId}/logs${params.toString() ? '?' + params.toString() : ''}`;
+    const res = await fetch(url);
+    return res.json();
+  },
+
+  // Rollback
+  async executeRollback(deployId: string, triggeredBy: string, reason: string) {
+    const res = await fetch(`${API_BASE}/deploy/deployments/${deployId}/rollback`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ triggeredBy, reason }),
+    });
+    return res.json();
+  },
+
+  async getRollbackHistory(deployId: string) {
+    const res = await fetch(`${API_BASE}/deploy/deployments/${deployId}/rollbacks`);
+    return res.json();
+  },
+
+  // Snapshot promotions
+  async promoteSnapshot(snapshotId: string, toStage: string, promotedBy: string, notes?: string) {
+    const res = await fetch(`${API_BASE}/deploy/snapshots/${snapshotId}/promote`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ toStage, promotedBy, notes }),
+    });
+    return res.json();
+  },
+
+  async getPromotionHistory(snapshotId: string) {
+    const res = await fetch(`${API_BASE}/deploy/snapshots/${snapshotId}/promotions`);
+    return res.json();
+  },
+
+  // Deployment stats
+  async getDeploymentStats(projectId: string) {
+    const res = await fetch(`${API_BASE}/deploy/projects/${projectId}/stats`);
     return res.json();
   },
 }
