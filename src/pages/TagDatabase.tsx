@@ -27,13 +27,22 @@ import {
   Network,
   List,
   TreePine,
+  MapPin,
+  CheckCircle2,
 } from 'lucide-react'
 import { Card } from '../components/Card'
 import { Dialog } from '../components/Dialog'
+import { InputDialog } from '../components/InputDialog'
+import { UDTEditor } from '../components/UDTEditor'
+import { BulkActionsDialog } from '../components/BulkActionsDialog'
+import { DependencyGraph } from '../components/DependencyGraph'
+import { TagTreeView } from '../components/TagTreeView'
+import { AddressMappingManager } from '../components/AddressMappingManager'
+import { ValidationRulesManager } from '../components/ValidationRulesManager'
 import { useSyncStore } from '../store/syncStore'
 import { useProjectStore } from '../store/projectStore'
 import { tagApi } from '../services/api'
-import type { Tag, TagScope, TagLifecycle, UserDefinedType, UDTMember, TagHierarchyNode, TagRefactoringPreview, BulkTagOperation } from '../types'
+import type { Tag, TagScope, TagLifecycle, UserDefinedType, UDTMember, TagHierarchyNode, TagRefactoringPreview, BulkTagOperation, TagDependency, TagAlias, TagValidationRule } from '../types'
 
 type ViewMode = 'list' | 'tree' | 'hierarchy'
 type FilterOptions = {
@@ -65,6 +74,19 @@ export function TagDatabase() {
   const [showBulkActionsDialog, setShowBulkActionsDialog] = useState(false)
   const [showDependencyGraph, setShowDependencyGraph] = useState(false)
   const [showRefactoringPreview, setShowRefactoringPreview] = useState(false)
+  const [showSuccessDialog, setShowSuccessDialog] = useState(false)
+  const [successMessage, setSuccessMessage] = useState('')
+  const [showRenameDialog, setShowRenameDialog] = useState(false)
+  const [tagToRename, setTagToRename] = useState<Tag | null>(null)
+  const [showRenameConfirmDialog, setShowRenameConfirmDialog] = useState(false)
+  const [pendingRename, setPendingRename] = useState<{ tagId: string; oldName: string; newName: string } | null>(null)
+  const [showCopyDialog, setShowCopyDialog] = useState(false)
+  const [tagToCopy, setTagToCopy] = useState<Tag | null>(null)
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false)
+  const [tagToDelete, setTagToDelete] = useState<Tag | null>(null)
+  const [showAddressMappingDialog, setShowAddressMappingDialog] = useState(false)
+  const [showValidationRulesDialog, setShowValidationRulesDialog] = useState(false)
+  const [selectedTagForMapping, setSelectedTagForMapping] = useState<Tag | null>(null)
   
   // Selected items
   const [selectedTags, setSelectedTags] = useState<Set<string>>(new Set())
@@ -72,6 +94,18 @@ export function TagDatabase() {
   const [expandedNodes, setExpandedNodes] = useState<Set<string>>(new Set())
   const [refactoringPreview, setRefactoringPreview] = useState<TagRefactoringPreview | null>(null)
   const [bulkOperation, setBulkOperation] = useState<BulkTagOperation | null>(null)
+  const [tagDependencies, setTagDependencies] = useState<TagDependency[]>([])
+
+  // Create tag form state
+  const [newTagName, setNewTagName] = useState('')
+  const [newTagType, setNewTagType] = useState('BOOL')
+  const [newTagScope, setNewTagScope] = useState<TagScope>('global')
+  const [newTagLifecycle, setNewTagLifecycle] = useState<TagLifecycle>('draft')
+  const [newTagAddress, setNewTagAddress] = useState('')
+  const [newTagDescription, setNewTagDescription] = useState('')
+  const [newTagReadOnly, setNewTagReadOnly] = useState(false)
+  const [newTagRequiresApproval, setNewTagRequiresApproval] = useState(false)
+  const [newTagLockScope, setNewTagLockScope] = useState(false)
 
   const syncTags = useSyncStore((s) => s.syncTags)
 
@@ -128,7 +162,8 @@ export function TagDatabase() {
   const handleSyncTags = async () => {
     await syncTags()
     await loadTags()
-    alert('Tags synced to shadow runtime!')
+    setSuccessMessage('Tags synced to shadow runtime!')
+    setShowSuccessDialog(true)
   }
 
   const handleExport = async () => {
@@ -142,9 +177,12 @@ export function TagDatabase() {
       a.click()
       document.body.removeChild(a)
       window.URL.revokeObjectURL(url)
+      setSuccessMessage('Tags exported successfully!')
+      setShowSuccessDialog(true)
     } catch (error) {
       console.error('Export failed:', error)
-      alert('Failed to export tags')
+      setSuccessMessage('Failed to export tags')
+      setShowSuccessDialog(true)
     }
   }
 
@@ -154,18 +192,21 @@ export function TagDatabase() {
       // Import tags directly for now
       await tagApi.importTags(file, false)
       await loadTags()
-      alert('Tags imported successfully!')
+      setSuccessMessage('Tags imported successfully!')
+      setShowSuccessDialog(true)
     } catch (error) {
       console.error('Import failed:', error)
-      alert('Failed to import tags: ' + (error as Error).message)
+      setSuccessMessage('Failed to import tags: ' + (error as Error).message)
+      setShowSuccessDialog(true)
     } finally {
       setIsLoading(false)
     }
   }
 
-  const handleBulkOperation = async (operation: string, dryRun: boolean = true) => {
+  const handleBulkOperation = async (operation: string, params: any, dryRun: boolean = true) => {
     if (selectedTags.size === 0) {
-      alert('No tags selected')
+      setSuccessMessage('No tags selected')
+      setShowSuccessDialog(true)
       return
     }
 
@@ -173,31 +214,87 @@ export function TagDatabase() {
     try {
       const result = await tagApi.bulkOperation({
         operation,
+        params,
         tagIds: Array.from(selectedTags),
         dryRun,
         projectId: activeProject?.id
       })
       
-      setBulkOperation(result)
-      setShowBulkActionsDialog(true)
+      if (dryRun) {
+        // Show preview
+        setBulkOperation(result)
+      } else {
+        // Operation executed - refresh tags and show success
+        await loadTags()
+        setSelectedTags(new Set())
+        setSuccessMessage(`Bulk operation completed: ${result.affectedTags} tag(s) ${operation}`)
+        setShowSuccessDialog(true)
+        setShowBulkActionsDialog(false)
+      }
     } catch (error) {
       console.error('Bulk operation failed:', error)
-      alert('Bulk operation failed: ' + (error as Error).message)
+      setSuccessMessage('Bulk operation failed: ' + (error as Error).message)
+      setShowSuccessDialog(true)
     } finally {
       setIsLoading(false)
     }
   }
 
   const handleRenameTag = async (tagId: string, newName: string) => {
+    // Find the tag
+    const tag = tags.find(t => t.id === tagId)
+    if (!tag) {
+      setSuccessMessage('Tag not found')
+      setShowSuccessDialog(true)
+      return
+    }
+
+    // Store pending rename and show confirmation
+    setPendingRename({ tagId, oldName: tag.name, newName })
+    setShowRenameConfirmDialog(true)
+  }
+
+  const executeRename = async () => {
+    if (!pendingRename) return
+    
+    const { tagId, oldName, newName } = pendingRename
+    
     setIsLoading(true)
     try {
-      // Get refactoring preview
-      const preview = await tagApi.getRefactoringPreview(tagId, newName, activeProject?.id)
-      setRefactoringPreview(preview)
-      setShowRefactoringPreview(true)
+      // Find the tag
+      const tag = tags.find(t => t.id === tagId)
+      if (!tag) {
+        throw new Error('Tag not found')
+      }
+
+      // Try to get refactoring preview, but fallback to direct rename if endpoint doesn't exist
+      try {
+        const preview = await tagApi.getRefactoringPreview(tagId, newName, activeProject?.id)
+        setRefactoringPreview(preview)
+        setShowRefactoringPreview(true)
+        setShowRenameConfirmDialog(false)
+        setPendingRename(null)
+      } catch (apiError: any) {
+        // If API returns HTML or endpoint doesn't exist, do direct rename
+        if (apiError.message?.includes('<!DOCTYPE') || apiError.message?.includes('not valid JSON')) {
+          console.warn('Refactoring preview endpoint not available, performing direct rename')
+          
+          await tagApi.update(tagId, { ...tag, name: newName })
+          await loadTags()
+          setSuccessMessage(`Tag renamed from "${oldName}" to "${newName}" successfully!`)
+          setShowSuccessDialog(true)
+          setShowRenameConfirmDialog(false)
+          setPendingRename(null)
+        } else {
+          throw apiError
+        }
+      }
     } catch (error) {
       console.error('Rename failed:', error)
-      alert('Failed to preview rename: ' + (error as Error).message)
+      setSuccessMessage('Failed to rename tag: ' + (error as Error).message)
+      setShowSuccessDialog(true)
+      setShowRenameConfirmDialog(false)
+      setPendingRename(null)
     } finally {
       setIsLoading(false)
     }
@@ -212,10 +309,12 @@ export function TagDatabase() {
       setShowRefactoringPreview(false)
       setRefactoringPreview(null)
       await loadTags()
-      alert('Tag renamed successfully!')
+      setSuccessMessage('Tag renamed successfully!')
+      setShowSuccessDialog(true)
     } catch (error) {
       console.error('Refactoring failed:', error)
-      alert('Failed to apply refactoring: ' + (error as Error).message)
+      setSuccessMessage('Failed to apply refactoring: ' + (error as Error).message)
+      setShowSuccessDialog(true)
     } finally {
       setIsLoading(false)
     }
@@ -227,13 +326,85 @@ export function TagDatabase() {
       await tagApi.createUDT(udtData, activeProject?.id)
       await loadUDTs()
       setShowCreateUDTDialog(false)
-      alert('UDT created successfully!')
+      setSuccessMessage('UDT created successfully!')
+      setShowSuccessDialog(true)
     } catch (error) {
       console.error('UDT creation failed:', error)
-      alert('Failed to create UDT: ' + (error as Error).message)
+      setSuccessMessage('Failed to create UDT: ' + (error as Error).message)
+      setShowSuccessDialog(true)
     } finally {
       setIsLoading(false)
     }
+  }
+
+  const handleCreateTag = async () => {
+    // Validate required fields
+    if (!newTagName.trim()) {
+      setSuccessMessage('Tag name is required')
+      setShowSuccessDialog(true)
+      return
+    }
+
+    setIsLoading(true)
+    try {
+      // Check if selected type is a UDT
+      const basicTypes = ['BOOL', 'INT', 'DINT', 'REAL', 'STRING', 'TIMER', 'COUNTER']
+      const isUDT = !basicTypes.includes(newTagType)
+      
+      const tagData: Partial<Tag> = {
+        name: newTagName.trim(),
+        type: isUDT ? 'UDT' : (newTagType as any),
+        udtType: isUDT ? newTagType : undefined,
+        scope: newTagScope,
+        lifecycle: newTagLifecycle,
+        address: newTagAddress.trim() || undefined,
+        readOnly: newTagReadOnly,
+        requiresApproval: newTagRequiresApproval,
+        scopeLocked: newTagLockScope,
+        source: 'shadow',
+        lastUpdate: new Date(),
+        metadata: {
+          ...selectedTag?.metadata,
+          description: newTagDescription.trim() || undefined,
+        },
+      }
+
+      if (selectedTag) {
+        // Update existing tag
+        await tagApi.update(selectedTag.id, tagData)
+        setSuccessMessage(`Tag "${newTagName}" updated successfully!`)
+      } else {
+        // Create new tag
+        await tagApi.create(tagData)
+        setSuccessMessage(`Tag "${newTagName}" created successfully!`)
+      }
+      
+      await loadTags()
+      
+      // Reset form and close dialog
+      resetTagForm()
+      setShowCreateTagDialog(false)
+      setShowSuccessDialog(true)
+    } catch (error) {
+      console.error('Tag operation failed:', error)
+      setSuccessMessage(`Failed to ${selectedTag ? 'update' : 'create'} tag: ` + (error as Error).message)
+      setShowSuccessDialog(true)
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  const resetTagForm = () => {
+    setNewTagName('')
+    setNewTagType('BOOL')
+    setNewTagScope('global')
+    setNewTagLifecycle('draft')
+    setNewTagAddress('')
+    setNewTagDescription('')
+    setNewTagReadOnly(false)
+    setNewTagRequiresApproval(false)
+    setNewTagLockScope(false)
+    setSelectedTag(null)
   }
 
   const handleToggleSelection = (tagId: string) => {
@@ -247,39 +418,60 @@ export function TagDatabase() {
   }
 
   const handleCopyTag = async (tag: Tag) => {
+    setTagToCopy(tag)
+    setShowCopyDialog(true)
+  }
+
+  const executeCopy = async (newName: string) => {
+    if (!tagToCopy) return
+    
+    setIsLoading(true)
     try {
-      const newName = prompt(`Enter name for the copied tag:`, `${tag.name}_copy`)
-      if (!newName) return
-      
       // Create a copy of the tag with new name
       await tagApi.create({
-        ...tag,
+        ...tagToCopy,
         id: '',
         name: newName,
       })
       
       await loadTags()
-      alert(`Tag "${newName}" created successfully!`)
+      setSuccessMessage(`Tag "${newName}" created successfully!`)
+      setShowSuccessDialog(true)
+      setShowCopyDialog(false)
+      setTagToCopy(null)
     } catch (error) {
       console.error('Copy failed:', error)
-      alert('Failed to copy tag: ' + (error as Error).message)
+      setSuccessMessage('Failed to copy tag: ' + (error as Error).message)
+      setShowSuccessDialog(true)
+    } finally {
+      setIsLoading(false)
     }
   }
 
   const handleDeleteTag = async (tag: Tag) => {
-    if (!confirm(`Are you sure you want to delete tag "${tag.name}"? This action cannot be undone.`)) {
-      return
-    }
+    setTagToDelete(tag)
+    setShowDeleteDialog(true)
+  }
+
+  const executeDelete = async () => {
+    if (!tagToDelete) return
     
     setIsLoading(true)
     try {
-      // Since delete API doesn't exist, we'll update lifecycle to archived
-      await tagApi.updateLifecycle(tag.id, 'archived')
+      // Update lifecycle to archived instead of deleting
+      await tagApi.update(tagToDelete.id, {
+        ...tagToDelete,
+        lifecycle: 'archived'
+      })
       await loadTags()
-      alert(`Tag "${tag.name}" archived successfully!`)
+      setSuccessMessage(`Tag "${tagToDelete.name}" archived successfully!`)
+      setShowSuccessDialog(true)
+      setShowDeleteDialog(false)
+      setTagToDelete(null)
     } catch (error) {
       console.error('Archive failed:', error)
-      alert('Failed to archive tag: ' + (error as Error).message)
+      setSuccessMessage('Failed to archive tag: ' + (error as Error).message)
+      setShowSuccessDialog(true)
     } finally {
       setIsLoading(false)
     }
@@ -287,7 +479,78 @@ export function TagDatabase() {
 
   const handleEditTag = (tag: Tag) => {
     setSelectedTag(tag)
+    setNewTagName(tag.name)
+    // If it's a UDT, show the UDT type name, otherwise show the basic type
+    setNewTagType(tag.type === 'UDT' && tag.udtType ? tag.udtType : tag.type)
+    setNewTagScope(tag.scope || 'global')
+    setNewTagLifecycle(tag.lifecycle || 'draft')
+    setNewTagAddress(tag.address || '')
+    setNewTagDescription(tag.metadata?.description || '')
+    setNewTagReadOnly(tag.readOnly || false)
+    setNewTagRequiresApproval(tag.requiresApproval || false)
+    setNewTagLockScope(tag.scopeLocked || false)
     setShowCreateTagDialog(true)
+  }
+
+  const loadTagDependencies = async (tagId: string) => {
+    setIsLoading(true)
+    try {
+      const deps = await tagApi.getTagDependencies(tagId, activeProject?.id)
+      setTagDependencies(deps)
+    } catch (error) {
+      console.error('Failed to load tag dependencies:', error)
+      setTagDependencies([])
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  const handleOpenAddressMapping = (tag: Tag) => {
+    setSelectedTagForMapping(tag)
+    setShowAddressMappingDialog(true)
+  }
+
+  const handleOpenValidationRules = (tag: Tag) => {
+    setSelectedTagForMapping(tag)
+    setShowValidationRulesDialog(true)
+  }
+
+  const handleSaveAliases = async (aliases: TagAlias[]) => {
+    if (!selectedTagForMapping) return
+    
+    setIsLoading(true)
+    try {
+      // Save aliases via API
+      await tagApi.saveTagAliases(selectedTagForMapping.id, aliases, activeProject?.id)
+      setSuccessMessage('Address mappings saved successfully!')
+      setShowSuccessDialog(true)
+      await loadTags()
+    } catch (error) {
+      console.error('Failed to save aliases:', error)
+      setSuccessMessage('Failed to save address mappings: ' + (error as Error).message)
+      setShowSuccessDialog(true)
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  const handleSaveValidationRules = async (rules: TagValidationRule[]) => {
+    if (!selectedTagForMapping) return
+    
+    setIsLoading(true)
+    try {
+      // Save validation rules via API
+      await tagApi.saveTagValidationRules(selectedTagForMapping.id, rules, activeProject?.id)
+      setSuccessMessage('Validation rules saved successfully!')
+      setShowSuccessDialog(true)
+      await loadTags()
+    } catch (error) {
+      console.error('Failed to save validation rules:', error)
+      setSuccessMessage('Failed to save validation rules: ' + (error as Error).message)
+      setShowSuccessDialog(true)
+    } finally {
+      setIsLoading(false)
+    }
   }
 
   const handleSelectAll = () => {
@@ -557,90 +820,152 @@ export function TagDatabase() {
               initial={{ height: 0, opacity: 0 }}
               animate={{ height: 'auto', opacity: 1 }}
               exit={{ height: 0, opacity: 0 }}
-              className="mt-4 p-4 bg-gray-50 rounded-lg border border-gray-200"
+              className="mt-4 p-6 bg-gradient-to-br from-gray-50 to-white rounded-xl border border-gray-200 shadow-sm"
             >
-              <div className="grid grid-cols-4 gap-4">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-sm font-semibold text-gray-700 flex items-center gap-2">
+                  <Filter size={16} />
+                  Filter Tags
+                </h3>
+                <button
+                  onClick={() => setFilterOptions({})}
+                  className="px-3 py-1.5 text-xs font-medium text-gray-600 hover:text-[#FF6A00] hover:bg-orange-50 rounded-md transition-colors"
+                >
+                  Clear All
+                </button>
+              </div>
+              
+              <div className="grid grid-cols-4 gap-6">
+                {/* Type Filter */}
                 <div>
-                  <label className="block text-xs font-medium text-gray-700 mb-2">Type</label>
+                  <label className="block text-xs font-semibold text-gray-700 mb-2.5">Data Type</label>
                   <select
                     multiple
                     value={filterOptions.type || []}
                     onChange={(e) => setFilterOptions({ ...filterOptions, type: Array.from(e.target.selectedOptions, o => o.value) })}
-                    className="w-full px-2 py-1 text-sm border rounded"
+                    className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#FF6A00] focus:border-[#FF6A00] bg-white hover:border-gray-400 transition-colors"
+                    style={{ height: '160px' }}
                   >
-                    <option value="BOOL">BOOL</option>
-                    <option value="INT">INT</option>
-                    <option value="DINT">DINT</option>
-                    <option value="REAL">REAL</option>
-                    <option value="STRING">STRING</option>
-                    <option value="UDT">UDT</option>
+                    <option value="BOOL" className="py-1.5">BOOL</option>
+                    <option value="INT" className="py-1.5">INT</option>
+                    <option value="DINT" className="py-1.5">DINT</option>
+                    <option value="REAL" className="py-1.5">REAL</option>
+                    <option value="STRING" className="py-1.5">STRING</option>
+                    <option value="UDT" className="py-1.5">UDT</option>
                   </select>
+                  <p className="mt-1.5 text-xs text-gray-500">Hold Ctrl/Cmd to select multiple</p>
                 </div>
+
+                {/* Scope Filter */}
                 <div>
-                  <label className="block text-xs font-medium text-gray-700 mb-2">Scope</label>
+                  <label className="block text-xs font-semibold text-gray-700 mb-2.5">Scope</label>
                   <select
                     multiple
                     value={filterOptions.scope || []}
                     onChange={(e) => setFilterOptions({ ...filterOptions, scope: Array.from(e.target.selectedOptions, o => o.value) as TagScope[] })}
-                    className="w-full px-2 py-1 text-sm border rounded"
+                    className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#FF6A00] focus:border-[#FF6A00] bg-white hover:border-gray-400 transition-colors"
+                    style={{ height: '160px' }}
                   >
-                    <option value="global">Global</option>
-                    <option value="program">Program</option>
-                    <option value="task">Task</option>
+                    <option value="global" className="py-1.5">Global</option>
+                    <option value="program" className="py-1.5">Program</option>
+                    <option value="task" className="py-1.5">Task</option>
                   </select>
+                  <p className="mt-1.5 text-xs text-gray-500">Select tag scope level</p>
                 </div>
+
+                {/* Lifecycle Filter */}
                 <div>
-                  <label className="block text-xs font-medium text-gray-700 mb-2">Lifecycle</label>
+                  <label className="block text-xs font-semibold text-gray-700 mb-2.5">Lifecycle Status</label>
                   <select
                     multiple
                     value={filterOptions.lifecycle || []}
                     onChange={(e) => setFilterOptions({ ...filterOptions, lifecycle: Array.from(e.target.selectedOptions, o => o.value) as TagLifecycle[] })}
-                    className="w-full px-2 py-1 text-sm border rounded"
+                    className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#FF6A00] focus:border-[#FF6A00] bg-white hover:border-gray-400 transition-colors"
+                    style={{ height: '160px' }}
                   >
-                    <option value="draft">Draft</option>
-                    <option value="active">Active</option>
-                    <option value="deprecated">Deprecated</option>
-                    <option value="archived">Archived</option>
+                    <option value="draft" className="py-1.5">Draft</option>
+                    <option value="active" className="py-1.5">Active</option>
+                    <option value="deprecated" className="py-1.5">Deprecated</option>
+                    <option value="archived" className="py-1.5">Archived</option>
                   </select>
+                  <p className="mt-1.5 text-xs text-gray-500">Filter by tag status</p>
                 </div>
-                <div className="space-y-2">
-                  <label className="flex items-center gap-2 text-xs text-gray-700">
-                    <input
-                      type="checkbox"
-                      checked={filterOptions.hasValidation || false}
-                      onChange={(e) => setFilterOptions({ ...filterOptions, hasValidation: e.target.checked })}
-                      className="rounded"
-                    />
-                    Has Validation Rules
-                  </label>
-                  <label className="flex items-center gap-2 text-xs text-gray-700">
-                    <input
-                      type="checkbox"
-                      checked={filterOptions.hasAlias || false}
-                      onChange={(e) => setFilterOptions({ ...filterOptions, hasAlias: e.target.checked })}
-                      className="rounded"
-                    />
-                    Has Aliases
-                  </label>
-                  <label className="flex items-center gap-2 text-xs text-gray-700">
-                    <input
-                      type="checkbox"
-                      checked={filterOptions.requiresApproval || false}
-                      onChange={(e) => setFilterOptions({ ...filterOptions, requiresApproval: e.target.checked })}
-                      className="rounded"
-                    />
-                    Requires Approval
-                  </label>
+
+                {/* Additional Filters */}
+                <div>
+                  <label className="block text-xs font-semibold text-gray-700 mb-2.5">Additional Filters</label>
+                  <div className="space-y-3 bg-white border border-gray-300 rounded-lg p-3" style={{ height: '160px' }}>
+                    <label className="flex items-center gap-2.5 text-sm text-gray-700 hover:text-gray-900 cursor-pointer group">
+                      <input
+                        type="checkbox"
+                        checked={filterOptions.hasValidation || false}
+                        onChange={(e) => setFilterOptions({ ...filterOptions, hasValidation: e.target.checked })}
+                        className="rounded border-gray-300 text-[#FF6A00] focus:ring-[#FF6A00] cursor-pointer"
+                      />
+                      <span className="group-hover:text-[#FF6A00] transition-colors">Has Validation Rules</span>
+                    </label>
+                    <label className="flex items-center gap-2.5 text-sm text-gray-700 hover:text-gray-900 cursor-pointer group">
+                      <input
+                        type="checkbox"
+                        checked={filterOptions.hasAlias || false}
+                        onChange={(e) => setFilterOptions({ ...filterOptions, hasAlias: e.target.checked })}
+                        className="rounded border-gray-300 text-[#FF6A00] focus:ring-[#FF6A00] cursor-pointer"
+                      />
+                      <span className="group-hover:text-[#FF6A00] transition-colors">Has Aliases</span>
+                    </label>
+                    <label className="flex items-center gap-2.5 text-sm text-gray-700 hover:text-gray-900 cursor-pointer group">
+                      <input
+                        type="checkbox"
+                        checked={filterOptions.requiresApproval || false}
+                        onChange={(e) => setFilterOptions({ ...filterOptions, requiresApproval: e.target.checked })}
+                        className="rounded border-gray-300 text-[#FF6A00] focus:ring-[#FF6A00] cursor-pointer"
+                      />
+                      <span className="group-hover:text-[#FF6A00] transition-colors">Requires Approval</span>
+                    </label>
+                  </div>
+                  <p className="mt-1.5 text-xs text-gray-500">Special tag properties</p>
                 </div>
               </div>
-              <div className="mt-3 flex justify-end">
-                <button
-                  onClick={() => setFilterOptions({})}
-                  className="px-3 py-1 text-sm text-gray-600 hover:text-gray-800"
-                >
-                  Clear Filters
-                </button>
-              </div>
+
+              {/* Active Filters Summary */}
+              {(filterOptions.type?.length || filterOptions.scope?.length || filterOptions.lifecycle?.length || 
+                filterOptions.hasValidation || filterOptions.hasAlias || filterOptions.requiresApproval) && (
+                <div className="mt-4 pt-4 border-t border-gray-200">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="text-xs font-medium text-gray-600">Active Filters:</span>
+                    {filterOptions.type?.map(t => (
+                      <span key={t} className="px-2 py-1 text-xs bg-blue-100 text-blue-700 rounded-md">
+                        Type: {t}
+                      </span>
+                    ))}
+                    {filterOptions.scope?.map(s => (
+                      <span key={s} className="px-2 py-1 text-xs bg-purple-100 text-purple-700 rounded-md">
+                        Scope: {s}
+                      </span>
+                    ))}
+                    {filterOptions.lifecycle?.map(l => (
+                      <span key={l} className="px-2 py-1 text-xs bg-green-100 text-green-700 rounded-md">
+                        Status: {l}
+                      </span>
+                    ))}
+                    {filterOptions.hasValidation && (
+                      <span className="px-2 py-1 text-xs bg-amber-100 text-amber-700 rounded-md">
+                        Has Validation
+                      </span>
+                    )}
+                    {filterOptions.hasAlias && (
+                      <span className="px-2 py-1 text-xs bg-amber-100 text-amber-700 rounded-md">
+                        Has Aliases
+                      </span>
+                    )}
+                    {filterOptions.requiresApproval && (
+                      <span className="px-2 py-1 text-xs bg-red-100 text-red-700 rounded-md">
+                        Requires Approval
+                      </span>
+                    )}
+                  </div>
+                </div>
+              )}
             </motion.div>
           )}
         </AnimatePresence>
@@ -764,10 +1089,28 @@ export function TagDatabase() {
                               <button
                                 onClick={(e) => {
                                   e.stopPropagation()
-                                  const newName = prompt(`Enter new name for "${tag.name}":`, tag.name)
-                                  if (newName && newName !== tag.name) {
-                                    handleRenameTag(tag.id, newName)
-                                  }
+                                  handleOpenAddressMapping(tag)
+                                }}
+                                className="p-1 hover:bg-blue-100 rounded text-blue-600"
+                                title="Address Mapping"
+                              >
+                                <MapPin size={14} />
+                              </button>
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation()
+                                  handleOpenValidationRules(tag)
+                                }}
+                                className="p-1 hover:bg-green-100 rounded text-green-600"
+                                title="Validation Rules"
+                              >
+                                <CheckCircle2 size={14} />
+                              </button>
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation()
+                                  setTagToRename(tag)
+                                  setShowRenameDialog(true)
                                 }}
                                 className="p-1 hover:bg-gray-200 rounded"
                                 title="Rename"
@@ -805,21 +1148,21 @@ export function TagDatabase() {
 
               {viewMode === 'tree' && (
                 <div className="p-4">
-                  <div className="space-y-1">
-                    {hierarchyNodes.length === 0 ? (
-                      <div className="text-center py-8 text-gray-500">
-                        <TreePine size={48} className="mx-auto mb-2 text-gray-300" />
-                        <p>No hierarchy defined</p>
-                        <button className="mt-3 text-sm text-[#FF6A00] hover:underline">
-                          Create hierarchy structure
-                        </button>
-                      </div>
-                    ) : (
-                      <div className="space-y-1">
-                        {renderHierarchyTree(hierarchyNodes.filter(n => !n.parentId))}
-                      </div>
-                    )}
-                  </div>
+                  <TagTreeView
+                    tags={filteredTags}
+                    searchTerm={searchTerm}
+                    regexSearch={regexSearch}
+                    onTagSelect={(tag) => {
+                      setSelectedTag(tag)
+                      loadTagDependencies(tag.id)
+                    }}
+                    onTagEdit={(tag) => {
+                      handleEditTag(tag)
+                    }}
+                    onAddressMapping={handleOpenAddressMapping}
+                    onValidationRules={handleOpenValidationRules}
+                    selectedTagId={selectedTag?.id}
+                  />
                 </div>
               )}
 
@@ -910,7 +1253,7 @@ export function TagDatabase() {
 
       {/* Create Tag Dialog */}
       {showCreateTagDialog && (
-        <Dialog isOpen={showCreateTagDialog} onClose={() => setShowCreateTagDialog(false)} title="Create Tag">
+        <Dialog isOpen={showCreateTagDialog} onClose={() => { setShowCreateTagDialog(false); resetTagForm(); }} title={selectedTag ? 'Edit Tag' : 'Create Tag'}>
           <div className="p-6 space-y-4">
             <div className="grid grid-cols-2 gap-4">
               <div>
@@ -919,22 +1262,42 @@ export function TagDatabase() {
                   type="text"
                   className="w-full px-3 py-2 border rounded-lg"
                   placeholder="Tag_Name"
+                  value={newTagName}
+                  onChange={(e) => setNewTagName(e.target.value)}
                 />
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Type *</label>
-                <select className="w-full px-3 py-2 border rounded-lg">
-                  <option value="BOOL">BOOL</option>
-                  <option value="INT">INT</option>
-                  <option value="DINT">DINT</option>
-                  <option value="REAL">REAL</option>
-                  <option value="STRING">STRING</option>
-                  <option value="UDT">UDT</option>
+                <select 
+                  className="w-full px-3 py-2 border rounded-lg"
+                  value={newTagType}
+                  onChange={(e) => setNewTagType(e.target.value)}
+                >
+                  <optgroup label="Basic Types">
+                    <option value="BOOL">BOOL</option>
+                    <option value="INT">INT</option>
+                    <option value="DINT">DINT</option>
+                    <option value="REAL">REAL</option>
+                    <option value="STRING">STRING</option>
+                    <option value="TIMER">TIMER</option>
+                    <option value="COUNTER">COUNTER</option>
+                  </optgroup>
+                  {udts.length > 0 && (
+                    <optgroup label="User Defined Types">
+                      {udts.map(udt => (
+                        <option key={udt.id} value={udt.name}>{udt.name}</option>
+                      ))}
+                    </optgroup>
+                  )}
                 </select>
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Scope</label>
-                <select className="w-full px-3 py-2 border rounded-lg">
+                <select 
+                  className="w-full px-3 py-2 border rounded-lg"
+                  value={newTagScope}
+                  onChange={(e) => setNewTagScope(e.target.value as TagScope)}
+                >
                   <option value="global">Global</option>
                   <option value="program">Program</option>
                   <option value="task">Task</option>
@@ -942,7 +1305,11 @@ export function TagDatabase() {
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Lifecycle</label>
-                <select className="w-full px-3 py-2 border rounded-lg">
+                <select 
+                  className="w-full px-3 py-2 border rounded-lg"
+                  value={newTagLifecycle}
+                  onChange={(e) => setNewTagLifecycle(e.target.value as TagLifecycle)}
+                >
                   <option value="draft">Draft</option>
                   <option value="active">Active</option>
                 </select>
@@ -953,6 +1320,8 @@ export function TagDatabase() {
                   type="text"
                   className="w-full px-3 py-2 border rounded-lg"
                   placeholder="DB1.DBX0.0"
+                  value={newTagAddress}
+                  onChange={(e) => setNewTagAddress(e.target.value)}
                 />
               </div>
               <div className="col-span-2">
@@ -961,19 +1330,36 @@ export function TagDatabase() {
                   className="w-full px-3 py-2 border rounded-lg"
                   rows={2}
                   placeholder="Tag description..."
+                  value={newTagDescription}
+                  onChange={(e) => setNewTagDescription(e.target.value)}
                 />
               </div>
               <div className="col-span-2 flex gap-3">
                 <label className="flex items-center gap-2">
-                  <input type="checkbox" className="rounded" />
+                  <input 
+                    type="checkbox" 
+                    className="rounded" 
+                    checked={newTagReadOnly}
+                    onChange={(e) => setNewTagReadOnly(e.target.checked)}
+                  />
                   <span className="text-sm text-gray-700">Read Only</span>
                 </label>
                 <label className="flex items-center gap-2">
-                  <input type="checkbox" className="rounded" />
+                  <input 
+                    type="checkbox" 
+                    className="rounded" 
+                    checked={newTagRequiresApproval}
+                    onChange={(e) => setNewTagRequiresApproval(e.target.checked)}
+                  />
                   <span className="text-sm text-gray-700">Requires Approval</span>
                 </label>
                 <label className="flex items-center gap-2">
-                  <input type="checkbox" className="rounded" />
+                  <input 
+                    type="checkbox" 
+                    className="rounded" 
+                    checked={newTagLockScope}
+                    onChange={(e) => setNewTagLockScope(e.target.checked)}
+                  />
                   <span className="text-sm text-gray-700">Lock Scope</span>
                 </label>
               </div>
@@ -985,8 +1371,12 @@ export function TagDatabase() {
               >
                 Cancel
               </button>
-              <button className="px-4 py-2 bg-[#FF6A00] text-white rounded-lg hover:bg-[#E55F00]">
-                Create Tag
+              <button 
+                onClick={handleCreateTag}
+                disabled={isLoading}
+                className="px-4 py-2 bg-[#FF6A00] text-white rounded-lg hover:bg-[#E55F00] disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {isLoading ? (selectedTag ? 'Updating...' : 'Creating...') : (selectedTag ? 'Update Tag' : 'Create Tag')}
               </button>
             </div>
           </div>
@@ -994,11 +1384,12 @@ export function TagDatabase() {
       )}
 
       {/* Create UDT Dialog */}
+      {/* Create UDT Dialog */}
       {showCreateUDTDialog && (
-        <CreateUDTDialog
+        <UDTEditor
           isOpen={showCreateUDTDialog}
           onClose={() => setShowCreateUDTDialog(false)}
-          onConfirm={handleCreateUDT}
+          onSave={handleCreateUDT}
         />
       )}
 
@@ -1007,18 +1398,23 @@ export function TagDatabase() {
         <BulkActionsDialog
           isOpen={showBulkActionsDialog}
           onClose={() => setShowBulkActionsDialog(false)}
-          selectedTags={Array.from(selectedTags)}
-          onExecute={handleBulkOperation}
-          bulkOperation={bulkOperation}
+          onExecute={(operation, params, dryRun) => handleBulkOperation(operation, params, dryRun)}
+          selectedTagsCount={selectedTags.size}
+          previewData={bulkOperation}
         />
       )}
 
       {/* Dependency Graph Dialog */}
       {showDependencyGraph && selectedTag && (
-        <DependencyGraphDialog
+        <DependencyGraph
           isOpen={showDependencyGraph}
           onClose={() => setShowDependencyGraph(false)}
           tag={selectedTag}
+          dependencies={tagDependencies}
+          onNavigate={(type, id) => {
+            console.log('Navigate to:', type, id)
+            // TODO: Implement navigation
+          }}
         />
       )}
 
@@ -1029,6 +1425,138 @@ export function TagDatabase() {
           onClose={() => setShowRefactoringPreview(false)}
           preview={refactoringPreview}
           onApply={handleApplyRefactoring}
+        />
+      )}
+
+      {/* Success Dialog */}
+      {showSuccessDialog && (
+        <Dialog 
+          isOpen={showSuccessDialog} 
+          onClose={() => setShowSuccessDialog(false)} 
+          title={successMessage.toLowerCase().includes('fail') || successMessage.toLowerCase().includes('error') ? 'Error' : 'Success'}
+          message={successMessage}
+          type={successMessage.toLowerCase().includes('fail') || successMessage.toLowerCase().includes('error') ? 'error' : 'success'}
+          size="small"
+        />
+      )}
+
+      {/* Rename Dialog */}
+      {showRenameDialog && tagToRename && (
+        <InputDialog
+          isOpen={showRenameDialog}
+          onClose={() => {
+            setShowRenameDialog(false)
+            setTagToRename(null)
+          }}
+          onConfirm={(newName) => {
+            if (newName && newName !== tagToRename.name) {
+              handleRenameTag(tagToRename.id, newName)
+            }
+            setShowRenameDialog(false)
+            setTagToRename(null)
+          }}
+          title="Rename Tag"
+          label="Tag Name"
+          placeholder="Enter new tag name"
+          defaultValue={tagToRename.name}
+          required={true}
+          confirmButtonText="Next"
+        />
+      )}
+
+      {/* Rename Confirmation Dialog */}
+      {showRenameConfirmDialog && pendingRename && (
+        <InputDialog
+          isOpen={showRenameConfirmDialog}
+          onClose={() => {
+            setShowRenameConfirmDialog(false)
+            setPendingRename(null)
+          }}
+          onConfirm={executeRename}
+          title="Confirm Rename"
+          label="New Tag Name"
+          description={`Rename tag "${pendingRename.oldName}" to "${pendingRename.newName}"? This will update the tag name directly.`}
+          defaultValue={pendingRename.newName}
+          required={true}
+          confirmButtonText="Update"
+        />
+      )}
+
+      {/* Copy Tag Dialog */}
+      {showCopyDialog && tagToCopy && (
+        <InputDialog
+          isOpen={showCopyDialog}
+          onClose={() => {
+            setShowCopyDialog(false)
+            setTagToCopy(null)
+          }}
+          onConfirm={(newName) => {
+            if (newName) {
+              executeCopy(newName)
+            }
+          }}
+          title="Copy Tag"
+          label="New Tag Name"
+          placeholder="Enter name for the copied tag"
+          defaultValue={`${tagToCopy.name}_copy`}
+          required={true}
+          confirmButtonText="Create"
+        />
+      )}
+
+      {/* Delete Tag Confirmation Dialog */}
+      {showDeleteDialog && tagToDelete && (
+        <Dialog
+          isOpen={showDeleteDialog}
+          onClose={() => {
+            setShowDeleteDialog(false)
+            setTagToDelete(null)
+          }}
+          title="Delete Tag"
+          message={`Are you sure you want to delete tag "${tagToDelete.name}"? This will archive the tag and it can be recovered later.`}
+          type="warning"
+          size="small"
+          actions={[
+            {
+              label: 'Cancel',
+              onClick: () => {
+                setShowDeleteDialog(false)
+                setTagToDelete(null)
+              },
+              variant: 'secondary'
+            },
+            {
+              label: isLoading ? 'Deleting...' : 'Delete',
+              onClick: executeDelete,
+              variant: 'danger' as const
+            }
+          ]}
+        />
+      )}
+
+      {/* Address Mapping Dialog */}
+      {showAddressMappingDialog && selectedTagForMapping && (
+        <AddressMappingManager
+          isOpen={showAddressMappingDialog}
+          onClose={() => {
+            setShowAddressMappingDialog(false)
+            setSelectedTagForMapping(null)
+          }}
+          tag={selectedTagForMapping}
+          onSave={handleSaveAliases}
+        />
+      )}
+
+      {/* Validation Rules Dialog */}
+      {showValidationRulesDialog && selectedTagForMapping && (
+        <ValidationRulesManager
+          isOpen={showValidationRulesDialog}
+          onClose={() => {
+            setShowValidationRulesDialog(false)
+            setSelectedTagForMapping(null)
+          }}
+          tag={selectedTagForMapping}
+          onSave={handleSaveValidationRules}
         />
       )}
     </div>
@@ -1081,382 +1609,6 @@ export function TagDatabase() {
 }
 
 // ============ Dialog Components ============
-
-function CreateUDTDialog({ isOpen, onClose, onConfirm }: {
-  isOpen: boolean
-  onClose: () => void
-  onConfirm: (udt: UserDefinedType) => void
-}) {
-  const [udtName, setUdtName] = useState('')
-  const [description, setDescription] = useState('')
-  const [members, setMembers] = useState<UDTMember[]>([
-    { name: '', type: 'BOOL', description: '' }
-  ])
-
-  const addMember = () => {
-    setMembers([...members, { name: '', type: 'BOOL', description: '' }])
-  }
-
-  const removeMember = (index: number) => {
-    setMembers(members.filter((_, i) => i !== index))
-  }
-
-  const updateMember = (index: number, field: string, value: any) => {
-    const updated = [...members]
-    updated[index] = { ...updated[index], [field]: value }
-    setMembers(updated)
-  }
-
-  const handleSubmit = () => {
-    if (!udtName || members.some(m => !m.name)) {
-      alert('Please fill all required fields')
-      return
-    }
-
-    onConfirm({
-      id: '',
-      name: udtName,
-      description,
-      members,
-      createdAt: new Date().toISOString(),
-      createdBy: 'Current User'
-    })
-  }
-
-  return (
-    <Dialog isOpen={isOpen} onClose={onClose} title="Create User Defined Type (UDT)" size="large">
-      <div className="p-6 space-y-4">
-        <div className="grid grid-cols-2 gap-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">UDT Name *</label>
-            <input
-              type="text"
-              value={udtName}
-              onChange={(e) => setUdtName(e.target.value)}
-              className="w-full px-3 py-2 border rounded-lg"
-              placeholder="MotorControl"
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>
-            <input
-              type="text"
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              className="w-full px-3 py-2 border rounded-lg"
-              placeholder="Motor control structure"
-            />
-          </div>
-        </div>
-
-        <div className="border-t pt-4">
-          <div className="flex items-center justify-between mb-3">
-            <h3 className="text-sm font-semibold text-gray-700">Members</h3>
-            <button
-              onClick={addMember}
-              className="flex items-center gap-1 px-3 py-1 text-sm bg-gray-100 hover:bg-gray-200 rounded"
-            >
-              <Plus size={14} />
-              Add Member
-            </button>
-          </div>
-
-          <div className="space-y-2 max-h-[400px] overflow-y-auto">
-            {members.map((member, index) => (
-              <div key={index} className="flex items-center gap-2 p-3 bg-gray-50 rounded border">
-                <input
-                  type="text"
-                  value={member.name}
-                  onChange={(e) => updateMember(index, 'name', e.target.value)}
-                  className="flex-1 px-2 py-1 text-sm border rounded"
-                  placeholder="memberName"
-                />
-                <select
-                  value={member.type}
-                  onChange={(e) => updateMember(index, 'type', e.target.value)}
-                  className="px-2 py-1 text-sm border rounded"
-                >
-                  <option value="BOOL">BOOL</option>
-                  <option value="INT">INT</option>
-                  <option value="DINT">DINT</option>
-                  <option value="REAL">REAL</option>
-                  <option value="LREAL">LREAL</option>
-                  <option value="STRING">STRING</option>
-                  <option value="ARRAY">ARRAY</option>
-                  <option value="UDT">UDT</option>
-                </select>
-                {member.type === 'ARRAY' && (
-                  <input
-                    type="number"
-                    value={member.arraySize || 10}
-                    onChange={(e) => updateMember(index, 'arraySize', parseInt(e.target.value))}
-                    className="w-20 px-2 py-1 text-sm border rounded"
-                    placeholder="Size"
-                  />
-                )}
-                <input
-                  type="text"
-                  value={member.description || ''}
-                  onChange={(e) => updateMember(index, 'description', e.target.value)}
-                  className="flex-1 px-2 py-1 text-sm border rounded"
-                  placeholder="Description"
-                />
-                <button
-                  onClick={() => removeMember(index)}
-                  className="p-1 hover:bg-red-100 rounded text-red-600"
-                >
-                  <Trash2 size={14} />
-                </button>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        <div className="flex justify-end gap-2 pt-4 border-t">
-          <button
-            onClick={onClose}
-            className="px-4 py-2 border rounded-lg hover:bg-gray-50"
-          >
-            Cancel
-          </button>
-          <button
-            onClick={handleSubmit}
-            className="px-4 py-2 bg-[#FF6A00] text-white rounded-lg hover:bg-[#E55F00]"
-          >
-            Create UDT
-          </button>
-        </div>
-      </div>
-    </Dialog>
-  )
-}
-
-function BulkActionsDialog({ isOpen, onClose, selectedTags, onExecute, bulkOperation }: {
-  isOpen: boolean
-  onClose: () => void
-  selectedTags: string[]
-  onExecute: (operation: string, dryRun: boolean) => void
-  bulkOperation: BulkTagOperation | null
-}) {
-  const [operation, setOperation] = useState<string>('update')
-  const [changes, setChanges] = useState<Record<string, any>>({})
-  const [dryRun, setDryRun] = useState(true)
-
-  return (
-    <Dialog isOpen={isOpen} onClose={onClose} title="Bulk Tag Operations" size="large">
-      <div className="p-6 space-y-4">
-        <div className="bg-blue-50 p-3 rounded-lg">
-          <p className="text-sm text-blue-800">
-            <strong>{selectedTags.length}</strong> tags selected for bulk operation
-          </p>
-        </div>
-
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">Operation</label>
-          <select
-            value={operation}
-            onChange={(e) => setOperation(e.target.value)}
-            className="w-full px-3 py-2 border rounded-lg"
-          >
-            <option value="update">Update Properties</option>
-            <option value="delete">Delete Tags</option>
-            <option value="copy">Copy Tags</option>
-            <option value="rename">Rename (Batch)</option>
-          </select>
-        </div>
-
-        {operation === 'update' && (
-          <div className="space-y-3 border-t pt-4">
-            <h3 className="text-sm font-semibold text-gray-700">Update Fields</h3>
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label className="block text-xs text-gray-600 mb-1">Lifecycle</label>
-                <select
-                  onChange={(e) => setChanges({ ...changes, lifecycle: e.target.value })}
-                  className="w-full px-2 py-1 text-sm border rounded"
-                >
-                  <option value="">- No change -</option>
-                  <option value="draft">Draft</option>
-                  <option value="active">Active</option>
-                  <option value="deprecated">Deprecated</option>
-                  <option value="archived">Archived</option>
-                </select>
-              </div>
-              <div>
-                <label className="block text-xs text-gray-600 mb-1">Scope</label>
-                <select
-                  onChange={(e) => setChanges({ ...changes, scope: e.target.value })}
-                  className="w-full px-2 py-1 text-sm border rounded"
-                >
-                  <option value="">- No change -</option>
-                  <option value="global">Global</option>
-                  <option value="program">Program</option>
-                  <option value="task">Task</option>
-                </select>
-              </div>
-              <div>
-                <label className="block text-xs text-gray-600 mb-1">Area</label>
-                <input
-                  type="text"
-                  onChange={(e) => setChanges({ ...changes, area: e.target.value })}
-                  className="w-full px-2 py-1 text-sm border rounded"
-                  placeholder="Area name"
-                />
-              </div>
-              <div>
-                <label className="block text-xs text-gray-600 mb-1">Equipment</label>
-                <input
-                  type="text"
-                  onChange={(e) => setChanges({ ...changes, equipment: e.target.value })}
-                  className="w-full px-2 py-1 text-sm border rounded"
-                  placeholder="Equipment name"
-                />
-              </div>
-            </div>
-            <div className="flex gap-2">
-              <label className="flex items-center gap-2 text-sm">
-                <input
-                  type="checkbox"
-                  onChange={(e) => setChanges({ ...changes, readOnly: e.target.checked })}
-                  className="rounded"
-                />
-                Set Read Only
-              </label>
-              <label className="flex items-center gap-2 text-sm">
-                <input
-                  type="checkbox"
-                  onChange={(e) => setChanges({ ...changes, requiresApproval: e.target.checked })}
-                  className="rounded"
-                />
-                Require Approval
-              </label>
-            </div>
-          </div>
-        )}
-
-        {operation === 'delete' && (
-          <div className="bg-red-50 border border-red-200 p-4 rounded-lg">
-            <p className="text-sm text-red-800">
-              <AlertTriangle size={16} className="inline mr-2" />
-              <strong>Warning:</strong> This will permanently delete {selectedTags.length} tags. This action cannot be undone.
-            </p>
-          </div>
-        )}
-
-        {bulkOperation && bulkOperation.preview && (
-          <div className="border-t pt-4">
-            <h3 className="text-sm font-semibold text-gray-700 mb-2">Preview Results</h3>
-            <div className="bg-gray-50 p-4 rounded-lg space-y-2">
-              <div className="flex items-center justify-between text-sm">
-                <span className="text-gray-600">Successful:</span>
-                <span className="font-semibold text-green-600">{bulkOperation.preview.successful}</span>
-              </div>
-              <div className="flex items-center justify-between text-sm">
-                <span className="text-gray-600">Failed:</span>
-                <span className="font-semibold text-red-600">{bulkOperation.preview.failed}</span>
-              </div>
-              {bulkOperation.preview.warnings && bulkOperation.preview.warnings.length > 0 && (
-                <div className="mt-3 pt-3 border-t">
-                  <p className="text-xs font-medium text-gray-600 mb-2">Warnings:</p>
-                  <div className="space-y-1 max-h-32 overflow-y-auto">
-                    {bulkOperation.preview.warnings.map((warning, i) => (
-                      <p key={i} className="text-xs text-yellow-700">{warning}</p>
-                    ))}
-                  </div>
-                </div>
-              )}
-            </div>
-          </div>
-        )}
-
-        <div className="flex items-center justify-between pt-4 border-t">
-          <label className="flex items-center gap-2">
-            <input
-              type="checkbox"
-              checked={dryRun}
-              onChange={(e) => setDryRun(e.target.checked)}
-              className="rounded"
-            />
-            <span className="text-sm text-gray-700">Dry Run (Preview Only)</span>
-          </label>
-          <div className="flex gap-2">
-            <button
-              onClick={onClose}
-              className="px-4 py-2 border rounded-lg hover:bg-gray-50"
-            >
-              Cancel
-            </button>
-            <button
-              onClick={() => onExecute(operation, dryRun)}
-              className={`px-4 py-2 rounded-lg ${
-                dryRun
-                  ? 'bg-blue-500 hover:bg-blue-600 text-white'
-                  : 'bg-[#FF6A00] hover:bg-[#E55F00] text-white'
-              }`}
-            >
-              {dryRun ? 'Preview' : 'Execute'}
-            </button>
-          </div>
-        </div>
-      </div>
-    </Dialog>
-  )
-}
-
-function DependencyGraphDialog({ isOpen, onClose, tag }: {
-  isOpen: boolean
-  onClose: () => void
-  tag: Tag
-}) {
-  const dependencies = tag.dependencies || []
-
-  return (
-    <Dialog isOpen={isOpen} onClose={onClose} title={`Dependencies: ${tag.name}`} size="large">
-      <div className="p-6">
-        <div className="flex items-center justify-center min-h-[400px]">
-          <div className="text-center">
-            <Network size={64} className="mx-auto mb-4 text-gray-300" />
-            <p className="text-gray-600 mb-2">Dependency Graph Visualization</p>
-            <p className="text-sm text-gray-500">
-              This tag is used in <strong>{dependencies.length}</strong> locations
-            </p>
-            
-            {dependencies.length > 0 && (
-              <div className="mt-6 text-left max-w-md mx-auto">
-                <h3 className="text-sm font-semibold text-gray-700 mb-2">Usage Locations:</h3>
-                <div className="space-y-2">
-                  {dependencies.slice(0, 10).map((dep, i) => (
-                    <div key={i} className="flex items-center gap-2 p-2 bg-gray-50 rounded text-sm">
-                      <FileText size={14} className="text-blue-600" />
-                      <span className="flex-1">{dep.location.fileName}</span>
-                      <span className="text-xs text-gray-500">
-                        {dep.usageType} • Line {dep.location.lineNumber}
-                      </span>
-                    </div>
-                  ))}
-                  {dependencies.length > 10 && (
-                    <p className="text-xs text-gray-500 text-center pt-2">
-                      ... and {dependencies.length - 10} more
-                    </p>
-                  )}
-                </div>
-              </div>
-            )}
-          </div>
-        </div>
-        
-        <div className="flex justify-end pt-4 border-t">
-          <button
-            onClick={onClose}
-            className="px-4 py-2 bg-gray-200 rounded-lg hover:bg-gray-300"
-          >
-            Close
-          </button>
-        </div>
-      </div>
-    </Dialog>
-  )
-}
 
 function RefactoringPreviewDialog({ isOpen, onClose, preview, onApply }: {
   isOpen: boolean

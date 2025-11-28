@@ -22,6 +22,7 @@ export function analyzeSemantics(content: string): SemanticAnalysisResult {
   const initializedVariables = new Set<string>()
   const usedVariables = new Set<string>()
   const writtenVariables = new Set<string>()
+  const raceConditionReported = new Set<string>() // Track which variables already have race condition warnings
   
   let inVarBlock = false
   let estimatedCPU = 0
@@ -49,7 +50,9 @@ export function analyzeSemantics(content: string): SemanticAnalysisResult {
 
     // Parse variable declarations
     if (inVarBlock) {
-      const varMatch = trimmed.match(/^([a-zA-Z_][a-zA-Z0-9_]*)\s*:\s*([a-zA-Z_][a-zA-Z0-9_]*(?:\\([^)]*\\))?)\s*(?::=\s*(.+))?/i)
+      // Match variable declarations with optional initialization
+      // Format: VarName : DataType := InitialValue;
+      const varMatch = trimmed.match(/^([a-zA-Z_][a-zA-Z0-9_]*)\s*:\s*([a-zA-Z_][a-zA-Z0-9_]*(?:\([^)]*\))?)\s*(?::=\s*(.+?))?\s*;?\s*(?:\(\*.*\*\))?$/i)
       if (varMatch) {
         const varName = varMatch[1]
         const varType = varMatch[2]
@@ -77,8 +80,8 @@ export function analyzeSemantics(content: string): SemanticAnalysisResult {
       loopDepth = Math.max(0, loopDepth - 1)
     }
 
-    // Warn about deeply nested loops
-    if (loopDepth > 2) {
+    // Warn about deeply nested loops (only once per line)
+    if (loopDepth > 2 && !diagnostics.some(d => d.id === `loop-depth-${lineNumber}`)) {
       diagnostics.push({
         id: `loop-depth-${lineNumber}`,
         severity: 'warning',
@@ -99,12 +102,10 @@ export function analyzeSemantics(content: string): SemanticAnalysisResult {
         // Check if variable is being written to (assignment)
         const assignmentRegex = new RegExp(`${varName}\\s*:=`, 'g')
         if (assignmentRegex.test(trimmed)) {
-          writtenVariables.add(varName)
-          
-          // Check if used before initialization
+          // Check if used before initialization (only check on first write)
           if (!initializedVariables.has(varName) && !writtenVariables.has(varName)) {
             diagnostics.push({
-              id: `uninit-${varName}-${lineNumber}`,
+              id: `uninit-${varName}`,
               severity: 'warning',
               message: `Variable '${varName}' may be used before initialization`,
               line: lineNumber,
@@ -113,6 +114,8 @@ export function analyzeSemantics(content: string): SemanticAnalysisResult {
               suggestion: `Initialize '${varName}' in VAR block or before first use`,
             })
           }
+          
+          writtenVariables.add(varName)
         }
       }
     })
@@ -120,12 +123,15 @@ export function analyzeSemantics(content: string): SemanticAnalysisResult {
     // Detect potential race conditions (same variable written in multiple places)
     const multiWritePattern = /([a-zA-Z_][a-zA-Z0-9_]*)\s*:=/g
     let match
+    const lineWrittenVars = new Set<string>()
+    
     while ((match = multiWritePattern.exec(trimmed)) !== null) {
       const varName = match[1]
-      if (writtenVariables.has(varName)) {
-        // Variable written multiple times - potential race condition
+      
+      // Only add diagnostic if this variable was written in a previous line AND we haven't reported it yet
+      if (writtenVariables.has(varName) && !raceConditionReported.has(varName) && !lineWrittenVars.has(varName)) {
         diagnostics.push({
-          id: `race-${varName}-${lineNumber}`,
+          id: `race-${varName}`,
           severity: 'warning',
           message: `Variable '${varName}' written in multiple locations - potential race condition`,
           line: lineNumber,
@@ -133,15 +139,20 @@ export function analyzeSemantics(content: string): SemanticAnalysisResult {
           category: 'race_condition',
           suggestion: 'Consider using mutex or ensuring sequential execution',
         })
+        raceConditionReported.add(varName) // Mark this variable as already reported
       }
+      
+      // Track variables written on this line to avoid duplicates
+      lineWrittenVars.add(varName)
     }
 
     // Detect direct I/O access without validation
-    if (trimmed.match(/(%[IQM][XBW]*\d+)/i)) {
+    const ioMatch = trimmed.match(/(%[IQM][XBW]*\d+)/i)
+    if (ioMatch) {
       diagnostics.push({
-        id: `unsafe-io-${lineNumber}`,
+        id: `unsafe-io-${lineNumber}-${ioMatch[1]}`,
         severity: 'error',
-        message: 'Direct I/O access without validation detected',
+        message: `Direct I/O access without validation detected: ${ioMatch[1]}`,
         line: lineNumber,
         column: trimmed.search(/%[IQM]/i),
         category: 'unsafe_io',
@@ -150,30 +161,32 @@ export function analyzeSemantics(content: string): SemanticAnalysisResult {
     }
 
     // Detect resource-intensive operations
-    if (trimmed.match(/\b(SIN|COS|TAN|SQRT|EXP|LOG|POW)\b/i)) {
+    const mathMatch = trimmed.match(/\b(SIN|COS|TAN|SQRT|EXP|LOG|POW)\b/i)
+    if (mathMatch) {
       estimatedCPU += 2
       scanTime += 0.1
       diagnostics.push({
-        id: `heavy-math-${lineNumber}`,
+        id: `heavy-math-${lineNumber}-${mathMatch[1]}`,
         severity: 'info',
-        message: 'Resource-intensive mathematical operation detected',
+        message: `Resource-intensive mathematical operation detected: ${mathMatch[1]}`,
         line: lineNumber,
-        column: 1,
+        column: trimmed.indexOf(mathMatch[1]),
         category: 'performance',
         suggestion: 'Consider caching results if called frequently',
       })
     }
 
     // Detect string operations (can be slow)
-    if (trimmed.match(/\b(CONCAT|INSERT|DELETE|FIND|REPLACE)\b/i)) {
+    const stringMatch = trimmed.match(/\b(CONCAT|INSERT|DELETE|FIND|REPLACE)\b/i)
+    if (stringMatch) {
       estimatedCPU += 1
       scanTime += 0.05
       diagnostics.push({
-        id: `string-op-${lineNumber}`,
+        id: `string-op-${lineNumber}-${stringMatch[1]}`,
         severity: 'info',
-        message: 'String operations can impact scan time',
+        message: `String operation detected: ${stringMatch[1]} can impact scan time`,
         line: lineNumber,
-        column: 1,
+        column: trimmed.indexOf(stringMatch[1]),
         category: 'performance',
       })
     }

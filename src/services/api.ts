@@ -793,6 +793,7 @@ export const tagApi = {
 
   async bulkOperation(operation: {
     operation: string
+    params?: any
     tagIds: string[]
     dryRun: boolean
     projectId?: string
@@ -837,6 +838,40 @@ export const tagApi = {
   async getDependencies(tagId: string, projectId?: string): Promise<any> {
     const params = projectId ? `?projectId=${projectId}` : ''
     const res = await fetch(`${API_BASE}/tags/${tagId}/dependencies${params}`)
+    return res.json()
+  },
+
+  async getTagDependencies(tagId: string, projectId?: string): Promise<any[]> {
+    return this.getDependencies(tagId, projectId)
+  },
+
+  async saveTagAliases(tagId: string, aliases: any[], projectId?: string): Promise<any> {
+    const res = await fetch(`${API_BASE}/tags/${tagId}/aliases`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ aliases, projectId }),
+    })
+    return res.json()
+  },
+
+  async getTagAliases(tagId: string, projectId?: string): Promise<any[]> {
+    const params = projectId ? `?projectId=${projectId}` : ''
+    const res = await fetch(`${API_BASE}/tags/${tagId}/aliases${params}`)
+    return res.json()
+  },
+
+  async saveTagValidationRules(tagId: string, rules: any[], projectId?: string): Promise<any> {
+    const res = await fetch(`${API_BASE}/tags/${tagId}/validation-rules`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ rules, projectId }),
+    })
+    return res.json()
+  },
+
+  async getTagValidationRules(tagId: string, projectId?: string): Promise<any[]> {
+    const params = projectId ? `?projectId=${projectId}` : ''
+    const res = await fetch(`${API_BASE}/tags/${tagId}/validation-rules${params}`)
     return res.json()
   },
 
@@ -1182,6 +1217,11 @@ export const versionApi = {
     return res.json();
   },
 
+  async getVersionFiles(versionId: string) {
+    const res = await fetch(`${API_BASE}/versions/${versionId}/files`);
+    return res.json();
+  },
+
   async createVersion(projectId: number | string, data: {
     branch_id: number | string;
     message: string;
@@ -1283,6 +1323,7 @@ export const versionApi = {
     version: string;
     description?: string;
     createdBy: string;
+    stage?: string; // Add stage support
     tags?: string[];
     metadata?: Record<string, unknown>;
   }) {
@@ -1299,6 +1340,15 @@ export const versionApi = {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ targetEnvironment, promotedBy }),
+    });
+    return res.json();
+  },
+
+  async signRelease(releaseId: string, signedBy: string) {
+    const res = await fetch(`${API_BASE}/versions/releases/${releaseId}/sign`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ signedBy }),
     });
     return res.json();
   },

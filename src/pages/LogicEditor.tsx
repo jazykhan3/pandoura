@@ -45,6 +45,7 @@ import type {
   SafetyRule,
   ReplaceMatch,
   ReplaceScope,
+  LogicFile,
 } from '../types'
 
 // Utility function to extract tag declarations from PLC code
@@ -340,8 +341,7 @@ export function LogicEditor() {
   const [testPostConditions, setTestPostConditions] = useState('')
   const [testMockedIO, setTestMockedIO] = useState('{}')
   
-  const [showTestDebugger, setShowTestDebugger] = useState(false)
-  const [debugTestId, setDebugTestId] = useState('')
+  // Test debugger variables removed - not currently used
   const [testCoverage, setTestCoverage] = useState<Record<string, { lines: number; total: number; branches: number; totalBranches: number }>>({})
   const [testRunning, setTestRunning] = useState(false)
   const [runAllProgress, setRunAllProgress] = useState({ current: 0, total: 0 })
@@ -516,7 +516,7 @@ export function LogicEditor() {
         versionFiles.push({
           path: 'tags/tags.json',
           content: JSON.stringify(tagDatabaseTags, null, 2),
-          type: 'config' as const,
+          type: 'logic' as const,
         })
       }
 
@@ -1434,7 +1434,7 @@ export function LogicEditor() {
             <div className="w-px h-6 bg-neutral-300" />
 
             {/* Versioning Actions */}
-            <button
+            {/* <button
               onClick={() => setShowSnapshotDialog(true)}
               disabled={!currentFile}
               className={`flex items-center gap-1.5 px-3 py-1.5 text-sm rounded-md transition-colors ${
@@ -1446,7 +1446,7 @@ export function LogicEditor() {
             >
               <Package className="w-4 h-4" />
               Snapshot
-            </button>
+            </button> */}
 
             <button
               onClick={() => setShowReleaseDialog(true)}
@@ -1937,7 +1937,7 @@ export function LogicEditor() {
                 )}
               </button>
 
-              <button
+              {/* <button
                 onClick={() => setShowSnapshotDialog(true)}
                 disabled={!currentFile}
                 className={`w-full px-3 py-2 text-sm rounded-md transition-colors ${
@@ -1947,7 +1947,7 @@ export function LogicEditor() {
                 }`}
               >
                 Create Snapshot
-              </button>
+              </button> */}
 
               <button
                 onClick={() => setShowCreateVersionDialog(true)}
@@ -2838,7 +2838,7 @@ export function LogicEditor() {
                       {test.status === 'failed' && (
                         <button
                           onClick={() => {
-                            setDebugTestId(test.id)
+                            // Debug functionality temporarily disabled
                             handleRunSimulator()
                             setDialog({
                               isOpen: true,
@@ -3151,7 +3151,7 @@ export function LogicEditor() {
                     const fileContent = unsavedChanges[file.id] || file.content
                     const lines = fileContent.split('\n')
                     
-                    lines.forEach((line, lineIndex) => {
+                    lines.forEach((line: string, lineIndex: number) => {
                       let match
                       const lineRegex = new RegExp(`\\b${replaceSearchTerm.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`, 'g')
                       
@@ -3283,7 +3283,8 @@ export function LogicEditor() {
                     const affectedFiles: string[] = []
                     
                     // Process replacements for each file
-                    matchesByFile.forEach((matches, fileId) => {
+                    matchesByFile.forEach((matches: ReplaceMatch[], fileId: string) => {
+                      console.log(`Processing ${matches.length} matches in file ${fileId}`);
                       const file = files.find(f => f.id === fileId)
                       if (!file) return
                       

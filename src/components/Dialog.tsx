@@ -12,7 +12,7 @@ type DialogProps = {
   actions?: {
     label: string
     onClick: () => void
-    variant?: 'primary' | 'secondary'
+    variant?: 'primary' | 'secondary' | 'danger'
   }[]
 }
 
@@ -125,6 +125,8 @@ export function Dialog({ isOpen, onClose, title, message, children, type = 'info
                   className={`px-4 py-2 rounded-md font-medium transition-colors ${
                     action.variant === 'primary'
                       ? 'bg-[#FF6A00] text-white hover:bg-[#FF8020]'
+                      : action.variant === 'danger'
+                      ? 'bg-red-600 text-white hover:bg-red-700'
                       : 'bg-neutral-200 text-neutral-800 hover:bg-neutral-300'
                   }`}
                 >

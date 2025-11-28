@@ -21,8 +21,10 @@ export type UDTMember = {
   type: TagDataType
   udtType?: string // For nested UDTs
   arraySize?: number
+  baseType?: string // Base type for arrays
   defaultValue?: any
   description?: string
+  members?: UDTMember[] // Support nested structs
 }
 
 export type UserDefinedType = {
@@ -53,13 +55,16 @@ export type TagAlias = {
 
 export type TagDependency = {
   tagId: string
-  dependsOnTagId: string
+  tagName: string
+  dependsOnTagId?: string
+  dependencyType: 'routine' | 'file' | 'hmi' | 'alarm' | 'tag'
   usageType: 'read' | 'write' | 'readwrite'
   location: {
     fileId?: string
     fileName?: string
     routine?: string
     lineNumber?: number
+    column?: number
   }
 }
 
@@ -149,18 +154,21 @@ export type TagRefactoringPreview = {
 }
 
 export type BulkTagOperation = {
-  id: string
-  operation: 'create' | 'update' | 'delete' | 'rename' | 'copy'
-  tags: string[] // tag IDs
-  changes: Record<string, any>
+  id?: string
+  operation: 'create' | 'update' | 'delete' | 'rename' | 'copy' | 'move' | 'convert'
+  tags?: string[] // tag IDs
+  changes?: Record<string, any>[]
   dryRun: boolean
+  affectedTags?: number
+  affectedFiles?: string[]
+  requiresApproval?: boolean
   preview?: {
     successful: number
     failed: number
     warnings: string[]
   }
-  status: 'pending' | 'running' | 'completed' | 'failed'
-  createdAt: string
+  status?: 'pending' | 'running' | 'completed' | 'failed'
+  createdAt?: string
   completedAt?: string
 }
 
@@ -271,6 +279,12 @@ export type Branch = {
   createdBy: string
   parentBranch?: string
   isDefault: boolean
+  releaseCount?: number // Number of releases in this branch
+}
+
+export type BranchWithReleases = Branch & {
+  releases: Release[]
+  activeRelease?: Release // Currently deployed release
 }
 
 export type VersionStatus = 'draft' | 'staged' | 'released'
@@ -310,14 +324,30 @@ export type VersionDetail = Version & {
   metadata?: Record<string, unknown>
 }
 
+export type ProjectState = {
+  projectId: string
+  logicFiles: {
+    id: string
+    name: string
+    content: string
+    path: string
+  }[]
+  tags: Tag[]
+  udts: UserDefinedType[]
+  configurations: Record<string, any>
+  metadata: Record<string, any>
+}
+
 export type Snapshot = {
   id: string
   name: string
   versionId: string
+  projectState: ProjectState // Complete project state at snapshot time
   createdAt: string
   createdBy: string
   description?: string
   tags?: string[]
+  checksum: string // Checksum of project state for integrity
 }
 
 export type Release = {
@@ -325,8 +355,12 @@ export type Release = {
   name: string
   version: string
   snapshotId: string
+  branchId: string // Which branch this release belongs to
+  stage: BranchStage // Current deployment stage
   createdAt: string
   createdBy: string
+  deployedAt?: string // When it was deployed to current stage
+  deployedBy?: string // Who deployed it to current stage
   signed: boolean
   signature?: string
   metadata?: Record<string, unknown>
@@ -462,6 +496,53 @@ export type CreateProjectResponse = {
   success: boolean
   project?: Project
   error?: string
+}
+
+// Deploy Safety Check Types
+export type SafetyCheckType = 
+  | 'syntax-semantic'
+  | 'tag-dependencies'
+  | 'critical-overwrites'
+  | 'resource-limits'
+  | 'race-conditions'
+  | 'io-conflicts'
+  | 'vendor-export'
+  | 'runtime-lock'
+  | 'dry-run'
+  | 'approval-policy'
+
+export type SafetyCheckSeverity = 'info' | 'warning' | 'error' | 'critical'
+
+export type SafetyCheckStatus = 'pending' | 'running' | 'passed' | 'failed' | 'warning'
+
+export type SafetyCheck = {
+  id: string
+  type: SafetyCheckType
+  name: string
+  description: string
+  status: SafetyCheckStatus
+  severity: SafetyCheckSeverity
+  message: string
+  details: string[]
+  executedAt?: string
+  executionTime?: number
+  autoFix?: boolean
+}
+
+export type SafetyCheckResults = {
+  releaseId: string
+  snapshotId: string
+  projectId: string
+  checks: SafetyCheck[]
+  overallStatus: 'passed' | 'warning' | 'failed'
+  executedAt: string
+  executedBy: string
+  approvalRequired: boolean
+  requiredApprovals: string[]
+  blockingIssues: number
+  warningIssues: number
+  totalFiles: number
+  totalTags: number
 }
 
 

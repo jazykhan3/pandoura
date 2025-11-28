@@ -10,6 +10,8 @@ type InputDialogProps = {
   placeholder?: string
   defaultValue?: string
   required?: boolean
+  description?: string
+  confirmButtonText?: string
 }
 
 export function InputDialog({ 
@@ -20,7 +22,9 @@ export function InputDialog({
   label, 
   placeholder = '', 
   defaultValue = '',
-  required = false
+  required = false,
+  description = '',
+  confirmButtonText = 'Confirm'
 }: InputDialogProps) {
   const [value, setValue] = useState(defaultValue)
   const [error, setError] = useState('')
@@ -111,6 +115,9 @@ export function InputDialog({
 
           {/* Content */}
           <div className="p-4">
+            {description && (
+              <p className="text-sm text-neutral-600 mb-4">{description}</p>
+            )}
             <label className="block text-sm font-medium text-neutral-700 mb-2">
               {label}
               {required && <span className="text-red-500 ml-1">*</span>}
@@ -151,7 +158,7 @@ export function InputDialog({
               type="submit"
               className="px-4 py-2 rounded-md font-medium bg-[#FF6A00] text-white hover:bg-[#FF8020] transition-colors"
             >
-              Create
+              {confirmButtonText}
             </button>
           </div>
         </form>
