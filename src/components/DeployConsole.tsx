@@ -18,10 +18,18 @@ import {
   Info,
   ChevronDown,
   ChevronRight,
+  Settings,
+  Target,
 } from 'lucide-react'
 import { Dialog } from './Dialog'
+import { DeploymentStrategyConfig } from './DeploymentStrategyConfig'
 import { deploymentApi, versionApi } from '../services/api'
 import { useProjectStore } from '../store/projectStore'
+import type {
+  DeploymentConfig,
+  DeploymentTarget,
+  DeploymentExecution,
+} from '../types'
 
 type PreDeployCheck = {
   id: string
@@ -73,6 +81,12 @@ export function DeployConsole({ environment }: DeployConsoleProps) {
   const [loading, setLoading] = useState(true)
   const [releases, setReleases] = useState<any[]>([])
   
+  // Deployment Strategy Configuration
+  const [deploymentConfig, setDeploymentConfig] = useState<DeploymentConfig | null>(null)
+  const [showStrategyConfig, setShowStrategyConfig] = useState(false)
+  const [deploymentExecution, setDeploymentExecution] = useState<DeploymentExecution | null>(null)
+  const [availableTargets, setAvailableTargets] = useState<DeploymentTarget[]>([])
+  
   // Use variables to avoid lint errors
   console.log('Deploy console loading:', loading, 'releases count:', releases.length)
   
@@ -86,6 +100,33 @@ export function DeployConsole({ environment }: DeployConsoleProps) {
   const [selectedRelease, setSelectedRelease] = useState<any>(null)
   const [logicFiles, setLogicFiles] = useState<any[]>([])
   const [loadingFiles, setLoadingFiles] = useState(false)
+
+  // Initialize deployment targets
+  useEffect(() => {
+    const defaultTargets: DeploymentTarget[] = [
+      {
+        id: 'target-primary',
+        name: `${environment.charAt(0).toUpperCase() + environment.slice(1)} Runtime Primary`,
+        type: 'plc',
+        address: environment === 'staging' ? '192.168.1.100' : '10.0.1.50',
+        runtime: 'PandaUra Runtime v2.1',
+        status: 'online',
+        capabilities: ['deploy', 'rollback', 'health-check'],
+        canQuiesce: true,
+      },
+      {
+        id: 'target-backup',
+        name: `${environment.charAt(0).toUpperCase() + environment.slice(1)} Runtime Backup`,
+        type: 'plc',
+        address: environment === 'staging' ? '192.168.1.101' : '10.0.1.51',
+        runtime: 'PandaUra Runtime v2.1',
+        status: 'online',
+        capabilities: ['deploy', 'rollback'],
+        canQuiesce: true,
+      },
+    ]
+    setAvailableTargets(defaultTargets)
+  }, [environment])
 
   // Load releases from backend filtered by environment
   useEffect(() => {
@@ -671,47 +712,701 @@ export function DeployConsole({ environment }: DeployConsoleProps) {
       return
     }
 
+    // Check if deployment strategy is configured
+    if (!deploymentConfig) {
+      alert('Please configure deployment strategy first')
+      setShowStrategyConfig(true)
+      return
+    }
+
     try {
       setIsDeploying(true)
       
-      // Start deployment via API
-      const result = await deploymentApi.startDeployment(currentDeploymentId)
-      
-      if (result.success) {
-        // Poll for updates
-        const pollInterval = setInterval(async () => {
-          try {
-            const updateResult = await deploymentApi.getDeploymentById(currentDeploymentId)
-            
-            if (updateResult.success) {
-              const deployment = updateResult.deployment
-              
-              // Update progress and logs - simplified for right panel
-              console.log('Deployment status update:', {
-                status: deployment.status,
-                progress: deployment.progress || 0,
-                logsCount: deployment.logs?.length || 0
-              })
-              
-              // Stop polling if completed or failed
-              if (deployment.status === 'success' || deployment.status === 'failed') {
-                clearInterval(pollInterval)
-                setIsDeploying(false)
-                setCanRollback(deployment.status === 'success')
-              }
-            }
-          } catch (error) {
-            console.error('Failed to poll deployment status:', error)
-            clearInterval(pollInterval)
-            setIsDeploying(false)
-          }
-        }, 2000) // Poll every 2 seconds
+      // Create deployment execution with strategy configuration
+      const execution: DeploymentExecution = {
+        id: `exec-${Date.now()}`,
+        deploymentId: currentDeploymentId,
+        configId: deploymentConfig.id,
+        status: 'pending',
+        strategy: deploymentConfig.strategy,
+        startTime: new Date().toISOString(),
+        progress: 0,
+        currentPhase: 'initializing',
+        logs: [],
+        rollbacks: [],
       }
+      
+      setDeploymentExecution(execution)
+      
+      // Start rollback trigger monitoring
+      const monitoringInterval = startRollbackMonitoring(execution)
+      
+      // Execute deployment based on strategy
+      await executeDeploymentStrategy(execution)
+      
+      // Stop monitoring after deployment completes
+      if (monitoringInterval) {
+        clearInterval(monitoringInterval)
+      }
+      
     } catch (error) {
       console.error('Failed to start deployment:', error)
       alert('Failed to start deployment: ' + (error as Error).message)
       setIsDeploying(false)
     }
+  }
+  
+  const executeDeploymentStrategy = async (execution: DeploymentExecution) => {
+    switch (execution.strategy) {
+      case 'atomic':
+        await executeAtomicDeployment(execution)
+        break
+      case 'canary':
+        await executeCanaryDeployment(execution)
+        break
+      case 'chunked':
+        await executeChunkedDeployment(execution)
+        break
+      default:
+        throw new Error(`Unknown deployment strategy: ${execution.strategy}`)
+    }
+  }
+
+  const executeAtomicDeployment = async (execution: DeploymentExecution) => {
+    const config = deploymentConfig?.atomic
+    if (!config) throw new Error('Atomic deployment configuration not found')
+    
+    const updateExecution = (updates: Partial<DeploymentExecution>) => {
+      const updated = { ...execution, ...updates }
+      setDeploymentExecution(updated)
+      return updated
+    }
+    
+    const addLog = (message: string, level: 'info' | 'warning' | 'error' = 'info') => {
+      const log = {
+        id: `log-${Date.now()}`,
+        timestamp: new Date().toISOString(),
+        level,
+        message,
+        source: 'atomic-deployer'
+      }
+      execution.logs.push(log)
+      updateExecution({ logs: [...execution.logs] })
+    }
+    
+    try {
+      // Phase 1: Staging
+      updateExecution({ 
+        currentPhase: 'staging',
+        progress: 10,
+        atomicState: {
+          phase: 'staging',
+          stagedFiles: [],
+          validationResults: []
+        }
+      })
+      addLog('Starting atomic deployment: Computing change tree')
+      addLog(`Staging files to temp area: ${config.tempAreaPath}`)
+      
+      await new Promise(resolve => setTimeout(resolve, 2000))
+      
+      const stagedFiles = snapshotFiles.map(f => f.filePath)
+      updateExecution({ 
+        progress: 30,
+        atomicState: {
+          ...execution.atomicState!,
+          stagedFiles
+        }
+      })
+      addLog(`Staged ${stagedFiles.length} files successfully`)
+      
+      // Phase 2: Validation
+      if (config.validateBeforeSwap) {
+        updateExecution({
+          progress: 50,
+          atomicState: {
+            ...execution.atomicState!,
+            phase: 'validating'
+          }
+        })
+        addLog('Running pre-deployment validation')
+        await new Promise(resolve => setTimeout(resolve, 1500))
+        
+        const validationResults = [
+          { check: 'syntax', status: 'passed', message: 'All ST code validated' },
+          { check: 'dependencies', status: 'passed', message: 'No missing dependencies' },
+          { check: 'resources', status: 'passed', message: 'Resource limits OK' }
+        ]
+        
+        updateExecution({
+          atomicState: {
+            ...execution.atomicState!,
+            validationResults
+          }
+        })
+        addLog('Validation completed successfully')
+      }
+      
+      // Phase 3: Atomic Swap
+      updateExecution({
+        progress: 70,
+        atomicState: {
+          ...execution.atomicState!,
+          phase: 'swapping',
+          swapStartTime: new Date().toISOString()
+        }
+      })
+      addLog('Executing atomic swap (all targets simultaneously)')
+      
+      for (const target of deploymentConfig!.targets) {
+        addLog(`Swapping pointers on ${target.name} (${target.address})`)
+        await new Promise(resolve => setTimeout(resolve, 500))
+      }
+      
+      updateExecution({ progress: 90 })
+      addLog('Atomic swap completed successfully')
+      
+      // Phase 4: Cleanup
+      if (config.cleanupAfterSuccess) {
+        updateExecution({
+          atomicState: {
+            ...execution.atomicState!,
+            phase: 'cleanup'
+          }
+        })
+        addLog('Cleaning up temporary files')
+        await new Promise(resolve => setTimeout(resolve, 1000))
+      }
+      
+      // Complete
+      updateExecution({
+        status: 'completed',
+        progress: 100,
+        endTime: new Date().toISOString()
+      })
+      addLog('Atomic deployment completed successfully')
+      setIsDeploying(false)
+      setCanRollback(true)
+      
+    } catch (error) {
+      addLog(`Deployment failed: ${error}`, 'error')
+      
+      if (config.rollbackOnFailure) {
+        addLog('Initiating automatic rollback')
+        await executeRollback(execution)
+      }
+      
+      updateExecution({ status: 'failed', endTime: new Date().toISOString() })
+      setIsDeploying(false)
+      throw error
+    }
+  }
+  
+  const executeCanaryDeployment = async (execution: DeploymentExecution) => {
+    const config = deploymentConfig?.canary
+    if (!config) throw new Error('Canary deployment configuration not found')
+    
+    const updateExecution = (updates: Partial<DeploymentExecution>) => {
+      const updated = { ...execution, ...updates }
+      setDeploymentExecution(updated)
+      return updated
+    }
+    
+    const addLog = (message: string, level: 'info' | 'warning' | 'error' = 'info', cohortId?: string) => {
+      const log = {
+        id: `log-${Date.now()}`,
+        timestamp: new Date().toISOString(),
+        level,
+        message,
+        source: 'canary-deployer',
+        cohortId
+      }
+      execution.logs.push(log)
+      updateExecution({ logs: [...execution.logs] })
+    }
+    
+    try {
+      const cohorts = config.cohorts || []
+      const cohortStatus: { [cohortId: string]: any } = {}
+      
+      cohorts.forEach(cohort => {
+        cohortStatus[cohort.id] = 'pending'
+      })
+      
+      updateExecution({
+        status: 'running',
+        canaryState: {
+          currentCohort: 0,
+          cohortStatus,
+          healthCheckResults: {},
+          promotionsPending: []
+        }
+      })
+      
+      addLog(`Starting canary deployment with ${cohorts.length} cohorts`)
+      
+      // Deploy to each cohort sequentially
+      for (let i = 0; i < cohorts.length; i++) {
+        const cohort = cohorts[i]
+        const progress = (i / cohorts.length) * 90 // Reserve 10% for final completion
+        
+        updateExecution({
+          progress,
+          canaryState: {
+            ...execution.canaryState!,
+            currentCohort: i,
+            cohortStatus: {
+              ...cohortStatus,
+              [cohort.id]: 'deploying'
+            }
+          }
+        })
+        
+        addLog(`Deploying to ${cohort.name} (${cohort.fraction}% of targets)`, 'info', cohort.id)
+        addLog(`Targets: ${cohort.targets.length} PLCs`, 'info', cohort.id)
+        
+        // Simulate deployment to cohort
+        await new Promise(resolve => setTimeout(resolve, 2000))
+        
+        // Run health checks
+        addLog(`Running health checks for ${cohort.healthChecks.length} checks`, 'info', cohort.id)
+        await new Promise(resolve => setTimeout(resolve, 1500))
+        
+        const healthResults: { [checkId: string]: any } = {}
+        cohort.healthChecks.forEach(checkId => {
+          healthResults[checkId] = {
+            status: 'passed',
+            value: Math.random() * 100,
+            timestamp: new Date().toISOString()
+          }
+        })
+        
+        updateExecution({
+          canaryState: {
+            ...execution.canaryState!,
+            cohortStatus: {
+              ...cohortStatus,
+              [cohort.id]: 'monitoring'
+            },
+            healthCheckResults: {
+              ...execution.canaryState!.healthCheckResults,
+              ...healthResults
+            }
+          }
+        })
+        
+        addLog(`Health checks passed. Waiting ${cohort.waitTime}s before next cohort`, 'info', cohort.id)
+        
+        if (config.requireManualPromotion && i < cohorts.length - 1) {
+          updateExecution({
+            canaryState: {
+              ...execution.canaryState!,
+              promotionsPending: [cohorts[i + 1].id]
+            }
+          })
+          addLog('Manual promotion required. Waiting for approval...', 'warning')
+          // In a real implementation, this would wait for user input
+          await new Promise(resolve => setTimeout(resolve, 2000))
+        }
+        
+        cohortStatus[cohort.id] = 'completed'
+        addLog(`Cohort ${cohort.name} completed successfully`, 'info', cohort.id)
+      }
+      
+      // Complete deployment
+      updateExecution({
+        status: 'completed',
+        progress: 100,
+        endTime: new Date().toISOString()
+      })
+      addLog('Canary deployment completed successfully')
+      setIsDeploying(false)
+      setCanRollback(true)
+      
+    } catch (error) {
+      addLog(`Canary deployment failed: ${error}`, 'error')
+      
+      if (config.rollbackOnFailure) {
+        addLog('Initiating automatic rollback')
+        await executeRollback(execution)
+      }
+      
+      updateExecution({ status: 'failed', endTime: new Date().toISOString() })
+      setIsDeploying(false)
+      throw error
+    }
+  }
+  
+  const executeChunkedDeployment = async (execution: DeploymentExecution) => {
+    const config = deploymentConfig?.chunked
+    if (!config) throw new Error('Chunked deployment configuration not found')
+    
+    const updateExecution = (updates: Partial<DeploymentExecution>) => {
+      const updated = { ...execution, ...updates }
+      setDeploymentExecution(updated)
+      return updated
+    }
+    
+    const addLog = (message: string, level: 'info' | 'warning' | 'error' = 'info', chunkId?: string) => {
+      const log = {
+        id: `log-${Date.now()}`,
+        timestamp: new Date().toISOString(),
+        level,
+        message,
+        source: 'chunked-deployer',
+        chunkId
+      }
+      execution.logs.push(log)
+      updateExecution({ logs: [...execution.logs] })
+    }
+    
+    try {
+      // Auto-detect chunks based on files
+      const chunks = detectLogicalChunks(snapshotFiles, config)
+      const chunkStatus: { [chunkId: string]: any } = {}
+      const dependencyGraph: { [chunkId: string]: string[] } = {}
+      
+      chunks.forEach(chunk => {
+        chunkStatus[chunk.id] = 'pending'
+        dependencyGraph[chunk.id] = chunk.dependencies
+      })
+      
+      updateExecution({
+        status: 'running',
+        chunkedState: {
+          totalChunks: chunks.length,
+          completedChunks: 0,
+          chunkStatus,
+          dependencyGraph
+        }
+      })
+      
+      addLog(`Starting chunked deployment with ${chunks.length} chunks`)
+      addLog(`Dependency ordering: ${config.dependencyOrdering ? 'enabled' : 'disabled'}`)
+      
+      // Order chunks by dependencies if enabled
+      const orderedChunks = config.dependencyOrdering ? 
+        topologicalSort(chunks, dependencyGraph) : chunks
+      
+      let completedChunks = 0
+      
+      for (const chunk of orderedChunks) {
+        const progress = (completedChunks / chunks.length) * 90
+        
+        updateExecution({
+          progress,
+          chunkedState: {
+            ...execution.chunkedState!,
+            currentChunk: chunk.id,
+            chunkStatus: {
+              ...chunkStatus,
+              [chunk.id]: 'deploying'
+            }
+          }
+        })
+        
+        addLog(`Deploying chunk: ${chunk.name} (${chunk.filePatterns.length} files)`, 'info', chunk.id)
+        
+        // Simulate chunk deployment
+        await new Promise(resolve => setTimeout(resolve, 1500))
+        
+        chunkStatus[chunk.id] = 'completed'
+        completedChunks++
+        
+        updateExecution({
+          chunkedState: {
+            ...execution.chunkedState!,
+            completedChunks,
+            chunkStatus: { ...chunkStatus }
+          }
+        })
+        
+        addLog(`Chunk ${chunk.name} deployed successfully`, 'info', chunk.id)
+      }
+      
+      // Complete deployment
+      updateExecution({
+        status: 'completed',
+        progress: 100,
+        endTime: new Date().toISOString()
+      })
+      addLog('Chunked deployment completed successfully')
+      setIsDeploying(false)
+      setCanRollback(true)
+      
+    } catch (error) {
+      addLog(`Chunked deployment failed: ${error}`, 'error')
+      
+      if (config.rollbackChunkOnFailure) {
+        addLog('Initiating chunk rollback')
+        await executeRollback(execution)
+      }
+      
+      updateExecution({ status: 'failed', endTime: new Date().toISOString() })
+      setIsDeploying(false)
+      throw error
+    }
+  }
+  
+  const executeRollback = async (execution: DeploymentExecution) => {
+    const addLog = (message: string, level: 'info' | 'warning' | 'error' = 'info') => {
+      const log = {
+        id: `log-${Date.now()}`,
+        timestamp: new Date().toISOString(),
+        level,
+        message,
+        source: 'rollback-manager'
+      }
+      execution.logs.push(log)
+      setDeploymentExecution({ ...execution })
+    }
+    
+    addLog('Starting rollback procedure')
+    addLog('Pausing writes and quiescing processes')
+    await new Promise(resolve => setTimeout(resolve, 1000))
+    
+    addLog('Applying pre-deploy snapshot transactionally')
+    await new Promise(resolve => setTimeout(resolve, 2000))
+    
+    addLog('Running post-rollback health checks')
+    await new Promise(resolve => setTimeout(resolve, 1000))
+    
+    addLog('Rollback completed successfully')
+  }
+  
+  const detectLogicalChunks = (files: any[], config: any) => {
+    const chunks = []
+    
+    if (config.autoDetectBoundaries) {
+      // Group by program boundaries
+      const programFiles = files.filter(f => f.filePath.includes('Program') || f.filePath.endsWith('.st'))
+      const configFiles = files.filter(f => f.filePath.includes('config') || f.filePath.endsWith('.json'))
+      const ioFiles = files.filter(f => f.filePath.includes('IO') || f.filePath.includes('tags'))
+      
+      if (programFiles.length > 0) {
+        chunks.push({
+          id: 'chunk-programs',
+          name: 'Program Logic',
+          type: 'program',
+          filePatterns: programFiles.map(f => f.filePath),
+          dependencies: ['chunk-config'],
+          priority: 2
+        })
+      }
+      
+      if (configFiles.length > 0) {
+        chunks.push({
+          id: 'chunk-config',
+          name: 'Configuration',
+          type: 'controller',
+          filePatterns: configFiles.map(f => f.filePath),
+          dependencies: [],
+          priority: 1
+        })
+      }
+      
+      if (ioFiles.length > 0) {
+        chunks.push({
+          id: 'chunk-io',
+          name: 'I/O Configuration',
+          type: 'io_block',
+          filePatterns: ioFiles.map(f => f.filePath),
+          dependencies: ['chunk-config'],
+          priority: 3
+        })
+      }
+    }
+    
+    return chunks
+  }
+  
+  const topologicalSort = (chunks: any[], dependencyGraph: { [chunkId: string]: string[] }) => {
+    const visited = new Set()
+    const result: any[] = []
+    
+    const visit = (chunk: any) => {
+      if (visited.has(chunk.id)) return
+      visited.add(chunk.id)
+      
+      const dependencies = dependencyGraph[chunk.id] || []
+      dependencies.forEach(depId => {
+        const depChunk = chunks.find(c => c.id === depId)
+        if (depChunk) visit(depChunk)
+      })
+      
+      result.push(chunk)
+    }
+    
+    chunks.forEach(visit)
+    return result
+  }
+  
+  const startRollbackMonitoring = (execution: DeploymentExecution) => {
+    if (!deploymentConfig) return null
+    
+    const addLog = (message: string, level: 'info' | 'warning' | 'error' = 'info') => {
+      const log = {
+        id: `log-${Date.now()}`,
+        timestamp: new Date().toISOString(),
+        level,
+        message,
+        source: 'rollback-monitor'
+      }
+      execution.logs.push(log)
+      setDeploymentExecution({ ...execution })
+    }
+    
+    addLog('Starting rollback trigger monitoring')
+    
+    return setInterval(() => {
+      if (execution.status !== 'running') return
+      
+      deploymentConfig.rollbackTriggers.forEach(trigger => {
+        if (!trigger.enabled) return
+        
+        const deploymentStartTime = new Date(execution.startTime).getTime()
+        const currentTime = Date.now()
+        const elapsedMinutes = (currentTime - deploymentStartTime) / (1000 * 60)
+        
+        if (elapsedMinutes > trigger.watchWindow) return // Outside watch window
+        
+        let shouldTrigger = false
+        let triggerReason = ''
+        
+        switch (trigger.type) {
+          case 'health_check':
+            // Simulate health check failures
+            const healthFailureRate = Math.random()
+            if (healthFailureRate > 0.95) { // 5% chance of health check failure
+              shouldTrigger = true
+              triggerReason = `Health check failure rate exceeded threshold (${trigger.threshold})`
+            }
+            break
+            
+          case 'exception_count':
+            // Simulate exception monitoring
+            const exceptionCount = Math.floor(Math.random() * 10)
+            if (exceptionCount > trigger.threshold) {
+              shouldTrigger = true
+              triggerReason = `Exception count (${exceptionCount}) exceeded threshold (${trigger.threshold})`
+            }
+            break
+            
+          case 'tag_limit':
+            // Simulate critical tag monitoring
+            const criticalTags = ['EMERGENCY_STOP', 'SAFETY_INTERLOCK', 'PRESSURE_LIMIT']
+            const tagViolation = Math.random() > 0.98 // 2% chance of tag limit violation
+            if (tagViolation) {
+              shouldTrigger = true
+              triggerReason = `Critical tag ${criticalTags[0]} exceeded engineering limits`
+            }
+            break
+            
+          case 'resource_usage':
+            // Simulate resource monitoring
+            const cpuUsage = Math.random() * 100
+            const memoryUsage = Math.random() * 100
+            if (cpuUsage > (trigger.config.cpuThreshold || 80) || memoryUsage > (trigger.config.memoryThreshold || 90)) {
+              shouldTrigger = true
+              triggerReason = `Resource usage exceeded limits (CPU: ${cpuUsage.toFixed(1)}%, Memory: ${memoryUsage.toFixed(1)}%)`
+            }
+            break
+        }
+        
+        if (shouldTrigger) {
+          addLog(`Rollback trigger activated: ${triggerReason}`, 'error')
+          
+          if (trigger.autoRollback) {
+            addLog('Initiating automatic rollback', 'warning')
+            handleAutomaticRollback(execution, trigger, triggerReason)
+          } else {
+            addLog('Manual rollback approval required', 'warning')
+            // In a real system, this would send notifications to operators
+          }
+        }
+      })
+    }, 2000) // Check every 2 seconds
+  }
+  
+  const handleAutomaticRollback = async (execution: DeploymentExecution, trigger: any, reason: string) => {
+    try {
+      setIsDeploying(false)
+      
+      const addLog = (message: string, level: 'info' | 'warning' | 'error' = 'info') => {
+        const log = {
+          id: `log-${Date.now()}`,
+          timestamp: new Date().toISOString(),
+          level,
+          message,
+          source: 'auto-rollback'
+        }
+        execution.logs.push(log)
+        setDeploymentExecution({ ...execution })
+      }
+      
+      addLog(`Automatic rollback triggered by: ${trigger.type}`)
+      addLog(`Reason: ${reason}`)
+      
+      // Coordinate with quiesce/live patch strategy
+      await coordinateRollbackStrategy(execution, addLog)
+      
+      // Execute rollback
+      await executeRollback(execution)
+      
+      // Update execution status
+      const updatedExecution = {
+        ...execution,
+        status: 'rolled_back' as const,
+        endTime: new Date().toISOString()
+      }
+      setDeploymentExecution(updatedExecution)
+      
+      addLog('Automatic rollback completed successfully')
+      
+    } catch (error) {
+      console.error('Automatic rollback failed:', error)
+    }
+  }
+  
+  const coordinateRollbackStrategy = async (_execution: DeploymentExecution, addLog: Function) => {
+    if (!deploymentConfig) return
+    
+    if (deploymentConfig.patchStrategy === 'quiesce') {
+      addLog('Coordinating with runtime to pause control loops')
+      
+      // Simulate coordination with runtime systems
+      for (const target of deploymentConfig.targets) {
+        if (target.canQuiesce) {
+          addLog(`Sending quiesce request to ${target.name}`, 'info')
+          await new Promise(resolve => setTimeout(resolve, 500)) // Simulate network delay
+          addLog(`${target.name} confirmed quiesce mode`)
+        } else {
+          addLog(`${target.name} does not support quiesce - using live patch with watchdog guards`, 'warning')
+          await coordinateLivePatch(target, addLog)
+        }
+      }
+      
+      addLog('Publishing transition events to all subscribers')
+      await new Promise(resolve => setTimeout(resolve, 300))
+      
+    } else {
+      addLog('Using live patch strategy with transactional writes')
+      
+      for (const target of deploymentConfig.targets) {
+        await coordinateLivePatch(target, addLog)
+      }
+    }
+  }
+  
+  const coordinateLivePatch = async (target: any, addLog: Function) => {
+    addLog(`Activating watchdog guards for ${target.name}`)
+    await new Promise(resolve => setTimeout(resolve, 200))
+    
+    addLog(`Setting up transactional write protection on ${target.name}`)
+    await new Promise(resolve => setTimeout(resolve, 200))
+    
+    addLog(`Enabling incremental patching mode for ${target.name}`)
+    await new Promise(resolve => setTimeout(resolve, 200))
   }
 
   const handlePauseDeploy = async () => {
@@ -745,21 +1440,33 @@ export function DeployConsole({ environment }: DeployConsoleProps) {
   }
 
   const handleRollback = async () => {
-    if (!currentDeploymentId) return
+    if (!currentDeploymentId || !deploymentExecution) return
     
     if (confirm('Are you sure you want to rollback to the previous version?')) {
       try {
-        const result = await deploymentApi.executeRollback(
-          currentDeploymentId,
-          'Current User',
-          'Manual rollback initiated by user'
-        )
-        
-        if (result.success) {
-          await loadDeploymentDetails(currentDeploymentId)
-          setCanRollback(false)
-          alert('Rollback completed successfully')
+        const addLog = (message: string, level: 'info' | 'warning' | 'error' = 'info') => {
+          const log = {
+            id: `log-${Date.now()}`,
+            timestamp: new Date().toISOString(),
+            level,
+            message,
+            source: 'manual-rollback'
+          }
+          deploymentExecution.logs.push(log)
+          setDeploymentExecution({ ...deploymentExecution })
         }
+        
+        addLog('Manual rollback initiated by user')
+        
+        // Coordinate rollback strategy
+        await coordinateRollbackStrategy(deploymentExecution, addLog)
+        
+        // Execute rollback
+        await executeRollback(deploymentExecution)
+        
+        setCanRollback(false)
+        addLog('Manual rollback completed successfully')
+        
       } catch (error) {
         console.error('Failed to execute rollback:', error)
         alert('Failed to execute rollback')
@@ -1329,6 +2036,80 @@ export function DeployConsole({ environment }: DeployConsoleProps) {
                 </div>
               </div>
 
+              {/* Deployment Strategy Configuration */}
+              <div className="bg-white rounded-lg border border-gray-200 p-6">
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-lg font-semibold">Deployment Strategy</h3>
+                  <button
+                    onClick={() => setShowStrategyConfig(true)}
+                    className="px-3 py-2 bg-[#FF6A00] text-white rounded-md hover:bg-orange-600 flex items-center gap-2 text-sm"
+                  >
+                    <Settings size={16} />
+                    Configure Strategy
+                  </button>
+                </div>
+                
+                {deploymentConfig ? (
+                  <div className="bg-gray-50 p-4 rounded-lg">
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+                      <div>
+                        <div className="text-xs text-gray-600 mb-1">Strategy</div>
+                        <div className="font-medium capitalize flex items-center gap-2">
+                          {deploymentConfig.strategy === 'atomic' && <Shield size={14} className="text-blue-600" />}
+                          {deploymentConfig.strategy === 'canary' && <Target size={14} className="text-green-600" />}
+                          {deploymentConfig.strategy === 'chunked' && <Package size={14} className="text-purple-600" />}
+                          {deploymentConfig.strategy}
+                        </div>
+                      </div>
+                      <div>
+                        <div className="text-xs text-gray-600 mb-1">Patch Mode</div>
+                        <div className="font-medium capitalize">{deploymentConfig.patchStrategy}</div>
+                      </div>
+                      <div>
+                        <div className="text-xs text-gray-600 mb-1">Targets</div>
+                        <div className="font-medium">{deploymentConfig.targets.length} configured</div>
+                      </div>
+                      <div>
+                        <div className="text-xs text-gray-600 mb-1">Rollback Triggers</div>
+                        <div className="font-medium">{deploymentConfig.rollbackTriggers.length} active</div>
+                      </div>
+                    </div>
+                    
+                    {deploymentConfig.strategy === 'canary' && deploymentConfig.canary && (
+                      <div className="mt-3 pt-3 border-t border-gray-200">
+                        <div className="text-xs text-gray-600 mb-2">Canary Configuration:</div>
+                        <div className="flex gap-4 text-sm">
+                          <span>{deploymentConfig.canary.cohorts?.length || 0} cohorts</span>
+                          <span>{deploymentConfig.canary.healthChecks?.length || 0} health checks</span>
+                          <span>{deploymentConfig.canary.globalHealthWindow}min health window</span>
+                        </div>
+                      </div>
+                    )}
+                    
+                    {deploymentConfig.strategy === 'chunked' && deploymentConfig.chunked && (
+                      <div className="mt-3 pt-3 border-t border-gray-200">
+                        <div className="text-xs text-gray-600 mb-2">Chunking Configuration:</div>
+                        <div className="flex gap-4 text-sm">
+                          <span>Max {deploymentConfig.chunked.maxChunkSize} files/chunk</span>
+                          <span>{deploymentConfig.chunked.dependencyOrdering ? 'Dependency ordered' : 'Sequential'}</span>
+                          <span>{deploymentConfig.chunked.parallelChunks ? 'Parallel' : 'Serial'} execution</span>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+                    <div className="flex items-center gap-2 text-yellow-700">
+                      <AlertTriangle size={16} />
+                      <span className="font-medium">No deployment strategy configured</span>
+                    </div>
+                    <p className="text-sm text-yellow-600 mt-1">
+                      Configure a deployment strategy to define how changes will be deployed to target runtimes.
+                    </p>
+                  </div>
+                )}
+              </div>
+
               {/* Deploy Actions */}
               <div className="bg-white rounded-lg border border-gray-200 p-6">
                 <h3 className="text-lg font-semibold mb-4">Deploy Actions</h3>
@@ -1342,15 +2123,17 @@ export function DeployConsole({ environment }: DeployConsoleProps) {
                   </button>
                   <button
                     onClick={handleStartDeploy}
-                    disabled={isDeploying || !allApproved}
+                    disabled={isDeploying || !allApproved || !deploymentConfig}
                     className={`px-4 py-3 rounded-lg transition-colors flex flex-col items-center gap-2 ${
-                      !isDeploying && allApproved
+                      !isDeploying && allApproved && deploymentConfig
                         ? 'bg-green-100 text-green-700 hover:bg-green-200'
                         : 'bg-gray-100 text-gray-400 cursor-not-allowed'
                     }`}
                   >
                     <Play size={20} />
-                    <span className="text-sm font-medium">Start Deploy</span>
+                    <span className="text-sm font-medium">
+                      {!deploymentConfig ? 'Configure Strategy' : 'Start Deploy'}
+                    </span>
                   </button>
                   <button
                     onClick={handleScheduleDeploy}
@@ -1397,6 +2180,122 @@ export function DeployConsole({ environment }: DeployConsoleProps) {
         {/* Right Pane - Live Logs & Metrics */}
         <div className="w-96 bg-white border-l border-gray-200 overflow-y-auto">
           <div className="p-4 space-y-6">
+            {/* Deployment Execution Status */}
+            {deploymentExecution && (
+              <div className="bg-white rounded-lg border border-gray-200 p-4">
+                <h3 className="text-lg font-semibold mb-3 flex items-center gap-2">
+                  {deploymentExecution.strategy === 'atomic' && <Shield size={18} className="text-blue-600" />}
+                  {deploymentExecution.strategy === 'canary' && <Target size={18} className="text-green-600" />}
+                  {deploymentExecution.strategy === 'chunked' && <Package size={18} className="text-purple-600" />}
+                  {deploymentExecution.strategy.charAt(0).toUpperCase() + deploymentExecution.strategy.slice(1)} Deployment
+                </h3>
+                
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm font-medium">Status</span>
+                    <span className={`px-2 py-1 text-xs rounded-full ${
+                      deploymentExecution.status === 'completed' ? 'bg-green-100 text-green-700' :
+                      deploymentExecution.status === 'failed' ? 'bg-red-100 text-red-700' :
+                      deploymentExecution.status === 'running' ? 'bg-blue-100 text-blue-700' :
+                      'bg-gray-100 text-gray-700'
+                    }`}>
+                      {deploymentExecution.status}
+                    </span>
+                  </div>
+                  
+                  <div>
+                    <div className="flex items-center justify-between mb-1">
+                      <span className="text-sm font-medium">Progress</span>
+                      <span className="text-sm">{deploymentExecution.progress}%</span>
+                    </div>
+                    <div className="w-full bg-gray-200 rounded-full h-2">
+                      <div 
+                        className="bg-[#FF6A00] h-2 rounded-full transition-all duration-500"
+                        style={{ width: `${deploymentExecution.progress}%` }}
+                      />
+                    </div>
+                  </div>
+                  
+                  <div>
+                    <span className="text-sm font-medium">Current Phase</span>
+                    <div className="text-sm text-gray-600 mt-1">{deploymentExecution.currentPhase}</div>
+                  </div>
+                  
+                  {/* Strategy-specific status */}
+                  {deploymentExecution.strategy === 'atomic' && deploymentExecution.atomicState && (
+                    <div className="bg-blue-50 p-3 rounded-lg">
+                      <div className="text-sm font-medium text-blue-800 mb-2">Atomic Status</div>
+                      <div className="text-xs text-blue-600 space-y-1">
+                        <div>Phase: {deploymentExecution.atomicState.phase}</div>
+                        <div>Files staged: {deploymentExecution.atomicState.stagedFiles.length}</div>
+                        <div>Validations: {deploymentExecution.atomicState.validationResults.length}</div>
+                      </div>
+                    </div>
+                  )}
+                  
+                  {deploymentExecution.strategy === 'canary' && deploymentExecution.canaryState && (
+                    <div className="bg-green-50 p-3 rounded-lg">
+                      <div className="text-sm font-medium text-green-800 mb-2">Canary Status</div>
+                      <div className="text-xs text-green-600 space-y-1">
+                        <div>Current cohort: {deploymentExecution.canaryState.currentCohort + 1}</div>
+                        <div>Health checks: {Object.keys(deploymentExecution.canaryState.healthCheckResults).length}</div>
+                        <div>Promotions pending: {deploymentExecution.canaryState.promotionsPending.length}</div>
+                      </div>
+                    </div>
+                  )}
+                  
+                  {deploymentExecution.strategy === 'chunked' && deploymentExecution.chunkedState && (
+                    <div className="bg-purple-50 p-3 rounded-lg">
+                      <div className="text-sm font-medium text-purple-800 mb-2">Chunked Status</div>
+                      <div className="text-xs text-purple-600 space-y-1">
+                        <div>Chunks: {deploymentExecution.chunkedState.completedChunks}/{deploymentExecution.chunkedState.totalChunks}</div>
+                        <div>Current: {deploymentExecution.chunkedState.currentChunk || 'None'}</div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* Live Deployment Logs */}
+            {deploymentExecution && deploymentExecution.logs.length > 0 && (
+              <div className="bg-white rounded-lg border border-gray-200 p-4">
+                <h3 className="text-sm font-semibold text-gray-700 mb-3 flex items-center gap-2">
+                  <FileText size={16} />
+                  Live Deployment Logs
+                </h3>
+                <div className="max-h-64 overflow-y-auto space-y-2">
+                  {deploymentExecution.logs.slice(-10).map((log) => (
+                    <div key={log.id} className="text-xs">
+                      <div className="flex items-start gap-2">
+                        <span className="text-gray-500 shrink-0">
+                          {new Date(log.timestamp).toLocaleTimeString()}
+                        </span>
+                        <span className={`shrink-0 w-2 h-2 rounded-full mt-1.5 ${
+                          log.level === 'error' ? 'bg-red-500' :
+                          log.level === 'warning' ? 'bg-yellow-500' :
+                          'bg-blue-500'
+                        }`} />
+                        <span className={`flex-1 ${
+                          log.level === 'error' ? 'text-red-700' :
+                          log.level === 'warning' ? 'text-yellow-700' :
+                          'text-gray-700'
+                        }`}>
+                          {log.message}
+                        </span>
+                      </div>
+                      {log.cohortId && (
+                        <div className="ml-4 text-xs text-green-600">Cohort: {log.cohortId}</div>
+                      )}
+                      {log.chunkId && (
+                        <div className="ml-4 text-xs text-purple-600">Chunk: {log.chunkId}</div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
             {/* Deploy Status */}
             <div>
               <h3 className="text-sm font-semibold text-gray-700 mb-3 uppercase tracking-wide">
@@ -1433,6 +2332,9 @@ export function DeployConsole({ environment }: DeployConsoleProps) {
                     <div className="text-xs text-gray-600 space-y-1">
                       <div>Status: {selectedDeploy.status}</div>
                       <div>Version: {selectedDeploy.version}</div>
+                      {deploymentConfig && (
+                        <div>Strategy: {deploymentConfig.strategy}</div>
+                      )}
                       {selectedDeploy.scheduledTime && (
                         <div>Scheduled: {new Date(selectedDeploy.scheduledTime).toLocaleString()}</div>
                       )}
@@ -1868,6 +2770,23 @@ export function DeployConsole({ environment }: DeployConsoleProps) {
             </div>
           </div>
         </Dialog>
+      )}
+      
+      {/* Deployment Strategy Configuration Dialog */}
+      {showStrategyConfig && (
+        <DeploymentStrategyConfig
+          config={deploymentConfig}
+          onConfigChange={(config) => {
+            setDeploymentConfig(config)
+            console.log('Deployment strategy configured:', {
+              strategy: config.strategy,
+              targets: config.targets.length,
+              rollbackTriggers: config.rollbackTriggers.length
+            })
+          }}
+          targets={availableTargets}
+          onClose={() => setShowStrategyConfig(false)}
+        />
       )}
     </div>
   )

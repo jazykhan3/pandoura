@@ -1,6 +1,8 @@
+import { useState } from 'react'
 import { useSimulatorStore } from '../store/simulatorStore'
 import { useSyncStore } from '../store/syncStore'
-import { Play, Pause, Square, SkipForward, Download, Trash2 } from 'lucide-react'
+import { Play, Pause, Square, SkipForward, Download, Trash2, Settings, Zap } from 'lucide-react'
+import { Dialog } from './Dialog'
 
 export function Simulator() {
   const {
@@ -21,6 +23,34 @@ export function Simulator() {
   } = useSimulatorStore()
 
   const { deployedLogic } = useSyncStore()
+
+  // Hyper-granular simulation settings
+  const [showSettings, setShowSettings] = useState(false)
+  const [showFaultInjection, setShowFaultInjection] = useState(false)
+  
+  const [simulatorSettings, setSimulatorSettings] = useState({
+    scanTimeMs: 100,
+    ioLatencyMin: 1,
+    ioLatencyMax: 5,
+    ioJitter: 0.5,
+    computeQuota: 80,
+    enableWatchdog: true,
+    watchdogTimeout: 1000,
+    enableDataTypeValidation: true
+  })
+  
+  const [faultConfig, setFaultConfig] = useState({
+    faultType: 'VALUE_DRIFT' as 'VALUE_DRIFT' | 'LOCK_VALUE' | 'FORCE_IO_ERROR',
+    targetVariable: '',
+    duration: 5000,
+    parameters: {
+      driftRate: 1.0,
+      maxDrift: 10.0,
+      lockValue: '42',
+      errorType: 'timeout',
+      errorRate: 10
+    }
+  })
 
   const handleToggleBoolean = (name: string) => {
     const currentValue = ioValues[name] as boolean
@@ -147,6 +177,24 @@ export function Simulator() {
             }`}>
               {deployedLogic ? `Logic: ${deployedLogic.name}` : 'No Logic Deployed'}
             </div>
+
+            <button
+              onClick={() => setShowSettings(true)}
+              className="flex items-center gap-1 px-3 py-2 bg-white border border-neutral-300 text-neutral-800 rounded-md hover:bg-neutral-50 transition-colors"
+              title="Hyper-Granular Settings"
+            >
+              <Settings className="w-4 h-4" />
+              Settings
+            </button>
+
+            <button
+              onClick={() => setShowFaultInjection(true)}
+              className="flex items-center gap-1 px-3 py-2 bg-red-50 border border-red-300 text-red-800 rounded-md hover:bg-red-100 transition-colors"
+              title="Fault Injection"
+            >
+              <Zap className="w-4 h-4" />
+              Fault Injection
+            </button>
           </div>
         </div>
       </div>
@@ -317,6 +365,325 @@ export function Simulator() {
           The simulator will pause when execution reaches a breakpoint line.
         </div>
       </div>
+
+      {/* Hyper-Granular Settings Dialog */}
+      <Dialog
+        isOpen={showSettings}
+        onClose={() => setShowSettings(false)}
+        title="Hyper-Granular Simulation Settings"
+      >
+        <div className="space-y-6">
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-neutral-700 mb-1">
+                Scan Time (ms)
+              </label>
+              <input
+                type="number"
+                min="10"
+                max="10000"
+                value={simulatorSettings.scanTimeMs}
+                onChange={(e) => setSimulatorSettings(prev => ({ ...prev, scanTimeMs: Number(e.target.value) }))}
+                className="w-full px-3 py-2 border border-neutral-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#FF6A00]"
+              />
+              <div className="text-xs text-neutral-500 mt-1">PLC scan cycle duration</div>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-neutral-700 mb-1">
+                Compute Quota (%)
+              </label>
+              <input
+                type="number"
+                min="1"
+                max="100"
+                value={simulatorSettings.computeQuota}
+                onChange={(e) => setSimulatorSettings(prev => ({ ...prev, computeQuota: Number(e.target.value) }))}
+                className="w-full px-3 py-2 border border-neutral-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#FF6A00]"
+              />
+              <div className="text-xs text-neutral-500 mt-1">Max CPU usage per scan cycle</div>
+            </div>
+          </div>
+
+          <div className="space-y-3">
+            <div className="text-sm font-medium text-neutral-700">I/O Latency Simulation</div>
+            <div className="grid grid-cols-3 gap-3">
+              <div>
+                <label className="block text-xs text-neutral-600 mb-1">Min Latency (ms)</label>
+                <input
+                  type="number"
+                  min="0"
+                  max="1000"
+                  step="0.1"
+                  value={simulatorSettings.ioLatencyMin}
+                  onChange={(e) => setSimulatorSettings(prev => ({ ...prev, ioLatencyMin: Number(e.target.value) }))}
+                  className="w-full px-2 py-1 text-sm border border-neutral-300 rounded focus:outline-none focus:ring-1 focus:ring-[#FF6A00]"
+                />
+              </div>
+              <div>
+                <label className="block text-xs text-neutral-600 mb-1">Max Latency (ms)</label>
+                <input
+                  type="number"
+                  min="0"
+                  max="1000"
+                  step="0.1"
+                  value={simulatorSettings.ioLatencyMax}
+                  onChange={(e) => setSimulatorSettings(prev => ({ ...prev, ioLatencyMax: Number(e.target.value) }))}
+                  className="w-full px-2 py-1 text-sm border border-neutral-300 rounded focus:outline-none focus:ring-1 focus:ring-[#FF6A00]"
+                />
+              </div>
+              <div>
+                <label className="block text-xs text-neutral-600 mb-1">Jitter (%)</label>
+                <input
+                  type="number"
+                  min="0"
+                  max="100"
+                  step="0.1"
+                  value={simulatorSettings.ioJitter}
+                  onChange={(e) => setSimulatorSettings(prev => ({ ...prev, ioJitter: Number(e.target.value) }))}
+                  className="w-full px-2 py-1 text-sm border border-neutral-300 rounded focus:outline-none focus:ring-1 focus:ring-[#FF6A00]"
+                />
+              </div>
+            </div>
+          </div>
+
+          <div className="space-y-3">
+            <div className="flex items-center">
+              <input
+                type="checkbox"
+                id="enableWatchdog"
+                checked={simulatorSettings.enableWatchdog}
+                onChange={(e) => setSimulatorSettings(prev => ({ ...prev, enableWatchdog: e.target.checked }))}
+                className="mr-2"
+              />
+              <label htmlFor="enableWatchdog" className="text-sm font-medium text-neutral-700">
+                Enable Watchdog Timer
+              </label>
+            </div>
+            
+            {simulatorSettings.enableWatchdog && (
+              <div>
+                <label className="block text-sm font-medium text-neutral-700 mb-1">
+                  Watchdog Timeout (ms)
+                </label>
+                <input
+                  type="number"
+                  min="100"
+                  max="60000"
+                  value={simulatorSettings.watchdogTimeout}
+                  onChange={(e) => setSimulatorSettings(prev => ({ ...prev, watchdogTimeout: Number(e.target.value) }))}
+                  className="w-full px-3 py-2 border border-neutral-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#FF6A00]"
+                />
+              </div>
+            )}
+          </div>
+
+          <div className="flex items-center">
+            <input
+              type="checkbox"
+              id="enableDataTypeValidation"
+              checked={simulatorSettings.enableDataTypeValidation}
+              onChange={(e) => setSimulatorSettings(prev => ({ ...prev, enableDataTypeValidation: e.target.checked }))}
+              className="mr-2"
+            />
+            <label htmlFor="enableDataTypeValidation" className="text-sm font-medium text-neutral-700">
+              Enable Data Type Overflow Modeling
+            </label>
+          </div>
+
+          <div className="flex gap-3 pt-4">
+            <button
+              onClick={() => {
+                // Apply settings to simulator
+                console.log('Applying hyper-granular settings:', simulatorSettings)
+                setShowSettings(false)
+              }}
+              className="flex-1 px-4 py-2 bg-[#FF6A00] text-white rounded-md hover:bg-[#FF6A00]/90 transition-colors"
+            >
+              Apply Settings
+            </button>
+            <button
+              onClick={() => setShowSettings(false)}
+              className="px-4 py-2 bg-neutral-200 text-neutral-800 rounded-md hover:bg-neutral-300 transition-colors"
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      </Dialog>
+
+      {/* Fault Injection Dialog */}
+      <Dialog
+        isOpen={showFaultInjection}
+        onClose={() => setShowFaultInjection(false)}
+        title="Fault Injection"
+      >
+        <div className="space-y-4">
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-neutral-700 mb-1">
+                Fault Type
+              </label>
+              <select
+                value={faultConfig.faultType}
+                onChange={(e) => setFaultConfig(prev => ({ ...prev, faultType: e.target.value as typeof faultConfig.faultType }))}
+                className="w-full px-3 py-2 border border-neutral-300 rounded-md focus:outline-none focus:ring-2 focus:ring-red-500"
+              >
+                <option value="VALUE_DRIFT">Value Drift</option>
+                <option value="LOCK_VALUE">Lock Value</option>
+                <option value="FORCE_IO_ERROR">Force I/O Error</option>
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-neutral-700 mb-1">
+                Target Variable
+              </label>
+              <select
+                value={faultConfig.targetVariable}
+                onChange={(e) => setFaultConfig(prev => ({ ...prev, targetVariable: e.target.value }))}
+                className="w-full px-3 py-2 border border-neutral-300 rounded-md focus:outline-none focus:ring-2 focus:ring-red-500"
+              >
+                <option value="">Select Variable</option>
+                {Object.keys(ioValues).map(variable => (
+                  <option key={variable} value={variable}>{variable}</option>
+                ))}
+              </select>
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-neutral-700 mb-1">
+              Duration (ms)
+            </label>
+            <input
+              type="number"
+              min="1000"
+              max="300000"
+              value={faultConfig.duration}
+              onChange={(e) => setFaultConfig(prev => ({ ...prev, duration: Number(e.target.value) }))}
+              className="w-full px-3 py-2 border border-neutral-300 rounded-md focus:outline-none focus:ring-2 focus:ring-red-500"
+            />
+          </div>
+
+          {/* Fault-specific parameters */}
+          {faultConfig.faultType === 'VALUE_DRIFT' && (
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-neutral-700 mb-1">
+                  Drift Rate
+                </label>
+                <input
+                  type="number"
+                  step="0.1"
+                  value={faultConfig.parameters.driftRate}
+                  onChange={(e) => setFaultConfig(prev => ({ 
+                    ...prev, 
+                    parameters: { ...prev.parameters, driftRate: Number(e.target.value) }
+                  }))}
+                  className="w-full px-3 py-2 border border-neutral-300 rounded-md focus:outline-none focus:ring-2 focus:ring-red-500"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-neutral-700 mb-1">
+                  Max Drift
+                </label>
+                <input
+                  type="number"
+                  step="0.1"
+                  value={faultConfig.parameters.maxDrift}
+                  onChange={(e) => setFaultConfig(prev => ({ 
+                    ...prev, 
+                    parameters: { ...prev.parameters, maxDrift: Number(e.target.value) }
+                  }))}
+                  className="w-full px-3 py-2 border border-neutral-300 rounded-md focus:outline-none focus:ring-2 focus:ring-red-500"
+                />
+              </div>
+            </div>
+          )}
+
+          {faultConfig.faultType === 'LOCK_VALUE' && (
+            <div>
+              <label className="block text-sm font-medium text-neutral-700 mb-1">
+                Lock Value
+              </label>
+              <input
+                type="text"
+                value={faultConfig.parameters.lockValue}
+                onChange={(e) => setFaultConfig(prev => ({ 
+                  ...prev, 
+                  parameters: { ...prev.parameters, lockValue: e.target.value }
+                }))}
+                className="w-full px-3 py-2 border border-neutral-300 rounded-md focus:outline-none focus:ring-2 focus:ring-red-500"
+              />
+            </div>
+          )}
+
+          {faultConfig.faultType === 'FORCE_IO_ERROR' && (
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-neutral-700 mb-1">
+                  Error Type
+                </label>
+                <select
+                  value={faultConfig.parameters.errorType}
+                  onChange={(e) => setFaultConfig(prev => ({ 
+                    ...prev, 
+                    parameters: { ...prev.parameters, errorType: e.target.value }
+                  }))}
+                  className="w-full px-3 py-2 border border-neutral-300 rounded-md focus:outline-none focus:ring-2 focus:ring-red-500"
+                >
+                  <option value="timeout">Timeout</option>
+                  <option value="corruption">Data Corruption</option>
+                  <option value="disconnect">Connection Lost</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-neutral-700 mb-1">
+                  Error Rate (%)
+                </label>
+                <input
+                  type="number"
+                  min="0"
+                  max="100"
+                  value={faultConfig.parameters.errorRate}
+                  onChange={(e) => setFaultConfig(prev => ({ 
+                    ...prev, 
+                    parameters: { ...prev.parameters, errorRate: Number(e.target.value) }
+                  }))}
+                  className="w-full px-3 py-2 border border-neutral-300 rounded-md focus:outline-none focus:ring-2 focus:ring-red-500"
+                />
+              </div>
+            </div>
+          )}
+
+          <div className="flex gap-3 pt-4">
+            <button
+              onClick={() => {
+                if (!faultConfig.targetVariable) {
+                  alert('Please select a target variable');
+                  return;
+                }
+                
+                // Inject fault
+                console.log('Injecting fault:', faultConfig);
+                alert(`Fault injection started: ${faultConfig.faultType} on ${faultConfig.targetVariable}`);
+                setShowFaultInjection(false);
+              }}
+              disabled={!faultConfig.targetVariable}
+              className="flex-1 px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 transition-colors disabled:bg-neutral-300 disabled:cursor-not-allowed"
+            >
+              Inject Fault
+            </button>
+            <button
+              onClick={() => setShowFaultInjection(false)}
+              className="px-4 py-2 bg-neutral-200 text-neutral-800 rounded-md hover:bg-neutral-300 transition-colors"
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      </Dialog>
     </div>
   )
 }

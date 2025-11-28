@@ -1,4 +1,4 @@
-import type { ActivityLog, Connection, Tag, DeploymentLog } from '../types'
+import type { ActivityLog, Connection, Tag, LegacyDeploymentLog } from '../types'
 
 export const mockActivities: ActivityLog[] = [
   {
@@ -57,7 +57,7 @@ export const mockTags: Tag[] = [
   { id: '10', name: 'Emergency_Stop', type: 'BOOL', value: false, address: 'DB1.DBX4.3', lastUpdate: new Date() },
 ]
 
-export const mockDeployments: DeploymentLog[] = [
+export const mockDeployments: LegacyDeploymentLog[] = [
   {
     id: '1',
     timestamp: new Date(Date.now() - 2 * 60 * 60 * 1000),

@@ -172,7 +172,7 @@ export type BulkTagOperation = {
   completedAt?: string
 }
 
-export type DeploymentLog = {
+export type LegacyDeploymentLog = {
   id: string
   timestamp: Date
   version: string
@@ -543,6 +543,210 @@ export type SafetyCheckResults = {
   warningIssues: number
   totalFiles: number
   totalTags: number
+}
+
+// ============== DEPLOYMENT STRATEGY TYPES ==============
+
+export type DeploymentStrategy = 'atomic' | 'canary' | 'chunked'
+export type PatchStrategy = 'quiesce' | 'live'
+
+export interface DeploymentTarget {
+  id: string
+  name: string
+  type: 'plc' | 'hmi' | 'scada' | 'cluster'
+  address: string
+  runtime: string
+  version?: string
+  status: 'online' | 'offline' | 'maintenance' | 'locked'
+  capabilities: string[]
+  cohortId?: string
+  priority?: number
+  lastDeployment?: string
+  healthEndpoint?: string
+  canQuiesce: boolean
+}
+
+export interface HealthCheck {
+  id: string
+  name: string
+  type: 'script' | 'tag_range' | 'exception_log' | 'resource_usage' | 'custom'
+  enabled: boolean
+  config: {
+    script?: string
+    tagName?: string
+    minValue?: number
+    maxValue?: number
+    logPath?: string
+    cpuThreshold?: number
+    memoryThreshold?: number
+    timeout?: number
+    retryCount?: number
+  }
+  thresholds: {
+    warning: number
+    critical: number
+  }
+}
+
+export interface DeploymentCohort {
+  id: string
+  name: string
+  fraction: number // Percentage (0-100)
+  targets: string[] // Target IDs
+  order: number
+  healthChecks: string[] // Health check IDs
+  waitTime: number // Seconds to wait after deployment
+  autoPromote: boolean
+}
+
+export interface ChunkBoundary {
+  id: string
+  type: 'program' | 'controller' | 'io_block' | 'custom'
+  name: string
+  filePatterns: string[]
+  dependencies: string[] // Other chunk IDs this depends on
+  priority: number
+}
+
+export interface RollbackTrigger {
+  id: string
+  type: 'health_check' | 'exception_count' | 'tag_limit' | 'resource_usage' | 'manual'
+  enabled: boolean
+  threshold: number
+  watchWindow: number // Minutes
+  autoRollback: boolean
+  config: {
+    healthCheckIds?: string[]
+    exceptionPattern?: string
+    tagNames?: string[]
+    cpuThreshold?: number
+    memoryThreshold?: number
+  }
+}
+
+// Atomic Deploy Configuration
+export interface AtomicDeployConfig {
+  strategy: 'atomic'
+  validateBeforeSwap: boolean
+  rollbackOnFailure: boolean
+  tempAreaPath: string
+  swapTimeout: number // Seconds
+  cleanupAfterSuccess: boolean
+  preDeployValidation: string[] // Script paths
+  postDeployValidation: string[] // Script paths
+}
+
+// Canary/Phased Deploy Configuration
+export interface CanaryDeployConfig {
+  strategy: 'canary'
+  cohorts: DeploymentCohort[]
+  healthChecks: HealthCheck[]
+  globalHealthWindow: number // Minutes
+  rollbackOnFailure: boolean
+  requireManualPromotion: boolean
+  maxConcurrentTargets: number
+}
+
+// Large Project Chunking Configuration
+export interface ChunkedDeployConfig {
+  strategy: 'chunked'
+  chunkBoundaries: ChunkBoundary[]
+  autoDetectBoundaries: boolean
+  maxChunkSize: number // Files per chunk
+  dependencyOrdering: boolean
+  stageWiseMode: boolean // Force chunk boundaries
+  parallelChunks: boolean
+  rollbackChunkOnFailure: boolean
+}
+
+// Combined deployment configuration
+export interface DeploymentConfig {
+  id: string
+  name: string
+  strategy: DeploymentStrategy
+  patchStrategy: PatchStrategy
+  targets: DeploymentTarget[]
+  rollbackTriggers: RollbackTrigger[]
+  deployWatchWindow: number // Minutes
+  
+  // Strategy-specific configs (only one will be populated)
+  atomic?: AtomicDeployConfig
+  canary?: CanaryDeployConfig
+  chunked?: ChunkedDeployConfig
+  
+  // Common settings
+  dryRunFirst: boolean
+  requireApproval: boolean
+  notificationSettings: {
+    onStart: string[]
+    onSuccess: string[]
+    onFailure: string[]
+    onRollback: string[]
+  }
+}
+
+export interface DeploymentExecution {
+  id: string
+  deploymentId: string
+  configId: string
+  status: 'pending' | 'running' | 'paused' | 'completed' | 'failed' | 'rolled_back'
+  strategy: DeploymentStrategy
+  startTime: string
+  endTime?: string
+  progress: number // 0-100
+  currentPhase: string
+  
+  // Strategy-specific execution state
+  atomicState?: {
+    phase: 'staging' | 'validating' | 'swapping' | 'cleanup'
+    stagedFiles: string[]
+    validationResults: any[]
+    swapStartTime?: string
+  }
+  
+  canaryState?: {
+    currentCohort: number
+    cohortStatus: { [cohortId: string]: 'pending' | 'deploying' | 'monitoring' | 'completed' | 'failed' }
+    healthCheckResults: { [checkId: string]: any }
+    promotionsPending: string[]
+  }
+  
+  chunkedState?: {
+    totalChunks: number
+    completedChunks: number
+    currentChunk?: string
+    chunkStatus: { [chunkId: string]: 'pending' | 'deploying' | 'completed' | 'failed' }
+    dependencyGraph: { [chunkId: string]: string[] }
+  }
+  
+  logs: DeploymentLog[]
+  rollbacks: RollbackExecution[]
+}
+
+export interface DeploymentLog {
+  id: string
+  timestamp: string
+  level: 'info' | 'warning' | 'error' | 'debug'
+  message: string
+  source: string
+  targetId?: string
+  cohortId?: string
+  chunkId?: string
+  metadata?: any
+}
+
+export interface RollbackExecution {
+  id: string
+  deploymentExecutionId: string
+  triggeredBy: 'user' | 'automatic'
+  trigger: RollbackTrigger | null
+  reason: string
+  startTime: string
+  endTime?: string
+  status: 'running' | 'completed' | 'failed'
+  snapshotId: string // Snapshot to roll back to
+  affectedTargets: string[]
+  logs: DeploymentLog[]
 }
 
 
