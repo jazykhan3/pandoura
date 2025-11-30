@@ -20,16 +20,44 @@ import {
   ChevronRight,
   Settings,
   Target,
+  RefreshCw,
 } from 'lucide-react'
 import { Dialog } from './Dialog'
 import { DeploymentStrategyConfig } from './DeploymentStrategyConfig'
-import { deploymentApi, versionApi } from '../services/api'
+import { deploymentApi, versionApi, auditApi } from '../services/api'
 import { useProjectStore } from '../store/projectStore'
 import type {
   DeploymentConfig,
   DeploymentTarget,
   DeploymentExecution,
 } from '../types'
+
+// Audit-related types
+interface AuditEntry {
+  id: string
+  timestamp: string
+  event_type: string
+  actor: string
+  resource: string
+  action: string
+  details: Record<string, any>
+  metadata: Record<string, any>
+  hash: string
+  sequence: number
+}
+
+interface AuditStats {
+  total_entries: number
+  event_types: Record<string, number>
+  actors: Record<string, number>
+  recent_activity: AuditEntry[]
+  integrity: {
+    valid: boolean
+    errors: any[]
+    verified_entries: number
+    total_entries: number
+  }
+}
 
 type PreDeployCheck = {
   id: string
@@ -87,6 +115,19 @@ export function DeployConsole({ environment }: DeployConsoleProps) {
   const [deploymentExecution, setDeploymentExecution] = useState<DeploymentExecution | null>(null)
   const [availableTargets, setAvailableTargets] = useState<DeploymentTarget[]>([])
   
+  // Audit trail state
+  const [auditEntries, setAuditEntries] = useState<AuditEntry[]>([])
+  const [auditStats, setAuditStats] = useState<AuditStats | null>(null)
+  const [auditLoading, setAuditLoading] = useState(false)
+  const [auditFilters, setAuditFilters] = useState({
+    event_type: '',
+    actor: '',
+    resource: ''
+  })
+  const [showAuditPanel, setShowAuditPanel] = useState(false)
+  const [selectedAuditEntry, setSelectedAuditEntry] = useState<AuditEntry | null>(null)
+  const [integrityStatus, setIntegrityStatus] = useState<any>(null)
+  
   // Use variables to avoid lint errors
   console.log('Deploy console loading:', loading, 'releases count:', releases.length)
   
@@ -134,6 +175,13 @@ export function DeployConsole({ environment }: DeployConsoleProps) {
       loadReleases()
     }
   }, [activeProject, environment])
+
+  // Load audit data when panel is shown
+  useEffect(() => {
+    if (showAuditPanel) {
+      loadAuditData()
+    }
+  }, [showAuditPanel, auditFilters])
 
   const loadReleases = async () => {
     if (!activeProject) return
@@ -2112,7 +2160,21 @@ export function DeployConsole({ environment }: DeployConsoleProps) {
 
               {/* Deploy Actions */}
               <div className="bg-white rounded-lg border border-gray-200 p-6">
-                <h3 className="text-lg font-semibold mb-4">Deploy Actions</h3>
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-lg font-semibold">Deploy Actions</h3>
+                  <button
+                    onClick={() => setShowAuditPanel(!showAuditPanel)}
+                    className={`px-3 py-2 text-sm rounded-lg flex items-center gap-2 transition-colors ${
+                      showAuditPanel 
+                        ? 'bg-[#FF6A00] text-white hover:bg-orange-600'
+                        : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                    }`}
+                  >
+                    <Shield size={16} />
+                    Audit Trail
+                  </button>
+                </div>
+                
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                   <button
                     onClick={handleDryRun}
@@ -2166,6 +2228,139 @@ export function DeployConsole({ environment }: DeployConsoleProps) {
                   </button>
                 )}
               </div>
+
+              {/* Audit Trail Panel */}
+              {showAuditPanel && (
+                <motion.div
+                  initial={{ opacity: 0, height: 0 }}
+                  animate={{ opacity: 1, height: 'auto' }}
+                  exit={{ opacity: 0, height: 0 }}
+                  className="bg-white rounded-lg border border-gray-200 overflow-hidden"
+                >
+                  {/* Audit Header */}
+                  <div className="p-4 border-b border-gray-200 bg-gray-50">
+                    <div className="flex items-center justify-between mb-3">
+                      <div className="flex items-center gap-2">
+                        <Shield className="w-5 h-5 text-[#FF6A00]" />
+                        <h3 className="text-lg font-semibold text-gray-900">Deployment Audit Trail</h3>
+                      </div>
+                      <div className="text-sm text-gray-600">
+                        {auditStats?.total_entries || 0} total entries
+                      </div>
+                    </div>
+                    
+                    {/* Integrity Status */}
+                    {integrityStatus && (
+                      <div className={`p-3 rounded-lg ${integrityStatus.valid ? 'bg-green-50 border border-green-200 text-green-800' : 'bg-red-50 border border-red-200 text-red-800'}`}>
+                        <div className="flex items-center gap-2">
+                          {integrityStatus.valid ? (
+                            <CheckCircle className="w-4 h-4" />
+                          ) : (
+                            <XCircle className="w-4 h-4" />
+                          )}
+                          <span className="font-medium">
+                            Chain Integrity: {integrityStatus.valid ? 'VERIFIED' : 'COMPROMISED'}
+                          </span>
+                        </div>
+                        <p className="text-sm mt-1">
+                          {integrityStatus.verified_entries}/{integrityStatus.total_entries} entries verified
+                        </p>
+                      </div>
+                    )}
+                    
+                    {/* Audit Filters */}
+                    <div className="grid grid-cols-3 gap-3 mt-3">
+                      <select
+                        value={auditFilters.event_type}
+                        onChange={(e) => setAuditFilters({...auditFilters, event_type: e.target.value})}
+                        className="px-3 py-2 border border-gray-300 rounded-lg text-sm"
+                      >
+                        <option value="">All Events</option>
+                        <option value="deployment">Deployments</option>
+                        <option value="approval">Approvals</option>
+                        <option value="safety_override">Safety Overrides</option>
+                        <option value="vendor_adapter">Vendor Adapter</option>
+                      </select>
+                      <select
+                        value={auditFilters.actor}
+                        onChange={(e) => setAuditFilters({...auditFilters, actor: e.target.value})}
+                        className="px-3 py-2 border border-gray-300 rounded-lg text-sm"
+                      >
+                        <option value="">All Actors</option>
+                        <option value="engineer_demo">Engineer Demo</option>
+                        <option value="admin_demo">Admin Demo</option>
+                        <option value="supervisor_demo">Supervisor Demo</option>
+                      </select>
+                      <button
+                        onClick={() => setAuditFilters({event_type: '', actor: '', resource: ''})}
+                        className="px-3 py-2 text-sm border border-gray-300 rounded-lg hover:bg-gray-50"
+                      >
+                        Clear Filters
+                      </button>
+                    </div>
+                  </div>
+                  
+                  {/* Audit Entries */}
+                  <div className="max-h-96 overflow-y-auto">
+                    {auditLoading ? (
+                      <div className="p-8 text-center">
+                        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#FF6A00] mx-auto"></div>
+                        <p className="mt-2 text-gray-600">Loading audit entries...</p>
+                      </div>
+                    ) : auditEntries.length === 0 ? (
+                      <div className="p-8 text-center text-gray-500">
+                        <FileText className="w-12 h-12 mx-auto mb-4 text-gray-300" />
+                        <p>No audit entries found</p>
+                      </div>
+                    ) : (
+                      <div className="divide-y divide-gray-200">
+                        {auditEntries.map((entry, index) => (
+                          <motion.div
+                            key={entry.id}
+                            initial={{ opacity: 0, y: 10 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            transition={{ delay: index * 0.05 }}
+                            className="p-4 hover:bg-gray-50 cursor-pointer"
+                            onClick={() => setSelectedAuditEntry(entry)}
+                          >
+                            <div className="flex items-start gap-3">
+                              <div className={`p-2 rounded-lg ${getEventColor(entry.event_type, entry.action)}`}>
+                                {getEventIcon(entry.event_type)}
+                              </div>
+                              
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-center gap-2 mb-1">
+                                  <span className="font-medium text-gray-900 capitalize">
+                                    {entry.event_type.replace('_', ' ')}
+                                  </span>
+                                  <span className="text-sm text-gray-500">•</span>
+                                  <span className="text-sm text-gray-600 capitalize">{entry.action}</span>
+                                  <span className="text-sm text-gray-500">•</span>
+                                  <span className="text-sm text-gray-500">#{entry.sequence}</span>
+                                </div>
+                                
+                                <p className="text-sm text-gray-600 mb-2">
+                                  {entry.actor} → {entry.resource}
+                                </p>
+                                
+                                <div className="flex items-center gap-4 text-xs text-gray-500">
+                                  <span className="flex items-center gap-1">
+                                    <Clock className="w-3 h-3" />
+                                    {formatTimestamp(entry.timestamp)}
+                                  </span>
+                                  <span className="font-mono">
+                                    Hash: {entry.hash?.substring(0, 12)}...
+                                  </span>
+                                </div>
+                              </div>
+                            </div>
+                          </motion.div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </motion.div>
+              )}
             </div>
           ) : (
             <div className="h-full flex items-center justify-center text-gray-500">
@@ -2787,6 +2982,67 @@ export function DeployConsole({ environment }: DeployConsoleProps) {
           targets={availableTargets}
           onClose={() => setShowStrategyConfig(false)}
         />
+      )}
+      
+      {/* Audit Entry Details Modal */}
+      {selectedAuditEntry && (
+        <Dialog isOpen={!!selectedAuditEntry} onClose={() => setSelectedAuditEntry(null)} title="Audit Entry Details">
+          <div className="p-6 max-w-2xl">
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="text-sm font-medium text-gray-500">Event Type</label>
+                  <p className="capitalize">{selectedAuditEntry.event_type.replace('_', ' ')}</p>
+                </div>
+                <div>
+                  <label className="text-sm font-medium text-gray-500">Action</label>
+                  <p className="capitalize">{selectedAuditEntry.action}</p>
+                </div>
+                <div>
+                  <label className="text-sm font-medium text-gray-500">Actor</label>
+                  <p>{selectedAuditEntry.actor}</p>
+                </div>
+                <div>
+                  <label className="text-sm font-medium text-gray-500">Resource</label>
+                  <p>{selectedAuditEntry.resource}</p>
+                </div>
+                <div>
+                  <label className="text-sm font-medium text-gray-500">Timestamp</label>
+                  <p>{formatTimestamp(selectedAuditEntry.timestamp)}</p>
+                </div>
+                <div>
+                  <label className="text-sm font-medium text-gray-500">Sequence</label>
+                  <p>#{selectedAuditEntry.sequence}</p>
+                </div>
+              </div>
+              
+              <div>
+                <label className="text-sm font-medium text-gray-500">Hash (SHA-256)</label>
+                <p className="font-mono text-sm break-all bg-gray-100 p-2 rounded">
+                  {selectedAuditEntry.hash}
+                </p>
+              </div>
+              
+              {Object.keys(selectedAuditEntry.details).length > 0 && (
+                <div>
+                  <label className="text-sm font-medium text-gray-500">Details</label>
+                  <pre className="bg-gray-100 p-3 rounded text-sm overflow-x-auto max-h-48">
+                    {JSON.stringify(selectedAuditEntry.details, null, 2)}
+                  </pre>
+                </div>
+              )}
+              
+              {Object.keys(selectedAuditEntry.metadata).length > 0 && (
+                <div>
+                  <label className="text-sm font-medium text-gray-500">Metadata</label>
+                  <pre className="bg-gray-100 p-3 rounded text-sm overflow-x-auto max-h-48">
+                    {JSON.stringify(selectedAuditEntry.metadata, null, 2)}
+                  </pre>
+                </div>
+              )}
+            </div>
+          </div>
+        </Dialog>
       )}
     </div>
   )

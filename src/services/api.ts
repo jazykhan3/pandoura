@@ -1570,3 +1570,42 @@ END_IF;
 
 END_PROGRAM`
 
+// Audit Log APIs
+export const auditApi = {
+  async getEntries(filters: Record<string, any> = {}): Promise<any> {
+    const params = new URLSearchParams()
+    Object.entries(filters).forEach(([key, value]) => {
+      if (value) params.append(key, value)
+    })
+    
+    const res = await fetch(`${API_BASE}/audit/entries?${params}`)
+    return res.json()
+  },
+
+  async getStats(): Promise<any> {
+    const res = await fetch(`${API_BASE}/audit/stats`)
+    return res.json()
+  },
+
+  async checkIntegrity(): Promise<any> {
+    const res = await fetch(`${API_BASE}/audit/integrity`)
+    return res.json()
+  },
+
+  async createEntry(entry: {
+    event_type: string
+    actor: string
+    resource: string
+    action: string
+    details?: Record<string, any>
+    metadata?: Record<string, any>
+  }): Promise<any> {
+    const res = await fetch(`${API_BASE}/audit/log`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(entry)
+    })
+    return res.json()
+  }
+}
+
