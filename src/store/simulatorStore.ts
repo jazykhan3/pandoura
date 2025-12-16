@@ -30,17 +30,30 @@ export const useSimulatorStore = create<SimulatorStoreState>((set, get) => ({
     try {
       const result = await simulatorApi.run(logicContent)
       if (result.success) {
+        console.log('✅ Simulator run result:', result)
+        console.log('📊 Initial ioValues from logic:', result.ioValues)
+        
         set({ 
           isRunning: true, 
           isPaused: false,
           currentLine: 1,
           ioValues: result.ioValues || {}, // Load dynamic variables from backend
         })
+        
         get().addLog('Simulator started', 'info')
         get().addLog(`Loaded ${Object.keys(result.ioValues || {}).length} variables from code`, 'info')
         
-        // Start simulation loop
-        get().simulateExecution()
+        // Log the initial values for debugging
+        Object.entries(result.ioValues || {}).forEach(([name, value]) => {
+          get().addLog(`${name}: ${value} (initial from code)`, 'info')
+        })
+        
+        // Start simulation loop after a brief delay to ensure initial values are displayed
+        setTimeout(() => {
+          if (get().isRunning) {
+            get().simulateExecution()
+          }
+        }, 100)
       }
     } catch (error) {
       console.error('Failed to run simulator:', error)
@@ -77,6 +90,7 @@ export const useSimulatorStore = create<SimulatorStoreState>((set, get) => ({
       isRunning: false, 
       isPaused: false,
       currentLine: undefined,
+      ioValues: {},  // Clear cached I/O values for completely dynamic behavior
     })
     get().addLog('Simulator stopped', 'info')
   },
@@ -139,15 +153,25 @@ export const useSimulatorStore = create<SimulatorStoreState>((set, get) => ({
     const state = get()
     if (!state.isRunning || state.isPaused) return
 
-    // Poll simulator status to sync with backend
-    simulatorApi.getStatus().then(status => {
+    // Poll simulator status and logs to sync with backend
+    Promise.all([simulatorApi.getStatus(), simulatorApi.getLogs()]).then(([status, backendLogs]) => {
       const currentState = get()
       if (currentState.isRunning) {
+        // Log value updates for debugging
+        if (status.ioValues) {
+          console.log('🔄 Updating ioValues from backend:', status.ioValues)
+        }
+        
+        // Merge backend logs with local logs (avoid duplicates by timestamp)
+        const currentLogIds = new Set(currentState.logs.map(log => log.timestamp + log.message))
+        const newLogs = backendLogs.filter(log => !currentLogIds.has(log.timestamp + log.message))
+        
         set({
           currentLine: status.currentLine,
           isPaused: status.isPaused,
-          ioValues: status.ioValues || currentState.ioValues,
-          breakpoints: status.breakpoints || currentState.breakpoints
+          ioValues: status.ioValues || {},  // Use empty object when backend returns empty, don't cache old values
+          breakpoints: status.breakpoints || currentState.breakpoints,
+          logs: [...newLogs, ...currentState.logs].slice(0, 200) // Merge and keep last 200 logs
         })
 
         // Check if execution was paused by breakpoint

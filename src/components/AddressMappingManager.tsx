@@ -180,25 +180,25 @@ export function AddressMappingManager({
         {/* Header Actions */}
         <div className="flex items-center justify-between">
           <div className="flex-1 relative">
-            <Search size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+            <Search size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 dark:text-gray-500" />
             <input
               type="text"
               placeholder="Search aliases or addresses..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full pl-10 pr-4 py-2 border rounded-lg text-sm"
+              className="w-full pl-10 pr-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
             />
           </div>
           <div className="flex gap-2 ml-4">
             <button
               onClick={handleExportCSV}
-              className="flex items-center gap-2 px-3 py-2 border rounded-lg hover:bg-gray-50 text-sm"
+              className="flex items-center gap-2 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 text-sm bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
               title="Export to CSV"
             >
               <Download size={16} />
               Export
             </button>
-            <label className="flex items-center gap-2 px-3 py-2 border rounded-lg hover:bg-gray-50 text-sm cursor-pointer">
+            <label className="flex items-center gap-2 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 text-sm cursor-pointer bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100">
               <Upload size={16} />
               Import
               <input
@@ -240,13 +240,13 @@ export function AddressMappingManager({
               initial={{ opacity: 0, height: 0 }}
               animate={{ opacity: 1, height: 'auto' }}
               exit={{ opacity: 0, height: 0 }}
-              className="border rounded-lg p-4 bg-gray-50"
+              className="border border-gray-200 dark:border-gray-600 rounded-lg p-4 bg-gray-50 dark:bg-gray-800"
             >
               <div className="flex items-center justify-between mb-3">
-                <h3 className="text-sm font-semibold text-gray-700">New Alias</h3>
+                <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300">New Alias</h3>
                 <button
                   onClick={() => setShowAddForm(false)}
-                  className="p-1 hover:bg-gray-200 rounded"
+                  className="p-1 hover:bg-gray-200 dark:hover:bg-gray-600 rounded"
                 >
                   <X size={16} />
                 </button>
@@ -257,21 +257,21 @@ export function AddressMappingManager({
                   placeholder="Alias name *"
                   value={newAlias}
                   onChange={(e) => setNewAlias(e.target.value)}
-                  className="px-3 py-2 border rounded-lg text-sm"
+                  className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
                 />
                 <input
                   type="text"
                   placeholder="Vendor address (e.g., 40001)"
                   value={newVendorAddress}
                   onChange={(e) => setNewVendorAddress(e.target.value)}
-                  className="px-3 py-2 border rounded-lg text-sm font-mono"
+                  className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm font-mono bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
                 />
                 <input
                   type="text"
                   placeholder="Description"
                   value={newDescription}
                   onChange={(e) => setNewDescription(e.target.value)}
-                  className="px-3 py-2 border rounded-lg text-sm"
+                  className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
                 />
               </div>
               <button
@@ -289,7 +289,7 @@ export function AddressMappingManager({
         <div className="border rounded-lg overflow-hidden">
           <div className="overflow-x-auto max-h-[400px] overflow-y-auto">
             <table className="w-full text-sm">
-              <thead className="bg-gray-50 border-b sticky top-0">
+              <thead className="bg-gray-50 dark:bg-gray-700 border-b border-gray-200 dark:border-gray-600 sticky top-0">
                 <tr>
                   <th className="text-left py-3 px-4 font-medium text-gray-700">Alias</th>
                   <th className="text-left py-3 px-4 font-medium text-gray-700">Vendor Address</th>
@@ -313,7 +313,7 @@ export function AddressMappingManager({
                   </tr>
                 ) : (
                   filteredAliases.map((alias) => (
-                    <tr key={alias.id} className="border-b hover:bg-gray-50">
+                    <tr key={alias.id} className="border-b border-gray-200 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700">
                       <td className="py-3 px-4">
                         {editingId === alias.id ? (
                           <input
@@ -420,7 +420,7 @@ export function AddressMappingManager({
           <div className="flex gap-2">
             <button
               onClick={onClose}
-              className="px-4 py-2 border rounded-lg hover:bg-gray-50"
+              className="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
             >
               Cancel
             </button>

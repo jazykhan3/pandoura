@@ -71,9 +71,9 @@ export function SyncConsole() {
   return (
     <div className="space-y-4">
       {/* Connection Status */}
-      <div className="bg-white rounded-lg border border-neutral-200 p-4">
+      <div className="bg-white dark:bg-gray-800 rounded-lg border border-neutral-200 dark:border-gray-700 p-4">
         <div className="flex items-center justify-between mb-4">
-          <h3 className="font-semibold">Connection Status</h3>
+          <h3 className="font-semibold dark:text-white">Connection Status</h3>
           <div className="flex items-center gap-2">
             {status.connected ? (
               <>
@@ -91,7 +91,7 @@ export function SyncConsole() {
 
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
           <div>
-            <div className="text-xs text-neutral-600 mb-1">Shadow Runtime</div>
+            <div className="text-xs text-neutral-600 dark:text-gray-400 mb-1">Shadow Runtime</div>
             <div className="flex items-center gap-2">
               {status.shadowOk ? (
                 <CheckCircle className="w-4 h-4 text-green-600" />
@@ -99,9 +99,9 @@ export function SyncConsole() {
                 <XCircle className="w-4 h-4 text-neutral-400" />
               )}
               <div className="flex flex-col">
-                <span className="text-sm font-medium">{status.shadowOk ? 'OK' : 'Not Ready'}</span>
+                <span className="text-sm font-medium dark:text-gray-200">{status.shadowOk ? 'OK' : 'Not Ready'}</span>
                 {status.executionMode && (
-                  <span className="text-xs text-neutral-500">
+                  <span className="text-xs text-neutral-500 dark:text-gray-400">
                     {status.executionMode === 'simulation' ? 'Simulation' : 
                      status.executionMode === 'beremiz' ? 'Beremiz' : 'Failed'}
                   </span>
@@ -111,25 +111,25 @@ export function SyncConsole() {
           </div>
 
           <div>
-            <div className="text-xs text-neutral-600 mb-1">Live Runtime</div>
+            <div className="text-xs text-neutral-600 dark:text-gray-400 mb-1">Live Runtime</div>
             <div className="flex items-center gap-2">
               {status.liveOk ? (
                 <CheckCircle className="w-4 h-4 text-green-600" />
               ) : (
                 <XCircle className="w-4 h-4 text-neutral-400" />
               )}
-              <span className="text-sm font-medium">{status.liveOk ? 'OK' : 'Not Ready'}</span>
+              <span className="text-sm font-medium dark:text-gray-200">{status.liveOk ? 'OK' : 'Not Ready'}</span>
             </div>
           </div>
 
           <div>
-            <div className="text-xs text-neutral-600 mb-1">Latency</div>
-            <div className="text-sm font-medium">{status.latency}ms</div>
+            <div className="text-xs text-neutral-600 dark:text-gray-400 mb-1">Latency</div>
+            <div className="text-sm font-medium dark:text-gray-200">{status.latency}ms</div>
           </div>
 
           <div>
-            <div className="text-xs text-neutral-600 mb-1">Last Sync</div>
-            <div className="text-sm font-medium">
+            <div className="text-xs text-neutral-600 dark:text-gray-400 mb-1">Last Sync</div>
+            <div className="text-sm font-medium dark:text-gray-200">
               {status.lastSync ? new Date(status.lastSync).toLocaleTimeString() : 'Never'}
             </div>
           </div>
@@ -147,21 +147,21 @@ export function SyncConsole() {
               </div>
               <div className="space-y-2">
                 {unresolvedConflicts.map((conflict) => (
-                  <div key={conflict.id} className="bg-white rounded border border-amber-300 p-3">
+                  <div key={conflict.id} className="bg-white dark:bg-gray-800 rounded border border-amber-300 dark:border-amber-500 p-3">
                     <div className="flex items-center justify-between mb-2">
-                      <div className="font-medium text-sm">{conflict.tagName}</div>
-                      <div className="text-xs text-neutral-500">
+                      <div className="font-medium text-sm dark:text-white">{conflict.tagName}</div>
+                      <div className="text-xs text-neutral-500 dark:text-gray-400">
                         {new Date(conflict.timestamp).toLocaleTimeString()}
                       </div>
                     </div>
                     <div className="grid grid-cols-2 gap-2 text-xs mb-3">
-                      <div className="bg-blue-50 p-2 rounded">
-                        <div className="text-neutral-600 mb-1">Shadow</div>
-                        <div className="font-mono font-medium">{String(conflict.shadowValue)}</div>
+                      <div className="bg-blue-50 dark:bg-blue-900/30 p-2 rounded">
+                        <div className="text-neutral-600 dark:text-gray-400 mb-1">Shadow</div>
+                        <div className="font-mono font-medium dark:text-gray-200">{String(conflict.shadowValue)}</div>
                       </div>
-                      <div className="bg-green-50 p-2 rounded">
-                        <div className="text-neutral-600 mb-1">Live</div>
-                        <div className="font-mono font-medium">{String(conflict.liveValue)}</div>
+                      <div className="bg-green-50 dark:bg-green-900/30 p-2 rounded">
+                        <div className="text-neutral-600 dark:text-gray-400 mb-1">Live</div>
+                        <div className="font-mono font-medium dark:text-gray-200">{String(conflict.liveValue)}</div>
                       </div>
                     </div>
                     <div className="flex gap-2">
@@ -189,21 +189,21 @@ export function SyncConsole() {
       {/* Tag Streams */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         {/* Live Tag Stream */}
-        <div className="bg-white rounded-lg border border-neutral-200 p-4">
+        <div className="bg-white dark:bg-gray-800 rounded-lg border border-neutral-200 dark:border-gray-700 p-4">
           <div className="flex items-center justify-between mb-3">
-            <h3 className="font-semibold text-sm">Live Tag Stream</h3>
+            <h3 className="font-semibold text-sm dark:text-white">Live Tag Stream</h3>
             <Activity className="w-4 h-4 text-green-600 animate-pulse" />
           </div>
           <div className="space-y-2 max-h-48 overflow-y-auto text-xs">
             {tagUpdates.length > 0 ? (
               tagUpdates.map((tag, index) => (
-                <div key={`live-${tag.name}-${index}`} className="flex items-center justify-between py-1 border-b border-neutral-100 last:border-0">
-                  <div className="font-mono text-neutral-900">{tag.name}</div>
+                <div key={`live-${tag.name}-${index}`} className="flex items-center justify-between py-1 border-b border-neutral-100 dark:border-gray-700 last:border-0">
+                  <div className="font-mono text-neutral-900 dark:text-gray-200">{tag.name}</div>
                   <div className="flex items-center gap-2">
-                    <span className="font-mono text-neutral-600">
+                    <span className="font-mono text-neutral-600 dark:text-gray-300">
                       {typeof tag.value === 'number' ? tag.value.toFixed(1) : String(tag.value)}
                     </span>
-                    <span className="text-neutral-400">{new Date(tag.timestamp).toLocaleTimeString()}</span>
+                    <span className="text-neutral-400 dark:text-gray-500">{new Date(tag.timestamp).toLocaleTimeString()}</span>
                   </div>
                 </div>
               ))
@@ -214,21 +214,21 @@ export function SyncConsole() {
         </div>
 
         {/* Shadow Tag Stream */}
-        <div className="bg-white rounded-lg border border-neutral-200 p-4">
+        <div className="bg-white dark:bg-gray-800 rounded-lg border border-neutral-200 dark:border-gray-700 p-4">
           <div className="flex items-center justify-between mb-3">
-            <h3 className="font-semibold text-sm">Shadow Tag Stream</h3>
+            <h3 className="font-semibold text-sm dark:text-white">Shadow Tag Stream</h3>
             <Activity className="w-4 h-4 text-blue-600 animate-pulse" />
           </div>
           <div className="space-y-2 max-h-48 overflow-y-auto text-xs">
             {tagUpdates.length > 0 ? (
               tagUpdates.map((tag, index) => (
-                <div key={`shadow-${tag.name}-${index}`} className="flex items-center justify-between py-1 border-b border-neutral-100 last:border-0">
-                  <div className="font-mono text-neutral-900">{tag.name}</div>
+                <div key={`shadow-${tag.name}-${index}`} className="flex items-center justify-between py-1 border-b border-neutral-100 dark:border-gray-700 last:border-0">
+                  <div className="font-mono text-neutral-900 dark:text-gray-200">{tag.name}</div>
                   <div className="flex items-center gap-2">
-                    <span className="font-mono text-neutral-600">
+                    <span className="font-mono text-neutral-600 dark:text-gray-300">
                       {typeof tag.value === 'number' ? tag.value.toFixed(1) : String(tag.value)}
                     </span>
-                    <span className="text-neutral-400">{new Date(tag.timestamp).toLocaleTimeString()}</span>
+                    <span className="text-neutral-400 dark:text-gray-500">{new Date(tag.timestamp).toLocaleTimeString()}</span>
                   </div>
                 </div>
               ))
@@ -240,9 +240,9 @@ export function SyncConsole() {
       </div>
 
       {/* Recent Sync Log */}
-      <div className="bg-white rounded-lg border border-neutral-200 p-4">
+      <div className="bg-white dark:bg-gray-800 rounded-lg border border-neutral-200 dark:border-gray-700 p-4">
         <div className="flex items-center justify-between mb-3">
-          <h3 className="font-semibold text-sm">Recent Sync Log</h3>
+          <h3 className="font-semibold text-sm dark:text-white">Recent Sync Log</h3>
           <div className="flex gap-2">
             <button
               onClick={() => syncTags()}
@@ -261,34 +261,34 @@ export function SyncConsole() {
         </div>
         <div className="space-y-2 max-h-48 overflow-y-auto">
           {events.slice(0, 20).map((event) => (
-            <div key={event.id} className="flex items-start gap-3 py-2 border-b border-neutral-100 last:border-0">
+            <div key={event.id} className="flex items-start gap-3 py-2 border-b border-neutral-100 dark:border-gray-700 last:border-0">
               <div className={`w-2 h-2 rounded-full flex-shrink-0 mt-1.5 ${
                 event.type === 'CONFLICT' ? 'bg-amber-500' :
                 event.type === 'HEARTBEAT' ? 'bg-green-500' :
                 'bg-blue-500'
               }`} />
               <div className="flex-1 min-w-0">
-                <div className="text-sm font-medium">{event.type.replace(/_/g, ' ')}</div>
-                <div className="text-xs text-neutral-500">{new Date(event.timestamp).toLocaleString()}</div>
+                <div className="text-sm font-medium dark:text-gray-200">{event.type.replace(/_/g, ' ')}</div>
+                <div className="text-xs text-neutral-500 dark:text-gray-400">{new Date(event.timestamp).toLocaleString()}</div>
               </div>
             </div>
           ))}
           {events.length === 0 && (
-            <div className="text-xs text-neutral-500 text-center py-4">No sync events yet</div>
+            <div className="text-xs text-neutral-500 dark:text-gray-400 text-center py-4">No sync events yet</div>
           )}
         </div>
       </div>
 
       {/* Push to Live Actions */}
-      <div className="bg-white rounded-lg border border-neutral-200 p-4">
-        <h3 className="font-semibold text-sm mb-3">Push to Live</h3>
+      <div className="bg-white dark:bg-gray-800 rounded-lg border border-neutral-200 dark:border-gray-700 p-4">
+        <h3 className="font-semibold text-sm mb-3 dark:text-white">Push to Live</h3>
         <div className="space-y-3">
-          <div className="text-xs text-neutral-600">
+          <div className="text-xs text-neutral-600 dark:text-gray-400">
             Push current shadow logic to live runtime. This will update the production PLC.
           </div>
           <button
             onClick={handlePreviewChanges}
-            className="w-full px-4 py-2 text-sm bg-neutral-100 border border-neutral-300 text-neutral-800 rounded-md hover:bg-neutral-200 transition-colors"
+            className="w-full px-4 py-2 text-sm bg-neutral-100 dark:bg-gray-700 border border-neutral-300 dark:border-gray-600 text-neutral-800 dark:text-gray-200 rounded-md hover:bg-neutral-200 dark:hover:bg-gray-600 transition-colors"
           >
             Preview Changes
           </button>
@@ -302,7 +302,7 @@ export function SyncConsole() {
           >
             {isPushing ? 'Pushing to Live...' : 'Push to Live (with Safety Checks)'}
           </button>
-          <div className="text-xs text-neutral-500">
+          <div className="text-xs text-neutral-500 dark:text-gray-400">
             ⚠️ Advanced safety checks will be added in Milestone 3
           </div>
         </div>

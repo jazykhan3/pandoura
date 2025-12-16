@@ -1161,12 +1161,12 @@ export function LogicEditor() {
   // Removed unused handleLoadSample function
 
   return (
-    <div className="h-full flex flex-col">
+    <div className="h-full flex flex-col bg-white dark:bg-panda-surface-dark">
       {/* Header */}
       <div className="flex items-center justify-between mb-4">
         <div>
-          <h1 className="text-2xl font-bold">Logic Editor</h1>
-          <p className="text-sm text-neutral-600 mt-1">
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Logic Editor</h1>
+          <p className="text-sm text-neutral-600 dark:text-neutral-300 mt-1">
             {currentFile?.name || 'No file open'} 
             {isModified && ' • Modified'}
             {currentFile && currentFile.lastModified && (
@@ -1193,13 +1193,13 @@ export function LogicEditor() {
       <div className="flex-1 flex gap-4 min-h-0">
         {/* Left Sidebar - Symbol Explorer */}
         {showSymbolExplorer && (
-          <div className="w-64 bg-white rounded-lg border border-neutral-200 overflow-hidden flex flex-col">
-            <div className="px-4 py-3 border-b border-neutral-200 bg-neutral-50">
+          <div className="w-64 bg-white dark:bg-gray-800 rounded-lg border border-neutral-200 dark:border-gray-600 overflow-hidden flex flex-col">
+            <div className="px-4 py-3 border-b border-neutral-200 dark:border-gray-600 bg-neutral-50 dark:bg-gray-700">
               <div className="flex items-center justify-between mb-2">
-                <h3 className="font-semibold text-sm">Symbol Explorer</h3>
+                <h3 className="font-semibold text-sm text-gray-800 dark:text-white">Symbol Explorer</h3>
                 <button
                   onClick={() => setShowSymbolExplorer(false)}
-                  className="text-neutral-500 hover:text-neutral-700"
+                  className="text-neutral-500 dark:text-gray-400 hover:text-neutral-700 dark:hover:text-gray-200"
                 >
                   <X className="w-4 h-4" />
                 </button>
@@ -1209,7 +1209,7 @@ export function LogicEditor() {
                 placeholder="Filter symbols..."
                 value={symbolFilter}
                 onChange={(e) => setSymbolFilter(e.target.value)}
-                className="w-full px-2 py-1 text-xs border border-neutral-300 rounded focus:outline-none focus:ring-2 focus:ring-[#FF6A00]"
+                className="w-full px-2 py-1 text-xs border border-neutral-300 dark:border-gray-600 rounded bg-white dark:bg-gray-800 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#FF6A00]"
               />
             </div>
             <div className="flex-1 overflow-y-auto p-2">
@@ -1253,9 +1253,9 @@ export function LogicEditor() {
                             {symbol.children.map((child) => (
                               <button
                                 key={child.id}
-                                className="w-full flex items-center gap-2 px-2 py-1 hover:bg-neutral-100 rounded text-left"
+                                className="w-full flex items-center gap-2 px-2 py-1 hover:bg-neutral-100 dark:hover:bg-gray-600 rounded text-left"
                               >
-                                <span className="text-neutral-400">{child.dataType}</span>
+                                <span className="text-neutral-400 dark:text-gray-400">{child.dataType}</span>
                                 <span className="font-mono">{child.name}</span>
                               </button>
                             ))}
@@ -1327,12 +1327,12 @@ export function LogicEditor() {
         )}
 
         {/* Main Editor Area */}
-        <div className="flex-1 flex flex-col bg-white rounded-lg border border-neutral-200 overflow-hidden">
+        <div className="flex-1 flex flex-col bg-white dark:bg-gray-800 rounded-lg border border-neutral-200 dark:border-gray-600 overflow-hidden">
           {/* Toolbar */}
-          <div className="flex items-center gap-2 p-3 border-b border-neutral-200 bg-neutral-50 flex-wrap">
+          <div className="flex items-center gap-2 p-3 border-b border-neutral-200 dark:border-gray-600 bg-neutral-50 dark:bg-gray-700 flex-wrap">
             <button
               onClick={handleCreateFileClick}
-              className="flex items-center gap-1.5 px-3 py-1.5 text-sm bg-white border border-neutral-300 text-neutral-800 rounded-md hover:bg-neutral-50 transition-colors"
+              className="flex items-center gap-1.5 px-3 py-1.5 text-sm bg-white dark:bg-gray-700 border border-neutral-300 dark:border-gray-600 text-neutral-800 dark:text-white rounded-md hover:bg-neutral-50 dark:hover:bg-gray-600 transition-colors"
               title="New File"
             >
               <FilePlus className="w-4 h-4" />
@@ -1341,7 +1341,7 @@ export function LogicEditor() {
             
             <button
               onClick={() => setShowFileSelector(!showFileSelector)}
-              className="flex items-center gap-1.5 px-3 py-1.5 text-sm bg-white border border-neutral-300 text-neutral-800 rounded-md hover:bg-neutral-50 transition-colors"
+              className="flex items-center gap-1.5 px-3 py-1.5 text-sm bg-white dark:bg-gray-700 border border-neutral-300 dark:border-gray-600 text-neutral-800 dark:text-white rounded-md hover:bg-neutral-50 dark:hover:bg-gray-600 transition-colors"
               title="Open File"
             >
               <FolderOpen className="w-4 h-4" />
@@ -1354,7 +1354,7 @@ export function LogicEditor() {
               className={`flex items-center gap-1.5 px-3 py-1.5 text-sm rounded-md transition-colors ${
                 isModified && !isSaving
                   ? 'bg-[#FF6A00] text-white hover:bg-[#FF8020]'
-                  : 'bg-neutral-200 text-neutral-500 cursor-not-allowed'
+                  : 'bg-neutral-200 dark:bg-gray-700 text-neutral-500 dark:text-gray-400 cursor-not-allowed'
               }`}
               title="Save (Ctrl+S)"
             >
@@ -1369,8 +1369,8 @@ export function LogicEditor() {
               disabled={!canUndo()}
               className={`flex items-center gap-1.5 px-3 py-1.5 text-sm rounded-md transition-colors ${
                 canUndo()
-                  ? 'bg-white border border-neutral-300 text-neutral-800 hover:bg-neutral-50'
-                  : 'bg-neutral-100 border border-neutral-200 text-neutral-400 cursor-not-allowed'
+                  ? 'bg-white dark:bg-gray-700 border border-neutral-300 dark:border-gray-600 text-neutral-800 dark:text-white hover:bg-neutral-50 dark:hover:bg-gray-600'
+                  : 'bg-neutral-100 dark:bg-gray-800 border border-neutral-200 dark:border-gray-700 text-neutral-400 dark:text-gray-500 cursor-not-allowed'
               }`}
               title="Undo (Ctrl+Z)"
             >
@@ -1382,8 +1382,8 @@ export function LogicEditor() {
               disabled={!canRedo()}
               className={`flex items-center gap-1.5 px-3 py-1.5 text-sm rounded-md transition-colors ${
                 canRedo()
-                  ? 'bg-white border border-neutral-300 text-neutral-800 hover:bg-neutral-50'
-                  : 'bg-neutral-100 border border-neutral-200 text-neutral-400 cursor-not-allowed'
+                  ? 'bg-white dark:bg-gray-700 border border-neutral-300 dark:border-gray-600 text-neutral-800 dark:text-white hover:bg-neutral-50 dark:hover:bg-gray-600'
+                  : 'bg-neutral-100 dark:bg-gray-800 border border-neutral-200 dark:border-gray-700 text-neutral-400 dark:text-gray-500 cursor-not-allowed'
               }`}
               title="Redo (Ctrl+Y)"
             >
@@ -1394,7 +1394,7 @@ export function LogicEditor() {
 
             <button
               onClick={handleValidate}
-              className="flex items-center gap-1.5 px-3 py-1.5 text-sm bg-white border border-neutral-300 text-neutral-800 rounded-md hover:bg-neutral-50 transition-colors"
+              className="flex items-center gap-1.5 px-3 py-1.5 text-sm bg-white dark:bg-gray-700 border border-neutral-300 dark:border-gray-600 text-neutral-800 dark:text-white rounded-md hover:bg-neutral-50 dark:hover:bg-gray-600 transition-colors"
               title="Validate"
             >
               <Check className="w-4 h-4" />
@@ -1406,8 +1406,8 @@ export function LogicEditor() {
               disabled={!currentFile}
               className={`flex items-center gap-1.5 px-3 py-1.5 text-sm rounded-md transition-colors ${
                 currentFile
-                  ? 'bg-white border border-neutral-300 text-neutral-800 hover:bg-neutral-50'
-                  : 'bg-neutral-100 border border-neutral-200 text-neutral-400 cursor-not-allowed'
+                  ? 'bg-white dark:bg-gray-700 border border-neutral-300 dark:border-gray-600 text-neutral-800 dark:text-white hover:bg-neutral-50 dark:hover:bg-gray-600'
+                  : 'bg-neutral-100 dark:bg-gray-800 border border-neutral-200 dark:border-gray-700 text-neutral-400 dark:text-gray-500 cursor-not-allowed'
               }`}
               title="Format Code"
             >
@@ -1417,12 +1417,12 @@ export function LogicEditor() {
 
             <div className="w-px h-6 bg-neutral-300" />
 
-            <label className="flex items-center gap-2 text-sm text-neutral-700">
+            <label className="flex items-center gap-2 text-sm text-neutral-700 dark:text-neutral-300">
               Vendor:
               <select
                 value={vendor}
                 onChange={(e) => setVendor(e.target.value as typeof vendor)}
-                className="px-2 py-1 text-sm border border-neutral-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#FF6A00]"
+                className="px-2 py-1 text-sm border border-neutral-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-[#FF6A00] bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
               >
                 <option value="neutral">Vendor-neutral</option>
                 <option value="rockwell">Rockwell</option>
@@ -1467,8 +1467,8 @@ export function LogicEditor() {
               disabled={!currentFile}
               className={`flex items-center gap-1.5 px-3 py-1.5 text-sm rounded-md transition-colors ${
                 currentFile
-                  ? 'bg-white border border-neutral-300 text-neutral-800 hover:bg-neutral-50'
-                  : 'bg-neutral-100 border border-neutral-200 text-neutral-400 cursor-not-allowed'
+                  ? 'bg-white dark:bg-gray-700 border border-neutral-300 dark:border-gray-600 text-neutral-800 dark:text-white hover:bg-neutral-50 dark:hover:bg-gray-600'
+                  : 'bg-neutral-100 dark:bg-gray-800 border border-neutral-200 dark:border-gray-700 text-neutral-400 dark:text-gray-500 cursor-not-allowed'
               }`}
               title="Compare with Version"
             >
@@ -1486,8 +1486,8 @@ export function LogicEditor() {
                 currentFile
                   ? showHistoryPanel
                     ? 'bg-[#FF6A00] text-white'
-                    : 'bg-white border border-neutral-300 text-neutral-800 hover:bg-neutral-50'
-                  : 'bg-neutral-100 border border-neutral-200 text-neutral-400 cursor-not-allowed'
+                    : 'bg-white dark:bg-gray-700 border border-neutral-300 dark:border-gray-600 text-neutral-800 dark:text-white hover:bg-neutral-50 dark:hover:bg-gray-600'
+                  : 'bg-neutral-100 dark:bg-gray-800 border border-neutral-200 dark:border-gray-700 text-neutral-400 dark:text-gray-500 cursor-not-allowed'
               }`}
               title="Time Travel / Local History"
             >
@@ -1499,7 +1499,7 @@ export function LogicEditor() {
               className={`flex items-center gap-1.5 px-3 py-1.5 text-sm rounded-md transition-colors ${
                 showTestRunner
                   ? 'bg-[#FF6A00] text-white'
-                  : 'bg-white border border-neutral-300 text-neutral-800 hover:bg-neutral-50'
+                  : 'bg-white dark:bg-gray-700 border border-neutral-300 dark:border-gray-600 text-neutral-800 dark:text-white hover:bg-neutral-50 dark:hover:bg-gray-600'
               }`}
               title="Unit Test Runner"
             >
@@ -1511,7 +1511,7 @@ export function LogicEditor() {
               className={`flex items-center gap-1.5 px-3 py-1.5 text-sm rounded-md transition-colors ${
                 showDiagnosticsPanel
                   ? 'bg-[#FF6A00] text-white'
-                  : 'bg-white border border-neutral-300 text-neutral-800 hover:bg-neutral-50'
+                  : 'bg-white dark:bg-gray-700 border border-neutral-300 dark:border-gray-600 text-neutral-800 dark:text-white hover:bg-neutral-50 dark:hover:bg-gray-600'
               }`}
               title="Semantic Diagnostics"
             >
@@ -1523,7 +1523,7 @@ export function LogicEditor() {
               className={`flex items-center gap-1.5 px-3 py-1.5 text-sm rounded-md transition-colors ${
                 showSafetyAnalyzer
                   ? 'bg-[#FF6A00] text-white'
-                  : 'bg-white border border-neutral-300 text-neutral-800 hover:bg-neutral-50'
+                  : 'bg-white dark:bg-gray-700 border border-neutral-300 dark:border-gray-600 text-neutral-800 dark:text-white hover:bg-neutral-50 dark:hover:bg-gray-600'
               }`}
               title="Safety Analyzer"
             >
@@ -1535,7 +1535,7 @@ export function LogicEditor() {
               className={`flex items-center gap-1.5 px-3 py-1.5 text-sm rounded-md transition-colors ${
                 showReplacePanel
                   ? 'bg-[#FF6A00] text-white'
-                  : 'bg-white border border-neutral-300 text-neutral-800 hover:bg-neutral-50'
+                  : 'bg-white dark:bg-gray-700 border border-neutral-300 dark:border-gray-600 text-neutral-800 dark:text-white hover:bg-neutral-50 dark:hover:bg-gray-600'
               }`}
               title="Project-wide Replace"
             >
@@ -1564,7 +1564,7 @@ export function LogicEditor() {
 
           {/* File Selector Dropdown */}
           {showFileSelector && (
-            <div className="absolute z-10 mt-14 ml-20 bg-white border border-neutral-300 rounded-md shadow-lg max-h-64 overflow-y-auto">
+            <div className="absolute z-10 mt-14 ml-20 bg-white dark:bg-gray-800 border border-neutral-300 dark:border-gray-600 rounded-md shadow-lg max-h-64 overflow-y-auto">
               {files.length > 0 ? (
                 files.map((file) => (
                   <button
@@ -1573,8 +1573,8 @@ export function LogicEditor() {
                       loadFile(file.id)
                       setShowFileSelector(false)
                     }}
-                    className={`w-full text-left px-4 py-2 text-sm hover:bg-neutral-100 ${
-                      currentFile?.id === file.id ? 'bg-neutral-50 font-medium' : ''
+                    className={`w-full text-left px-4 py-2 text-sm text-gray-800 dark:text-white hover:bg-neutral-100 dark:hover:bg-gray-700 ${
+                      currentFile?.id === file.id ? 'bg-neutral-50 dark:bg-gray-600 font-medium' : ''
                     }`}
                   >
                     {file.name}
@@ -1589,7 +1589,7 @@ export function LogicEditor() {
           )}
 
           {/* Editor Status Bar */}
-          <div className="px-4 py-1.5 bg-white border-b border-neutral-200 flex items-center gap-4 text-xs text-neutral-600">
+          <div className="px-4 py-1.5 bg-white dark:bg-gray-800 border-b border-neutral-200 dark:border-gray-600 flex items-center gap-4 text-xs text-neutral-600 dark:text-gray-300">
             <div>UTF-8</div>
             <div>Structured Text (ST)</div>
             <div>Mode: {status.shadowOk ? 'Shadow' : 'Local'}</div>
@@ -1618,6 +1618,7 @@ export function LogicEditor() {
                 })) : []}
                 tags={tagDatabaseTags}
                 breakpoints={breakpoints}
+                theme={document.documentElement.classList.contains('dark') ? 'dark' : 'light'}
                 onBreakpointToggle={toggleBreakpoint}
                 currentLine={currentLine}
                 onCodeLensAction={handleCodeLensAction}
@@ -1635,9 +1636,9 @@ export function LogicEditor() {
         {/* Right Context Panel */}
         <div className="w-80 flex flex-col gap-4">
           {/* Change Preview */}
-          <div className="bg-white rounded-lg border border-neutral-200 p-4">
+          <div className="bg-white dark:bg-gray-800 rounded-lg border border-neutral-200 dark:border-gray-600 p-4">
             <div className="flex items-center justify-between mb-3">
-              <h3 className="font-semibold text-sm">Change Preview</h3>
+              <h3 className="font-semibold text-sm text-gray-800 dark:text-white">Change Preview</h3>
               <button
                 onClick={() => setShowChangePreview(!showChangePreview)}
                 className="text-xs text-[#FF6A00] hover:underline"
@@ -1716,7 +1717,7 @@ export function LogicEditor() {
                                   <div className="text-green-700 font-medium mb-1">
                                     + Line {change.modifiedLineNumber}
                                   </div>
-                                  <div className="font-mono text-green-800 bg-white p-1 rounded border">
+                                  <div className="font-mono text-green-800 dark:text-green-400 bg-white dark:bg-gray-900 p-1 rounded border dark:border-gray-600">
                                     {change.modifiedText || '(empty line)'}
                                   </div>
                                 </div>
@@ -1755,7 +1756,7 @@ export function LogicEditor() {
                                   <div className="text-red-700 font-medium mb-1">
                                     - Line {change.originalLineNumber}
                                   </div>
-                                  <div className="font-mono text-red-800 bg-white p-1 rounded border">
+                                  <div className="font-mono text-red-800 dark:text-red-400 bg-white dark:bg-gray-900 p-1 rounded border dark:border-gray-600">
                                     {change.originalText || '(empty line)'}
                                   </div>
                                 </div>
@@ -1879,13 +1880,13 @@ export function LogicEditor() {
                 )} */}
               </div>
             ) : (
-              <div className="text-xs text-neutral-500">No changes to preview</div>
+              <div className="text-xs text-neutral-500 dark:text-gray-400">No changes to preview</div>
             )}
           </div>
 
           {/* Validation Report */}
-          <div className="bg-white rounded-lg border border-neutral-200 p-4 max-h-64 overflow-y-auto">
-            <h3 className="font-semibold text-sm mb-3">Validation & Lint</h3>
+          <div className="bg-white dark:bg-gray-800 rounded-lg border border-neutral-200 dark:border-gray-600 p-4 max-h-64 overflow-y-auto">
+            <h3 className="font-semibold text-sm mb-3 text-gray-800 dark:text-white">Validation & Lint</h3>
             {validationResult && validationResult.errors.length > 0 ? (
               <div className="space-y-2">
                 {validationResult.errors.map((error, i) => (
@@ -1893,10 +1894,10 @@ export function LogicEditor() {
                     key={i}
                     className={`text-xs p-2 rounded border ${
                       error.severity === 'error'
-                        ? 'bg-red-50 border-red-200 text-red-800'
+                        ? 'bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-700 text-red-800 dark:text-red-300'
                         : error.severity === 'warning'
-                        ? 'bg-amber-50 border-amber-200 text-amber-800'
-                        : 'bg-blue-50 border-blue-200 text-blue-800'
+                        ? 'bg-amber-50 dark:bg-amber-900/20 border-amber-200 dark:border-amber-700 text-amber-800 dark:text-amber-300'
+                        : 'bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-700 text-blue-800 dark:text-blue-300'
                     }`}
                   >
                     <div className="font-medium">Line {error.line}:{error.column}</div>
@@ -1905,15 +1906,15 @@ export function LogicEditor() {
                 ))}
               </div>
             ) : (
-              <div className="text-xs text-neutral-500">
+              <div className="text-xs text-neutral-500 dark:text-gray-400">
                 {validationResult ? '✓ No issues found' : 'Click Validate to check for issues'}
               </div>
             )}
           </div>
 
           {/* Quick Actions */}
-          <div className="bg-white rounded-lg border border-neutral-200 p-4">
-            <h3 className="font-semibold text-sm mb-3">Quick Actions</h3>
+          <div className="bg-white dark:bg-gray-800 rounded-lg border border-neutral-200 dark:border-gray-600 p-4">
+            <h3 className="font-semibold text-sm mb-3 text-gray-800 dark:text-white">Quick Actions</h3>
             <div className="space-y-2">
               <button
                 onClick={handleSendToShadow}
@@ -1964,9 +1965,9 @@ export function LogicEditor() {
           </div>
 
           {/* Tag Usage */}
-          <div className="bg-white rounded-lg border border-neutral-200 p-4 max-h-64 overflow-y-auto">
+          <div className="bg-white dark:bg-gray-800 rounded-lg border border-neutral-200 dark:border-gray-600 p-4 max-h-64 overflow-y-auto">
             <div className="flex items-center justify-between mb-3">
-              <h3 className="font-semibold text-sm">
+              <h3 className="font-semibold text-sm text-gray-800 dark:text-gray-100">
                 Tags in Code ({usedTags.length})
               </h3>
               <button
@@ -1992,12 +1993,12 @@ export function LogicEditor() {
                 Refresh
               </button>
             </div>
-            <div className="text-xs text-neutral-600 space-y-1">
+            <div className="text-xs text-neutral-600 dark:text-gray-400 space-y-1">
               {(() => {
                 // Show ALL declared tags (both used and unused)
                 if (usedTags.length === 0) {
                   return (
-                    <div className="text-neutral-400 text-center py-4">
+                    <div className="text-neutral-400 dark:text-gray-500 text-center py-4">
                       No tags declared in current file
                       {currentFile && (
                         <div className="text-xs mt-2">
@@ -2019,29 +2020,29 @@ export function LogicEditor() {
                 return sortedTags.map((tag) => (
                   <div 
                     key={tag.id}
-                    className={`group hover:text-[#FF6A00] cursor-pointer py-1 px-2 hover:bg-neutral-50 rounded border border-transparent hover:border-neutral-200 ${!tag.isUsed ? 'opacity-60' : ''}`}
+                    className={`group hover:text-[#FF6A00] cursor-pointer py-1 px-2 hover:bg-neutral-50 dark:hover:bg-gray-700 rounded border border-transparent hover:border-neutral-200 dark:hover:border-gray-500 ${!tag.isUsed ? 'opacity-60' : ''}`}
                     title={`${tag.metadata?.description || tag.name}\nDeclared on line ${tag.declarationLine}\n${tag.isUsed ? `Used ${tag.usageCount} time(s)\nAll occurrences on lines: ${tag.lineNumbers.join(', ')}` : 'Not used in code'}\nType: ${tag.type}${tag.value ? `\nInitial Value: ${tag.value}` : ''}`}
                   >
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-2">
-                        <span className={`font-mono font-semibold ${tag.isUsed ? 'text-blue-700' : 'text-neutral-500'}`}>{tag.name}</span>
-                        <span className={`text-xs px-1.5 py-0.5 rounded-full font-medium ${tag.isUsed ? 'bg-blue-100 text-blue-700' : 'bg-neutral-100 text-neutral-500'}`}>{tag.usageCount}</span>
+                        <span className={`font-mono font-semibold ${tag.isUsed ? 'text-blue-700 dark:text-blue-400' : 'text-neutral-500 dark:text-gray-400'}`}>{tag.name}</span>
+                        <span className={`text-xs px-1.5 py-0.5 rounded-full font-medium ${tag.isUsed ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300' : 'bg-neutral-100 dark:bg-gray-700 text-neutral-500 dark:text-gray-400'}`}>{tag.usageCount}</span>
                       </div>
                       <div className="flex items-center gap-1">
-                        <span className="text-xs bg-neutral-100 text-neutral-600 px-1 rounded">{tag.type}</span>
+                        <span className="text-xs bg-neutral-100 dark:bg-gray-700 text-neutral-600 dark:text-gray-300 px-1 rounded">{tag.type}</span>
                       </div>
                     </div>
                     <div className="mt-1 flex items-start justify-between text-xs gap-2">
-                      <span className="text-neutral-500 flex-1 break-words">{tag.isUsed ? `Lines: ${tag.lineNumbers.join(', ')}` : `Line: ${tag.declarationLine} (declared, not used)`}</span>
-                      {tag.value && <span className="text-neutral-400 font-mono flex-shrink-0">= {tag.value}</span>}
+                      <span className="text-neutral-500 dark:text-gray-400 flex-1 break-words">{tag.isUsed ? `Lines: ${tag.lineNumbers.join(', ')}` : `Line: ${tag.declarationLine} (declared, not used)`}</span>
+                      {tag.value && <span className="text-neutral-400 dark:text-gray-500 font-mono flex-shrink-0">= {tag.value}</span>}
                     </div>
                     {tag.metadata?.description && (
-                      <div className="mt-1 text-xs text-neutral-400 italic truncate">{tag.metadata.description}</div>
+                      <div className="mt-1 text-xs text-neutral-400 dark:text-gray-500 italic truncate">{tag.metadata.description}</div>
                     )}
                   </div>
                 ))
               })()}
-              <div className="text-neutral-400 text-xs mt-2 pt-2 border-t border-neutral-200">
+              <div className="text-neutral-400 dark:text-gray-500 text-xs mt-2 pt-2 border-t border-neutral-200 dark:border-gray-600">
                 {(() => {
                   const actuallyUsedTags = usedTags.filter(tag => tag.isUsed && tag.usageCount > 0)
                   const totalDeclaredTags = usedTags.length
@@ -2059,7 +2060,7 @@ export function LogicEditor() {
 
           {/* PLC Execution Results */}
           {showPLCResults && plcExecutionResult && (
-            <div className="bg-white rounded-lg border border-neutral-200 p-4">
+            <div className="bg-white dark:bg-gray-800 rounded-lg border border-neutral-200 dark:border-gray-600 p-4">
               <div className="flex items-center justify-between mb-3">
                 <h3 className="font-semibold text-sm flex items-center gap-2">
                   <Zap className="w-4 h-4" />
@@ -2147,10 +2148,10 @@ export function LogicEditor() {
       </div>
 
       {/* Status Bar */}
-      <div className="mt-4 px-4 py-2 bg-neutral-100 rounded-md flex items-center justify-between text-xs text-neutral-600">
+      <div className="mt-4 px-4 py-2 bg-neutral-100 dark:bg-gray-700 rounded-md flex items-center justify-between text-xs text-neutral-600 dark:text-gray-300">
         <div className="flex items-center gap-4">
-          <div>Connected to Shadow: <span className={status.connected ? 'text-green-600' : 'text-red-600'}>{status.connected ? 'Yes' : 'No'}</span></div>
-          <div>Sync State: <span className="text-neutral-900">{isPushing ? 'Syncing' : 'Idle'}</span></div>
+          <div>Connected to Shadow: <span className={status.connected ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}>{status.connected ? 'Yes' : 'No'}</span></div>
+          <div>Sync State: <span className="text-neutral-900 dark:text-gray-100">{isPushing ? 'Syncing' : 'Idle'}</span></div>
         </div>
         <div>
           {status.lastSync && `Last sync: ${new Date(status.lastSync).toLocaleTimeString()}`}
@@ -2198,16 +2199,16 @@ export function LogicEditor() {
       {showExtractDialog && (
         <div className="fixed inset-0 z-50 flex items-center justify-center">
           <div className="fixed inset-0 bg-black bg-opacity-50" onClick={() => setShowExtractDialog(false)} />
-          <div className="relative bg-white rounded-lg shadow-xl max-w-md w-full mx-4">
-            <div className="flex items-center justify-between p-4 border-b border-neutral-200">
-              <h2 className="font-semibold text-lg">Extract Function</h2>
-              <button onClick={() => setShowExtractDialog(false)} className="p-1 hover:bg-neutral-100 rounded">
+          <div className="relative bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-md w-full mx-4">
+            <div className="flex items-center justify-between p-4 border-b border-neutral-200 dark:border-gray-600">
+              <h2 className="font-semibold text-lg text-gray-900 dark:text-gray-100">Extract Function</h2>
+              <button onClick={() => setShowExtractDialog(false)} className="p-1 hover:bg-neutral-100 dark:hover:bg-gray-700 rounded">
                 <X className="w-5 h-5" />
               </button>
             </div>
             <div className="p-4 space-y-4">
               <div>
-                <label className="block text-sm font-medium mb-2">
+                <label className="block text-sm font-medium mb-2 text-gray-700 dark:text-gray-300">
                   Function Name <span className="text-red-500">*</span>
                 </label>
                 <input
@@ -2215,12 +2216,12 @@ export function LogicEditor() {
                   value={extractFunctionName}
                   onChange={(e) => setExtractFunctionName(e.target.value)}
                   placeholder="e.g., CalculateTotal"
-                  className="w-full px-3 py-2 border border-neutral-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#FF6A00]"
+                  className="w-full px-3 py-2 border border-neutral-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-[#FF6A00] bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
                   autoFocus
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium mb-2">
+                <label className="block text-sm font-medium mb-2 text-gray-700 dark:text-gray-300">
                   Return Type <span className="text-red-500">*</span>
                 </label>
                 <input
@@ -2228,17 +2229,17 @@ export function LogicEditor() {
                   value={extractReturnType}
                   onChange={(e) => setExtractReturnType(e.target.value)}
                   placeholder="VOID, INT, BOOL, REAL, etc."
-                  className="w-full px-3 py-2 border border-neutral-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#FF6A00]"
+                  className="w-full px-3 py-2 border border-neutral-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-[#FF6A00] bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
                 />
               </div>
-              <div className="text-xs text-neutral-600 bg-neutral-50 p-3 rounded">
+              <div className="text-xs text-neutral-600 dark:text-gray-400 bg-neutral-50 dark:bg-gray-700 p-3 rounded">
                 <p>Extracting lines {extractStartLine} - {extractEndLine}</p>
               </div>
             </div>
-            <div className="flex gap-3 p-4 border-t border-neutral-200">
+            <div className="flex gap-3 p-4 border-t border-neutral-200 dark:border-gray-600">
               <button
                 onClick={() => setShowExtractDialog(false)}
-                className="px-4 py-2 rounded-md font-medium bg-neutral-200 text-neutral-800 hover:bg-neutral-300"
+                className="px-4 py-2 rounded-md font-medium bg-neutral-200 dark:bg-gray-600 text-neutral-800 dark:text-gray-200 hover:bg-neutral-300 dark:hover:bg-gray-500"
               >
                 Cancel
               </button>
@@ -2260,87 +2261,87 @@ export function LogicEditor() {
       {showTestConfigDialog && (
         <div className="fixed inset-0 z-50 flex items-center justify-center">
           <div className="fixed inset-0 bg-black bg-opacity-50" onClick={() => setShowTestConfigDialog(false)} />
-          <div className="relative bg-white rounded-lg shadow-xl max-w-3xl w-full mx-4">
-            <div className="flex items-center justify-between p-4 border-b border-neutral-200">
-              <h2 className="font-semibold text-lg flex items-center gap-2">
+          <div className="relative bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-3xl w-full mx-4">
+            <div className="flex items-center justify-between p-4 border-b border-neutral-200 dark:border-gray-600">
+              <h2 className="font-semibold text-lg flex items-center gap-2 text-gray-900 dark:text-gray-100">
                 <TestTube className="w-5 h-5" />
                 Configure Test: {testRoutineName}
               </h2>
-              <button onClick={() => setShowTestConfigDialog(false)} className="p-1 hover:bg-neutral-100 rounded">
+              <button onClick={() => setShowTestConfigDialog(false)} className="p-1 hover:bg-neutral-100 dark:hover:bg-gray-700 rounded">
                 <X className="w-5 h-5" />
               </button>
             </div>
             <div className="p-4 space-y-4 max-h-[75vh] overflow-y-auto">
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium mb-2">
+                  <label className="block text-sm font-medium mb-2 text-gray-700 dark:text-gray-300">
                     Test Inputs (JSON) <span className="text-red-500">*</span>
                   </label>
                   <textarea
                     value={testInputsJson}
                     onChange={(e) => setTestInputsJson(e.target.value)}
                     placeholder='{\n  "Counter": 0,\n  "Enable": true\n}'
-                    className="w-full px-3 py-2 border border-neutral-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#FF6A00] font-mono text-sm"
+                    className="w-full px-3 py-2 border border-neutral-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-[#FF6A00] font-mono text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
                     rows={5}
                   />
-                  <p className="text-xs text-neutral-600 mt-1">Initial variable values</p>
+                  <p className="text-xs text-neutral-600 dark:text-gray-400 mt-1">Initial variable values</p>
                 </div>
                 <div>
-                  <label className="block text-sm font-medium mb-2">
+                  <label className="block text-sm font-medium mb-2 text-gray-700 dark:text-gray-300">
                     Expected Outputs (JSON) <span className="text-red-500">*</span>
                   </label>
                   <textarea
                     value={testExpectedJson}
                     onChange={(e) => setTestExpectedJson(e.target.value)}
                     placeholder='{\n  "Counter": 1,\n  "Output": true\n}'
-                    className="w-full px-3 py-2 border border-neutral-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#FF6A00] font-mono text-sm"
+                    className="w-full px-3 py-2 border border-neutral-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-[#FF6A00] font-mono text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
                     rows={5}
                   />
-                  <p className="text-xs text-neutral-600 mt-1">Expected values after execution</p>
+                  <p className="text-xs text-neutral-600 dark:text-gray-400 mt-1">Expected values after execution</p>
                 </div>
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium mb-2">
+                  <label className="block text-sm font-medium mb-2 text-gray-700 dark:text-gray-300">
                     Mocked I/O (JSON)
                   </label>
                   <textarea
                     value={testMockedIO}
                     onChange={(e) => setTestMockedIO(e.target.value)}
                     placeholder='{\n  "Sensor_1": true,\n  "Temperature": 25.5\n}'
-                    className="w-full px-3 py-2 border border-neutral-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#FF6A00] font-mono text-sm"
+                    className="w-full px-3 py-2 border border-neutral-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-[#FF6A00] font-mono text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
                     rows={4}
                   />
-                  <p className="text-xs text-neutral-600 mt-1">Mock physical I/O values</p>
+                  <p className="text-xs text-neutral-600 dark:text-gray-400 mt-1">Mock physical I/O values</p>
                 </div>
                 <div>
-                  <label className="block text-sm font-medium mb-2">
+                  <label className="block text-sm font-medium mb-2 text-gray-700 dark:text-gray-300">
                     Pre-Conditions
                   </label>
                   <textarea
                     value={testPreConditions}
                     onChange={(e) => setTestPreConditions(e.target.value)}
                     placeholder="System must be initialized\nCounter < 100"
-                    className="w-full px-3 py-2 border border-neutral-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#FF6A00] text-sm"
+                    className="w-full px-3 py-2 border border-neutral-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-[#FF6A00] text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
                     rows={4}
                   />
-                  <p className="text-xs text-neutral-600 mt-1">Conditions before test</p>
+                  <p className="text-xs text-neutral-600 dark:text-gray-400 mt-1">Conditions before test</p>
                 </div>
               </div>
               <div>
-                <label className="block text-sm font-medium mb-2">
+                <label className="block text-sm font-medium mb-2 text-gray-700 dark:text-gray-300">
                   Post-Conditions
                 </label>
                 <textarea
                   value={testPostConditions}
                   onChange={(e) => setTestPostConditions(e.target.value)}
                   placeholder="Counter must be incremented\nNo errors logged"
-                  className="w-full px-3 py-2 border border-neutral-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#FF6A00] text-sm"
+                  className="w-full px-3 py-2 border border-neutral-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-[#FF6A00] text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
                   rows={3}
                 />
-                <p className="text-xs text-neutral-600 mt-1">Conditions after test execution</p>
+                <p className="text-xs text-neutral-600 dark:text-gray-400 mt-1">Conditions after test execution</p>
               </div>
-              <div className="text-xs text-blue-700 bg-blue-50 p-3 rounded border border-blue-200">
+              <div className="text-xs text-blue-700 dark:text-blue-300 bg-blue-50 dark:bg-blue-900/20 p-3 rounded border border-blue-200 dark:border-blue-700">
                 <p className="font-semibold mb-1">🧪 Test Execution Flow:</p>
                 <ul className="list-disc list-inside space-y-1">
                   <li>Isolated simulation environment created</li>
@@ -2351,10 +2352,10 @@ export function LogicEditor() {
                 </ul>
               </div>
             </div>
-            <div className="flex gap-3 p-4 border-t border-neutral-200">
+            <div className="flex gap-3 p-4 border-t border-neutral-200 dark:border-gray-600">
               <button
                 onClick={() => setShowTestConfigDialog(false)}
-                className="px-4 py-2 rounded-md font-medium bg-neutral-200 text-neutral-800 hover:bg-neutral-300"
+                className="px-4 py-2 rounded-md font-medium bg-neutral-200 dark:bg-gray-600 text-neutral-800 dark:text-gray-200 hover:bg-neutral-300 dark:hover:bg-gray-500"
               >
                 Cancel
               </button>
@@ -2407,7 +2408,7 @@ export function LogicEditor() {
       {/* Create Snapshot Dialog */}
       {showSnapshotDialog && (
         <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center">
-          <div className="bg-white rounded-lg p-6 w-[500px] max-w-[90vw]">
+          <div className="bg-white dark:bg-gray-800 rounded-lg p-6 w-[500px] max-w-[90vw]">
             <h2 className="text-xl font-semibold mb-4 flex items-center gap-2">
               <Package className="w-5 h-5" />
               Create Snapshot
@@ -2485,39 +2486,39 @@ export function LogicEditor() {
       {/* Create Version Dialog */}
       {showCreateVersionDialog && (
         <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center">
-          <div className="bg-white rounded-lg p-6 w-[500px] max-w-[90vw]">
-            <h2 className="text-xl font-semibold mb-4 flex items-center gap-2">
+          <div className="bg-white dark:bg-gray-800 rounded-lg p-6 w-[500px] max-w-[90vw]">
+            <h2 className="text-xl font-semibold mb-4 flex items-center gap-2 text-gray-900 dark:text-gray-100">
               <GitCommit className="w-5 h-5 text-green-600" />
               Create Version
             </h2>
-            <p className="text-sm text-neutral-600 mb-4">
+            <p className="text-sm text-neutral-600 dark:text-gray-400 mb-4">
               Create an immutable snapshot of all logic files and tags in the current project.
             </p>
             <div className="space-y-4">
               <div>
-                <label className="block text-sm font-medium mb-2">Version Message *</label>
+                <label className="block text-sm font-medium mb-2 text-gray-900 dark:text-gray-100">Version Message *</label>
                 <textarea
                   value={versionMessage}
                   onChange={(e) => setVersionMessage(e.target.value)}
                   placeholder="Describe what changed in this version..."
-                  className="w-full px-3 py-2 border border-neutral-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
+                  className="w-full px-3 py-2 border border-neutral-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-green-500"
                   rows={3}
                   required
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium mb-2">Tags (optional)</label>
+                <label className="block text-sm font-medium mb-2 text-gray-900 dark:text-gray-100">Tags (optional)</label>
                 <input
                   type="text"
                   value={versionTags}
                   onChange={(e) => setVersionTags(e.target.value)}
                   placeholder="feature, bugfix, release"
-                  className="w-full px-3 py-2 border border-neutral-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
+                  className="w-full px-3 py-2 border border-neutral-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-green-500"
                 />
-                <p className="text-xs text-neutral-500 mt-1">Comma-separated tags</p>
+                <p className="text-xs text-neutral-500 dark:text-gray-400 mt-1">Comma-separated tags</p>
               </div>
-              <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
-                <p className="text-sm text-blue-800">
+              <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-700 rounded-lg p-3">
+                <p className="text-sm text-blue-800 dark:text-blue-300">
                   <strong>Files to include:</strong> {files.length} logic file(s), {tagDatabaseTags.length} tag(s)
                 </p>
               </div>
@@ -2529,14 +2530,14 @@ export function LogicEditor() {
                     setVersionTags('')
                   }}
                   disabled={isCreatingVersion}
-                  className="px-4 py-2 text-neutral-700 hover:bg-neutral-100 rounded-lg transition-colors disabled:opacity-50"
+                  className="px-4 py-2 text-neutral-700 dark:text-gray-300 hover:bg-neutral-100 dark:hover:bg-gray-700 rounded-lg transition-colors disabled:opacity-50"
                 >
                   Cancel
                 </button>
                 <button
                   onClick={handleCreateVersion}
                   disabled={!versionMessage.trim() || isCreatingVersion}
-                  className="px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 disabled:bg-neutral-300 disabled:cursor-not-allowed transition-colors flex items-center gap-2"
+                  className="px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 disabled:bg-neutral-300 dark:disabled:bg-gray-600 disabled:cursor-not-allowed transition-colors flex items-center gap-2"
                 >
                   {isCreatingVersion ? (
                     <>
@@ -2617,7 +2618,7 @@ export function LogicEditor() {
       {/* Compare with Version Dialog */}
       {showCompareDialog && (
         <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center">
-          <div className="bg-white rounded-lg p-6 w-[600px] max-w-[90vw]">
+          <div className="bg-white dark:bg-gray-800 rounded-lg p-6 w-[600px] max-w-[90vw]">
             <h2 className="text-xl font-semibold mb-4 flex items-center gap-2">
               <GitBranch className="w-5 h-5" />
               Compare with Version
@@ -2679,15 +2680,15 @@ export function LogicEditor() {
 
       {/* Local History / Time Travel Panel */}
       {showHistoryPanel && (
-        <div className="fixed right-4 top-20 w-96 bg-white rounded-lg shadow-2xl border border-neutral-200 z-40 max-h-[80vh] overflow-hidden flex flex-col">
-          <div className="px-4 py-3 border-b border-neutral-200 bg-neutral-50 flex items-center justify-between">
-            <h3 className="font-semibold text-sm flex items-center gap-2">
+        <div className="fixed right-4 top-20 w-96 bg-white dark:bg-gray-800 rounded-lg shadow-2xl border border-neutral-200 dark:border-gray-600 z-40 max-h-[80vh] overflow-hidden flex flex-col">
+          <div className="px-4 py-3 border-b border-neutral-200 dark:border-gray-600 bg-neutral-50 dark:bg-gray-700 flex items-center justify-between">
+            <h3 className="font-semibold text-sm flex items-center gap-2 text-gray-800 dark:text-gray-100">
               <Clock className="w-4 h-4" />
               Local History & Time Travel
             </h3>
             <button
               onClick={() => setShowHistoryPanel(false)}
-              className="text-neutral-500 hover:text-neutral-700"
+              className="text-neutral-500 dark:text-gray-400 hover:text-neutral-700 dark:hover:text-gray-200"
             >
               <X className="w-4 h-4" />
             </button>
@@ -2703,7 +2704,7 @@ export function LogicEditor() {
                   onChange={(e) => setSelectedHistoryIndex(Number(e.target.value))}
                   className="w-full"
                 />
-                <div className="text-xs text-neutral-600 text-center mb-4">
+                <div className="text-xs text-neutral-600 dark:text-gray-400 text-center mb-4">
                   Snapshot {selectedHistoryIndex + 1} of {historyEntries.length}
                 </div>
                 {historyEntries.map((entry, index) => (
@@ -2712,29 +2713,29 @@ export function LogicEditor() {
                     onClick={() => setSelectedHistoryIndex(index)}
                     className={`w-full text-left p-3 rounded-lg border transition-colors ${
                       index === selectedHistoryIndex
-                        ? 'border-[#FF6A00] bg-orange-50'
-                        : 'border-neutral-200 hover:bg-neutral-50'
+                        ? 'border-[#FF6A00] bg-orange-50 dark:bg-orange-900/20'
+                        : 'border-neutral-200 dark:border-gray-600 hover:bg-neutral-50 dark:hover:bg-gray-700'
                     }`}
                   >
                     <div className="flex items-center justify-between mb-1">
-                      <span className="text-xs font-medium">{entry.author}</span>
-                      <span className="text-xs text-neutral-500">
+                      <span className="text-xs font-medium text-gray-800 dark:text-gray-100">{entry.author}</span>
+                      <span className="text-xs text-neutral-500 dark:text-gray-400">
                         {new Date(entry.timestamp).toLocaleString()}
                       </span>
                     </div>
-                    <p className="text-xs text-neutral-700">{entry.message || 'No message'}</p>
+                    <p className="text-xs text-neutral-700 dark:text-gray-300">{entry.message || 'No message'}</p>
                   </button>
                 ))}
               </div>
             ) : (
-              <div className="text-center text-sm text-neutral-500 py-8">
+              <div className="text-center text-sm text-neutral-500 dark:text-gray-400 py-8">
                 No history available yet
-                <p className="text-xs mt-2">Create a snapshot to start tracking history</p>
+                <p className="text-xs mt-2 text-neutral-400 dark:text-gray-500">Create a snapshot to start tracking history</p>
               </div>
             )}
           </div>
           {historyEntries.length > 0 && (
-            <div className="px-4 py-3 border-t border-neutral-200 bg-neutral-50 flex gap-2">
+            <div className="px-4 py-3 border-t border-neutral-200 dark:border-gray-600 bg-neutral-50 dark:bg-gray-700 flex gap-2">
               <button
                 onClick={() => {
                   if (currentFile && historyEntries[selectedHistoryIndex]) {
@@ -2758,22 +2759,22 @@ export function LogicEditor() {
 
       {/* Test Runner Panel */}
       {showTestRunner && (
-        <div className="fixed right-4 top-20 w-96 bg-white rounded-lg shadow-2xl border border-neutral-200 z-40 max-h-[80vh] overflow-hidden flex flex-col">
-          <div className="px-4 py-3 border-b border-neutral-200 bg-neutral-50 flex items-center justify-between">
-            <h3 className="font-semibold text-sm flex items-center gap-2">
+        <div className="fixed right-4 top-20 w-96 bg-white dark:bg-gray-800 rounded-lg shadow-2xl border border-neutral-200 dark:border-gray-600 z-40 max-h-[80vh] overflow-hidden flex flex-col">
+          <div className="px-4 py-3 border-b border-neutral-200 dark:border-gray-600 bg-neutral-50 dark:bg-gray-700 flex items-center justify-between">
+            <h3 className="font-semibold text-sm flex items-center gap-2 text-gray-800 dark:text-gray-100">
               <TestTube className="w-4 h-4" />
               Unit Test Runner
             </h3>
             <button
               onClick={() => setShowTestRunner(false)}
-              className="text-neutral-500 hover:text-neutral-700"
+              className="text-neutral-500 dark:text-gray-400 hover:text-neutral-700 dark:hover:text-gray-200"
             >
               <X className="w-4 h-4" />
             </button>
           </div>
           <div className="flex-1 overflow-y-auto p-4">
             <div className="space-y-3 mb-4">
-              <div className="text-xs text-neutral-600 p-2 bg-blue-50 rounded border border-blue-200">
+              <div className="text-xs text-neutral-600 dark:text-gray-300 p-2 bg-blue-50 dark:bg-blue-900/20 rounded border border-blue-200 dark:border-blue-600">
                 💡 Click "▶ Run Test" above routines to create tests
               </div>
               {testCases.length > 0 && (
@@ -2813,20 +2814,20 @@ export function LogicEditor() {
                     key={test.id}
                     className={`p-3 rounded-lg border ${
                       test.status === 'passed'
-                        ? 'border-green-300 bg-green-50'
+                        ? 'border-green-300 dark:border-green-600 bg-green-50 dark:bg-green-900/20'
                         : test.status === 'failed'
-                        ? 'border-red-300 bg-red-50'
-                        : 'border-neutral-200 bg-white'
+                        ? 'border-red-300 dark:border-red-600 bg-red-50 dark:bg-red-900/20'
+                        : 'border-neutral-200 dark:border-gray-600 bg-white dark:bg-gray-700'
                     }`}
                   >
                     <div className="flex items-center justify-between mb-2">
-                      <span className="text-sm font-medium">{test.name}</span>
+                      <span className="text-sm font-medium text-gray-800 dark:text-gray-100">{test.name}</span>
                       {test.status === 'passed' && (
                         <CheckCircle className="w-4 h-4 text-green-600" />
                       )}
                       {test.status === 'failed' && <X className="w-4 h-4 text-red-600" />}
                     </div>
-                    <p className="text-xs text-neutral-600 mb-2">Routine: {test.routine}</p>
+                    <p className="text-xs text-neutral-600 dark:text-gray-400 mb-2">Routine: {test.routine}</p>
                     <div className="flex gap-2">
                       <button
                         onClick={() => handleRunTest(test.id)}
@@ -2859,7 +2860,7 @@ export function LogicEditor() {
                         Delete
                       </button>
                     </div>
-                    <div className="mt-2 flex items-center gap-2 text-xs text-neutral-600">
+                    <div className="mt-2 flex items-center gap-2 text-xs text-neutral-600 dark:text-gray-400">
                       {test.executionTime && (
                         <span className="flex items-center gap-1">
                           ⏱️ {test.executionTime.toFixed(2)}ms
@@ -2872,23 +2873,23 @@ export function LogicEditor() {
                       )}
                     </div>
                     {test.error && (
-                      <div className="mt-2 p-2 bg-red-100 border border-red-300 rounded text-xs">
-                        <p className="font-semibold text-red-800">❌ Assertion Failed:</p>
-                        <p className="text-red-700 whitespace-pre-wrap font-mono">{test.error}</p>
+                      <div className="mt-2 p-2 bg-red-100 dark:bg-red-900/30 border border-red-300 dark:border-red-600 rounded text-xs">
+                        <p className="font-semibold text-red-800 dark:text-red-300">❌ Assertion Failed:</p>
+                        <p className="text-red-700 dark:text-red-200 whitespace-pre-wrap font-mono">{test.error}</p>
                       </div>
                     )}
                     {test.status === 'passed' && test.actualOutputs && (
-                      <div className="mt-2 p-2 bg-green-100 border border-green-300 rounded text-xs">
-                        <p className="font-semibold text-green-800">✅ Outputs:</p>
-                        <pre className="text-green-700 mt-1">{JSON.stringify(test.actualOutputs, null, 2)}</pre>
+                      <div className="mt-2 p-2 bg-green-100 dark:bg-green-900/30 border border-green-300 dark:border-green-600 rounded text-xs">
+                        <p className="font-semibold text-green-800 dark:text-green-300">✅ Outputs:</p>
+                        <pre className="text-green-700 dark:text-green-200 mt-1">{JSON.stringify(test.actualOutputs, null, 2)}</pre>
                       </div>
                     )}
                     {test.trace && test.trace.length > 0 && (
                       <details className="mt-2">
-                        <summary className="text-xs font-medium cursor-pointer text-blue-600 hover:text-blue-800">🔍 View Trace ({test.trace.length} events)</summary>
-                        <div className="mt-2 p-2 bg-neutral-50 border border-neutral-200 rounded text-xs font-mono max-h-40 overflow-y-auto">
+                        <summary className="text-xs font-medium cursor-pointer text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300">🔍 View Trace ({test.trace.length} events)</summary>
+                        <div className="mt-2 p-2 bg-neutral-50 dark:bg-gray-800 border border-neutral-200 dark:border-gray-600 rounded text-xs font-mono max-h-40 overflow-y-auto">
                           {test.trace.map((line, idx) => (
-                            <div key={idx} className="py-0.5">{line}</div>
+                            <div key={idx} className="py-0.5 text-gray-700 dark:text-gray-300">{line}</div>
                           ))}
                         </div>
                       </details>
@@ -2896,9 +2897,9 @@ export function LogicEditor() {
                   </div>
                 ))
               ) : (
-                <div className="text-center text-sm text-neutral-500 py-8">
+                <div className="text-center text-sm text-neutral-500 dark:text-gray-400 py-8">
                   No test cases yet
-                  <p className="text-xs mt-2">Click "Add Test Case" to create one</p>
+                  <p className="text-xs mt-2 text-neutral-400 dark:text-gray-500">Click "Add Test Case" to create one</p>
                 </div>
               )}
             </div>
@@ -2908,15 +2909,15 @@ export function LogicEditor() {
 
       {/* Diagnostics Panel */}
       {showDiagnosticsPanel && (
-        <div className="fixed right-4 top-20 w-96 bg-white rounded-lg shadow-2xl border border-neutral-200 z-40 max-h-[80vh] overflow-hidden flex flex-col">
-          <div className="px-4 py-3 border-b border-neutral-200 bg-neutral-50 flex items-center justify-between">
-            <h3 className="font-semibold text-sm flex items-center gap-2">
+        <div className="fixed right-4 top-20 w-96 bg-white dark:bg-gray-800 rounded-lg shadow-2xl border border-neutral-200 dark:border-gray-600 z-40 max-h-[80vh] overflow-hidden flex flex-col">
+          <div className="px-4 py-3 border-b border-neutral-200 dark:border-gray-600 bg-neutral-50 dark:bg-gray-700 flex items-center justify-between">
+            <h3 className="font-semibold text-sm flex items-center gap-2 text-gray-800 dark:text-gray-100">
               <AlertTriangle className="w-4 h-4" />
               Semantic Diagnostics
             </h3>
             <button
               onClick={() => setShowDiagnosticsPanel(false)}
-              className="text-neutral-500 hover:text-neutral-700"
+              className="text-neutral-500 dark:text-gray-400 hover:text-neutral-700 dark:hover:text-gray-200"
             >
               <X className="w-4 h-4" />
             </button>
@@ -2935,10 +2936,10 @@ export function LogicEditor() {
                     key={diag.id}
                     className={`p-3 rounded-lg border ${
                       diag.severity === 'error'
-                        ? 'border-red-300 bg-red-50'
+                        ? 'border-red-300 dark:border-red-600 bg-red-50 dark:bg-red-900/20'
                         : diag.severity === 'warning'
-                        ? 'border-yellow-300 bg-yellow-50'
-                        : 'border-blue-300 bg-blue-50'
+                        ? 'border-yellow-300 dark:border-yellow-600 bg-yellow-50 dark:bg-yellow-900/20'
+                        : 'border-blue-300 dark:border-blue-600 bg-blue-50 dark:bg-blue-900/20'
                     }`}
                   >
                     <div className="flex items-start gap-2 mb-1">
@@ -2952,21 +2953,21 @@ export function LogicEditor() {
                         }`}
                       />
                       <div className="flex-1">
-                        <p className="text-sm font-medium">{diag.message}</p>
-                        <p className="text-xs text-neutral-600 mt-1">
+                        <p className="text-sm font-medium text-gray-900 dark:text-gray-100">{diag.message}</p>
+                        <p className="text-xs text-neutral-600 dark:text-gray-400 mt-1">
                           Line {diag.line}, Column {diag.column} • {diag.category}
                         </p>
                         {diag.suggestion && (
-                          <p className="text-xs text-neutral-500 mt-1 italic">{diag.suggestion}</p>
+                          <p className="text-xs text-neutral-500 dark:text-gray-500 mt-1 italic">{diag.suggestion}</p>
                         )}
                       </div>
                     </div>
                   </div>
                 ))
               ) : (
-                <div className="text-center text-sm text-neutral-500 py-8">
+                <div className="text-center text-sm text-neutral-500 dark:text-gray-400 py-8">
                   No diagnostics yet
-                  <p className="text-xs mt-2">Click "Run Semantic Analysis" to analyze code</p>
+                  <p className="text-xs mt-2 text-neutral-600 dark:text-gray-500">Click "Run Semantic Analysis" to analyze code</p>
                 </div>
               )}
             </div>
@@ -2976,8 +2977,8 @@ export function LogicEditor() {
 
       {/* Safety Analyzer Panel */}
       {showSafetyAnalyzer && (
-        <div className="fixed right-4 top-20 w-96 bg-white rounded-lg shadow-2xl border border-neutral-200 z-40 max-h-[80vh] overflow-hidden flex flex-col">
-          <div className="px-4 py-3 border-b border-neutral-200 bg-neutral-50 flex items-center justify-between">
+        <div className="fixed right-4 top-20 w-96 bg-white dark:bg-gray-700 rounded-lg shadow-2xl border border-neutral-200 z-40 max-h-[80vh] overflow-hidden flex flex-col">
+          <div className="px-4 py-3 border-b border-neutral-200 bg-neutral-50 flex items-center justify-between dark:bg-gray-700">
             <h3 className="font-semibold text-sm flex items-center gap-2">
               <Shield className="w-4 h-4" />
               Safety Analyzer
@@ -2999,19 +3000,19 @@ export function LogicEditor() {
             <div className="space-y-3">
               {safetyRules.length > 0 ? (
                 safetyRules.map((rule) => (
-                <div key={rule.id} className="border border-neutral-200 rounded-lg p-3">
-                  <div className="flex items-start justify-between mb-2">
+                <div key={rule.id} className="border border-neutral-200 dark:border-gray-600 dark:bg-gray-700 rounded-lg p-3 bg-white dark:bg-gray-750">
+                  <div className="flex items-start justify-between mb-2 dark:bg-gray-700">
                     <div>
-                      <p className="text-sm font-medium">{rule.name}</p>
-                      <p className="text-xs text-neutral-600 mt-1">{rule.description}</p>
+                      <p className="text-sm font-medium text-gray-900 dark:text-gray-100">{rule.name}</p>
+                      <p className="text-xs text-neutral-600 dark:text-gray-400 mt-1">{rule.description}</p>
                     </div>
                     <span
-                      className={`text-xs px-2 py-1 rounded ${
+                      className={`text-xs px-2 py-1 rounded font-medium ${
                         rule.severity === 'critical'
-                          ? 'bg-red-100 text-red-700'
+                          ? 'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300 border border-red-300 dark:border-red-600'
                           : rule.severity === 'high'
-                          ? 'bg-orange-100 text-orange-700'
-                          : 'bg-yellow-100 text-yellow-700'
+                          ? 'bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-300 border border-orange-300 dark:border-orange-600'
+                          : 'bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-300 border border-yellow-300 dark:border-yellow-600'
                       }`}
                     >
                       {rule.severity}
@@ -3020,10 +3021,10 @@ export function LogicEditor() {
                   {rule.violations.map((violation, idx) => (
                     <div
                       key={idx}
-                      className="mt-2 p-2 bg-red-50 border border-red-200 rounded text-xs"
+                      className="mt-2 p-2 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-700 rounded text-xs"
                     >
-                      <p className="font-medium text-red-800">Line {violation.line}</p>
-                      <p className="text-red-700 mt-1">{violation.message}</p>
+                      <p className="font-medium text-red-800 dark:text-red-300">Line {violation.line}</p>
+                      <p className="text-red-700 dark:text-red-400 mt-1">{violation.message}</p>
                       {violation.canOverride && (
                         <button
                           onClick={() => {
@@ -3050,16 +3051,16 @@ export function LogicEditor() {
                         </button>
                       )}
                       {!violation.canOverride && (
-                        <p className="mt-2 text-red-600 font-medium">⚠ Cannot be overridden</p>
+                        <p className="mt-2 text-red-600 dark:text-red-400 font-medium">⚠ Cannot be overridden</p>
                       )}
                     </div>
                   ))}
                 </div>
               ))
               ) : (
-                <div className="text-center text-sm text-neutral-500 py-8">
+                <div className="text-center text-sm text-neutral-500 dark:text-gray-400 py-8">
                   No safety issues detected
-                  <p className="text-xs mt-2">Click "Run Safety Analysis" to analyze code</p>
+                  <p className="text-xs mt-2 text-neutral-600 dark:text-gray-500">Click "Run Safety Analysis" to analyze code</p>
                 </div>
               )}
             </div>
@@ -3069,9 +3070,9 @@ export function LogicEditor() {
 
       {/* Project-wide Replace Panel */}
       {showReplacePanel && (
-        <div className="fixed right-4 top-20 w-96 bg-white rounded-lg shadow-2xl border border-neutral-200 z-40 max-h-[80vh] overflow-hidden flex flex-col">
-          <div className="px-4 py-3 border-b border-neutral-200 bg-neutral-50 flex items-center justify-between">
-            <h3 className="font-semibold text-sm flex items-center gap-2">
+        <div className="fixed right-4 top-20 w-96 bg-white dark:bg-gray-700 rounded-lg shadow-2xl border border-neutral-200 z-40 max-h-[80vh] overflow-hidden flex flex-col">
+          <div className="px-4 py-3 border-b border-neutral-200 bg-neutral-50 flex items-center justify-between dark:bg-gray-700">
+            <h3 className="font-semibold text-sm flex items-center gap-2 dark:bg-gray-700">
               <Replace className="w-4 h-4" />
               Project-wide Replace
             </h3>
@@ -3085,31 +3086,31 @@ export function LogicEditor() {
           <div className="flex-1 overflow-y-auto p-4">
             <div className="space-y-3 mb-4">
               <div>
-                <label className="block text-xs font-medium mb-1">Search For</label>
+                <label className="block text-xs font-medium mb-1 text-gray-700 dark:text-gray-300">Search For</label>
                 <input
                   type="text"
                   value={replaceSearchTerm}
                   onChange={(e) => setReplaceSearchTerm(e.target.value)}
                   placeholder="Enter search term..."
-                  className="w-full px-3 py-2 text-sm border border-neutral-300 rounded focus:outline-none focus:ring-2 focus:ring-[#FF6A00]"
+                  className="w-full px-3 py-2 text-sm border border-neutral-300 dark:border-gray-600 rounded focus:outline-none focus:ring-2 focus:ring-[#FF6A00] bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
                 />
               </div>
               <div>
-                <label className="block text-xs font-medium mb-1">Replace With</label>
+                <label className="block text-xs font-medium mb-1 text-gray-700 dark:text-gray-300">Replace With</label>
                 <input
                   type="text"
                   value={replaceWithTerm}
                   onChange={(e) => setReplaceWithTerm(e.target.value)}
                   placeholder="Enter replacement..."
-                  className="w-full px-3 py-2 text-sm border border-neutral-300 rounded focus:outline-none focus:ring-2 focus:ring-[#FF6A00]"
+                  className="w-full px-3 py-2 text-sm border border-neutral-300 dark:border-gray-600 rounded focus:outline-none focus:ring-2 focus:ring-[#FF6A00] bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
                 />
               </div>
               <div>
-                <label className="block text-xs font-medium mb-1">Scope</label>
+                <label className="block text-xs font-medium mb-1 text-gray-700 dark:text-gray-300">Scope</label>
                 <select
                   value={replaceScope}
                   onChange={(e) => setReplaceScope(e.target.value as ReplaceScope)}
-                  className="w-full px-3 py-2 text-sm border border-neutral-300 rounded focus:outline-none focus:ring-2 focus:ring-[#FF6A00]"
+                  className="w-full px-3 py-2 text-sm border border-neutral-300 dark:border-gray-600 rounded focus:outline-none focus:ring-2 focus:ring-[#FF6A00] bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
                 >
                   <option value="current_file">Current File</option>
                   <option value="open_files">Open Files</option>
@@ -3199,7 +3200,7 @@ export function LogicEditor() {
             </div>
             <div className="space-y-2">
               <div className="flex items-center justify-between">
-                <p className="text-xs font-medium">
+                <p className="text-xs font-medium text-gray-700 dark:text-gray-300">
                   {replaceMatches.length} match{replaceMatches.length !== 1 ? 'es' : ''} found
                   {replaceMatches.length > 0 && ` in ${new Set(replaceMatches.map(m => m.file)).size} file(s)`}
                 </p>
@@ -3209,7 +3210,7 @@ export function LogicEditor() {
                       const allSelected = replaceMatches.every(m => m.selected)
                       setReplaceMatches(replaceMatches.map(m => ({ ...m, selected: !allSelected })))
                     }}
-                    className="text-xs text-blue-600 hover:text-blue-800"
+                    className="text-xs text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300"
                   >
                     {replaceMatches.every(m => m.selected) ? 'Deselect All' : 'Select All'}
                   </button>
@@ -3218,7 +3219,7 @@ export function LogicEditor() {
               {replaceMatches.map((match, idx) => (
                 <div
                   key={idx}
-                  className="p-2 border border-neutral-200 rounded bg-neutral-50 text-xs hover:bg-neutral-100 cursor-pointer transition-colors"
+                  className="p-2 border border-neutral-200 dark:border-gray-600 rounded bg-neutral-50 dark:bg-gray-700 text-xs hover:bg-neutral-100 dark:hover:bg-gray-600 cursor-pointer transition-colors"
                   onClick={() => {
                     // Open the file if it's not the current one
                     if (match.fileId && match.fileId !== currentFile?.id) {
@@ -3240,13 +3241,13 @@ export function LogicEditor() {
                       }}
                       className="w-3 h-3"
                     />
-                    <span className="font-medium">
+                    <span className="font-medium text-gray-900 dark:text-gray-100">
                       {match.file} : {match.line}
                     </span>
                   </div>
-                  <p className="font-mono text-xs ml-5">
+                  <p className="font-mono text-xs ml-5 text-gray-800 dark:text-gray-200">
                     {match.contextBefore}
-                    <span className="bg-yellow-200">{match.matchText}</span>
+                    <span className="bg-yellow-200 dark:bg-yellow-600 dark:text-gray-900">{match.matchText}</span>
                     {match.contextAfter}
                   </p>
                 </div>
@@ -3330,7 +3331,7 @@ export function LogicEditor() {
                 </button>
                 <button
                   onClick={() => setReplaceMatches([])}
-                  className="px-3 py-2 bg-neutral-200 text-neutral-700 rounded-lg hover:bg-neutral-300 text-sm transition-colors"
+                  className="px-3 py-2 bg-neutral-200 dark:bg-gray-600 text-neutral-700 dark:text-gray-200 rounded-lg hover:bg-neutral-300 dark:hover:bg-gray-500 text-sm transition-colors"
                 >
                   Clear
                 </button>

@@ -53,13 +53,13 @@ export function Dialog({ isOpen, onClose, title, message, children, type = 'info
   const getHeaderColor = () => {
     switch (type) {
       case 'success':
-        return 'bg-green-50 border-green-200'
+        return 'bg-green-50 border-green-200 dark:bg-green-900 dark:border-green-700'
       case 'error':
-        return 'bg-red-50 border-red-200'
+        return 'bg-red-50 border-red-200 dark:bg-red-900 dark:border-red-700'
       case 'warning':
-        return 'bg-amber-50 border-amber-200'
+        return 'bg-amber-50 border-amber-200 dark:bg-amber-900 dark:border-amber-700'
       default:
-        return 'bg-blue-50 border-blue-200'
+        return 'bg-blue-50 border-blue-200 dark:bg-blue-900 dark:border-blue-700'
     }
   }
 
@@ -87,33 +87,33 @@ export function Dialog({ isOpen, onClose, title, message, children, type = 'info
       />
       
       {/* Dialog */}
-      <div className={`relative bg-white rounded-lg shadow-xl ${getSizeClass()} w-full mx-4 animate-in zoom-in-95 duration-200`}>
+      <div className={`relative bg-white dark:bg-gray-900 rounded-lg shadow-xl ${getSizeClass()} w-full mx-4 animate-in zoom-in-95 duration-200`}>
         {/* Header */}
-        <div className={`flex items-center gap-3 p-4 border-b border-neutral-200 rounded-t-lg ${message ? getHeaderColor() : 'bg-gray-50'}`}>
+        <div className={`flex items-center gap-3 p-4 border-b border-neutral-200 dark:border-gray-700 rounded-t-lg ${message ? getHeaderColor() : 'bg-gray-50 dark:bg-gray-800'}`}>
           {message && getIcon()}
-          <h2 className="font-semibold text-lg text-neutral-900">{title}</h2>
+          <h2 className="font-semibold text-lg text-neutral-900 dark:text-text-dark">{title}</h2>
           <button
             onClick={onClose}
-            className="ml-auto p-1 hover:bg-black hover:bg-opacity-10 rounded-md transition-colors"
+            className="ml-auto p-1 hover:bg-black hover:bg-opacity-10 dark:hover:bg-white dark:hover:bg-opacity-10 rounded-md transition-colors"
           >
-            <X className="w-5 h-5" />
+            <X className="w-5 h-5 text-gray-600 dark:text-gray-300" />
           </button>
         </div>
 
         {/* Content */}
         {message ? (
-          <div className="p-4">
-            <p className="text-neutral-700 whitespace-pre-line">{message}</p>
+          <div className="p-4 bg-white dark:bg-gray-900">
+            <p className="text-neutral-700 dark:text-text-dark whitespace-pre-line">{message}</p>
           </div>
         ) : (
-          <div>
+          <div className="bg-white dark:bg-gray-900">
             {children}
           </div>
         )}
 
         {/* Actions - Only show for message dialogs */}
         {message && (
-          <div className="flex gap-3 p-4 border-t border-neutral-200">
+          <div className="flex gap-3 p-4 border-t border-neutral-200 dark:border-gray-700">
             {actions && actions.length > 0 ? (
               actions.map((action, index) => (
                 <button
@@ -127,7 +127,7 @@ export function Dialog({ isOpen, onClose, title, message, children, type = 'info
                       ? 'bg-[#FF6A00] text-white hover:bg-[#FF8020]'
                       : action.variant === 'danger'
                       ? 'bg-red-600 text-white hover:bg-red-700'
-                      : 'bg-neutral-200 text-neutral-800 hover:bg-neutral-300'
+                      : 'bg-neutral-200 text-neutral-800 hover:bg-neutral-300 dark:bg-gray-700 dark:text-gray-200 dark:hover:bg-gray-600'
                   }`}
                 >
                   {action.label}
@@ -136,7 +136,7 @@ export function Dialog({ isOpen, onClose, title, message, children, type = 'info
             ) : (
               <button
                 onClick={onClose}
-                className="ml-auto px-4 py-2 rounded-md font-medium bg-neutral-200 text-neutral-800 hover:bg-neutral-300 transition-colors"
+                className="ml-auto px-4 py-2 rounded-md font-medium bg-neutral-200 text-neutral-800 hover:bg-neutral-300 dark:bg-gray-700 dark:text-gray-200 dark:hover:bg-gray-600 transition-colors"
               >
                 OK
               </button>

@@ -29,11 +29,11 @@ import { Dialog } from '../components/Dialog'
 import { useProjectStore } from '../store/projectStore'
 
 const stageColors: Record<BranchStage, string> = {
-  main: 'text-purple-600 bg-purple-50',
-  dev: 'text-blue-600 bg-blue-50',
-  qa: 'text-yellow-600 bg-yellow-50',
-  staging: 'text-orange-600 bg-orange-50',
-  prod: 'text-green-600 bg-green-50',
+  main: 'text-purple-600 dark:text-purple-400 bg-purple-50 dark:bg-purple-900/30',
+  dev: 'text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/30',
+  qa: 'text-yellow-600 dark:text-yellow-400 bg-yellow-50 dark:bg-yellow-900/30',
+  staging: 'text-orange-600 dark:text-orange-400 bg-orange-50 dark:bg-orange-900/30',
+  prod: 'text-green-600 dark:text-green-400 bg-green-50 dark:bg-green-900/30',
 }
 
 interface DiffViewProps {
@@ -183,6 +183,8 @@ export function VersioningCenter() {
   const [runningSafetyChecks, setRunningSafetyChecks] = useState<Set<string>>(new Set())
   const [showSafetyChecksDialog, setShowSafetyChecksDialog] = useState(false)
   const [selectedSafetyResults, setSelectedSafetyResults] = useState<SafetyCheckResults | null>(null)
+  const [exportToL5X, setExportToL5X] = useState(false)
+  const [isExporting, setIsExporting] = useState(false)
 
   // Helper function to check if snapshot has a release
   const snapshotHasRelease = (snapshotId: string): boolean => {
@@ -617,12 +619,19 @@ export function VersioningCenter() {
       if (result.success) {
         setShowCreateSnapshot(false)
         await loadAllCounts()
+        
         setDialogMessage('Snapshot created successfully!')
         setShowSuccessDialog(true)
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Failed to create snapshot:', error)
-      setDialogMessage('Failed to create snapshot')
+      
+      // Handle specific error cases
+      if (error.response?.status === 409) {
+        setDialogMessage('A snapshot with this name already exists. Please choose a different name.')
+      } else {
+        setDialogMessage('Failed to create snapshot: ' + (error.response?.data?.error || error.message))
+      }
       setShowErrorDialog(true)
     }
   }
@@ -647,6 +656,7 @@ export function VersioningCenter() {
     version: string
     description: string
     snapshotId: string
+    exportToL5X?: boolean
   }) => {
     if (!activeProject) return
 
@@ -655,6 +665,8 @@ export function VersioningCenter() {
     if (!snapshot) return
 
     try {
+      setIsExporting(data.exportToL5X || false)
+      
       const result = await versionApi.createRelease(activeProject.id, {
         snapshotId: data.snapshotId,
         versionId: snapshot.versionId, // Use the version ID from the found snapshot
@@ -667,15 +679,142 @@ export function VersioningCenter() {
       })
 
       if (result.success) {
+        let exportResult = null
+        
+        // Export to L5X if requested
+        if (data.exportToL5X) {
+          try {
+            exportResult = await exportToRockwellL5X(result.release, snapshot)
+          } catch (exportError: any) {
+            console.error('L5X export failed:', exportError)
+            
+            let message = 'Release created successfully, but L5X export failed: ' + exportError.message
+            
+            setDialogMessage(message)
+            setShowErrorDialog(true)
+            setIsExporting(false)
+            return
+          }
+        }
+        
         setShowCreateRelease(false)
+        setIsExporting(false)
         await loadAllCounts()
-        setDialogMessage('Release created successfully!')
+        
+        // Build success message based on what happened
+        let successMessage = ''
+        if (exportResult) {
+          successMessage = `Release created and exported to L5X successfully!\nExport Path: ${exportResult.exportPath}${exportResult.checksumVerified ? '\n\n<b>Binary Checksum Verified.</b>' : ''}`
+        } else {
+          successMessage = 'Release created successfully!'
+        }
+        
+        setDialogMessage(successMessage)
         setShowSuccessDialog(true)
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Failed to create release:', error)
-      setDialogMessage('Failed to create release')
+      
+      // Handle specific error cases
+      if (error.response?.status === 409) {
+        setDialogMessage('A release with this name already exists. Please choose a different name.')
+      } else {
+        setDialogMessage('Failed to create release: ' + (error.response?.data?.error || error.message))
+      }
       setShowErrorDialog(true)
+      setIsExporting(false)
+    }
+  }
+
+  // Function to export release to Rockwell L5X format
+  const exportToRockwellL5X = async (release: any, snapshot: any) => {
+    try {
+      console.log('🚀 Starting L5X export for release:', release.name)
+      
+      // Get the logic files and tags from the snapshot
+      console.log('📄 Getting snapshot data...')
+      const snapshotData = await versionApi.getSnapshotById(snapshot.id)
+      
+      // Prepare export bundle
+      const exportBundle = {
+        bundle_id: `${release.name}_v${release.version}`,
+        name: release.name,
+        version: release.version,
+        description: release.description,
+        logic: snapshotData.logic || '',
+        tags: snapshotData.tags || [],
+        timestamp: new Date().toISOString()
+      }
+      
+      console.log('📦 Export bundle prepared:', {
+        bundleId: exportBundle.bundle_id,
+        logicLength: exportBundle.logic.length,
+        tagsCount: exportBundle.tags.length
+      })
+      
+      // Create AbortController for timeout
+      const controller = new AbortController()
+      const timeoutId = setTimeout(() => {
+        controller.abort()
+      }, 30000) // 30 second timeout
+      
+      try {
+        // Call backend API to export to L5X
+        console.log('🌐 Calling export API...')
+        const response = await fetch(`/api/deploy/export/rockwell`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            projectId: activeProject?.id,
+            releaseId: release.id,
+            bundle: exportBundle,
+            format: 'L5X'
+          }),
+          signal: controller.signal
+        })
+        
+        clearTimeout(timeoutId)
+        
+        if (!response.ok) {
+          const errorText = await response.text()
+          throw new Error(`HTTP ${response.status}: ${errorText}`)
+        }
+        
+        console.log('📋 Parsing response...')
+        const result = await response.json()
+        
+        if (!result.success) {
+          throw new Error(result.error || 'Export failed')
+        }
+        
+        console.log('✅ L5X export completed successfully:', result.export_path)
+        return {
+          success: true,
+          exportPath: result.export_path,
+          size: result.size,
+          checksum: result.checksum,
+          checksumVerified: result.checksum_verified
+        }
+        
+      } catch (fetchError: any) {
+        clearTimeout(timeoutId)
+        
+        if (fetchError.name === 'AbortError') {
+          throw new Error('L5X export timed out after 30 seconds')
+        }
+        throw fetchError
+      }
+      
+    } catch (error: any) {
+      console.error('❌ L5X export error:', error)
+      
+      if (error.message.includes('timeout')) {
+        throw new Error('L5X export timed out. Please try again.')
+      }
+      
+      throw new Error(`L5X export failed: ${error.message}`)
     }
   }
 
@@ -900,7 +1039,7 @@ export function VersioningCenter() {
   }
 
   return (
-    <div className="h-full flex flex-col bg-gray-50">
+    <div className="h-full flex flex-col bg-gray-50 dark:bg-panda-surface-dark">
       {/* Diff Dialog */}
       {showDiff && diffVersionIds && (
         <DiffView
@@ -944,9 +1083,10 @@ export function VersioningCenter() {
             <div className="flex items-start gap-3 mb-4">
               <CheckCircle size={24} className="text-green-500 flex-shrink-0 mt-0.5" />
               <div>
-                <p className="text-sm text-gray-700">
-                  {dialogMessage}
-                </p>
+                <div 
+                  className="text-sm text-gray-700 whitespace-pre-line"
+                  dangerouslySetInnerHTML={{ __html: dialogMessage }}
+                />
               </div>
             </div>
             <div className="flex justify-end">
@@ -1047,8 +1187,8 @@ export function VersioningCenter() {
         <Dialog isOpen={showPromoteSnapshotDialog} onClose={() => setShowPromoteSnapshotDialog(false)} title="Promote Snapshot">
           <div className="p-6">
             <div className="mb-6">
-              <h3 className="text-lg font-semibold text-gray-800 mb-2">Promote: {selectedSnapshot.name}</h3>
-              <p className="text-sm text-gray-600">
+              <h3 className="text-lg font-semibold text-gray-800 dark:text-gray-100 mb-2">Promote: {selectedSnapshot.name}</h3>
+              <p className="text-sm text-gray-600 dark:text-gray-400">
                 Select the target environment to promote this snapshot to. Snapshots must progress through stages in order:
                 Dev → QA → Staging → Production
               </p>
@@ -1064,8 +1204,8 @@ export function VersioningCenter() {
                   onChange={(e) => setPromotionStage(e.target.value as BranchStage)}
                   className="mr-2"
                 />
-                <span className="text-sm font-medium text-gray-700">QA Environment</span>
-                <p className="text-xs text-gray-500 ml-6">For testing and quality assurance</p>
+                <span className="text-sm font-medium text-gray-700 dark:text-gray-300">QA Environment</span>
+                <p className="text-xs text-gray-500 dark:text-gray-400 ml-6">For testing and quality assurance</p>
               </label>
 
               <label className="block">
@@ -1077,8 +1217,8 @@ export function VersioningCenter() {
                   onChange={(e) => setPromotionStage(e.target.value as BranchStage)}
                   className="mr-2"
                 />
-                <span className="text-sm font-medium text-gray-700">Staging Environment</span>
-                <p className="text-xs text-gray-500 ml-6">For final validation before production</p>
+                <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Staging Environment</span>
+                <p className="text-xs text-gray-500 dark:text-gray-400 ml-6">For final validation before production</p>
               </label>
 
               <label className="block">
@@ -1090,8 +1230,8 @@ export function VersioningCenter() {
                   onChange={(e) => setPromotionStage(e.target.value as BranchStage)}
                   className="mr-2"
                 />
-                <span className="text-sm font-medium text-gray-700">Production Environment</span>
-                <p className="text-xs text-gray-500 ml-6">Live production deployment (requires approvals)</p>
+                <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Production Environment</span>
+                <p className="text-xs text-gray-500 dark:text-gray-400 ml-6">Live production deployment (requires approvals)</p>
               </label>
             </div>
 
@@ -1101,7 +1241,7 @@ export function VersioningCenter() {
                   setShowPromoteSnapshotDialog(false)
                   setSelectedSnapshot(null)
                 }}
-                className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg text-sm font-medium hover:bg-gray-200 transition-colors"
+                className="px-4 py-2 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-lg text-sm font-medium hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
               >
                 Cancel
               </button>
@@ -1121,19 +1261,19 @@ export function VersioningCenter() {
       {showCreateSnapshot && (
         <Dialog isOpen={showCreateSnapshot} onClose={() => setShowCreateSnapshot(false)} title="Create Snapshot">
           <div className="p-6">
-            <p className="text-sm text-gray-600 mb-4">
+            <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
               Creating a snapshot will save the current version state.
             </p>
             <div className="space-y-3">
               <input
                 type="text"
                 placeholder="Snapshot name"
-                className="w-full px-3 py-2 border rounded-lg"
+                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-400"
                 id="snapshot-name"
               />
               <textarea
                 placeholder="Description (optional)"
-                className="w-full px-3 py-2 border rounded-lg"
+                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-400"
                 rows={3}
                 id="snapshot-description"
               />
@@ -1141,7 +1281,7 @@ export function VersioningCenter() {
             <div className="mt-4 flex gap-2 justify-end">
               <button
                 onClick={() => setShowCreateSnapshot(false)}
-                className="px-4 py-2 border rounded-lg"
+                className="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700"
               >
                 Cancel
               </button>
@@ -1164,7 +1304,7 @@ export function VersioningCenter() {
 
       {/* Create Release Dialog */}
       {showCreateRelease && (
-        <Dialog isOpen={showCreateRelease} onClose={() => setShowCreateRelease(false)} title="Create Release">
+        <Dialog isOpen={showCreateRelease} onClose={() => setShowCreateRelease(false)} title="Create Release" size="large">
           <div className="p-6">
             <p className="text-sm text-gray-600 mb-4">
               Creating a release will bundle the current version and mark it as immutable.
@@ -1173,23 +1313,23 @@ export function VersioningCenter() {
               <input
                 type="text"
                 placeholder="Release name"
-                className="w-full px-3 py-2 border rounded-lg"
+                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-400"
                 id="release-name"
               />
               <input
                 type="text"
                 placeholder="Version (e.g., v1.0.0)"
-                className="w-full px-3 py-2 border rounded-lg"
+                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-400"
                 id="release-version"
               />
               <textarea
                 placeholder="Description"
-                className="w-full px-3 py-2 border rounded-lg"
+                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-400"
                 rows={3}
                 id="release-description"
               />
               <select
-                className="w-full px-3 py-2 border rounded-lg"
+                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
                 id="release-snapshot"
                 defaultValue={selectedSnapshotForRelease}
               >
@@ -1200,11 +1340,35 @@ export function VersioningCenter() {
                   </option>
                 ))}
               </select>
+              
+              {/* L5X Export Option */}
+              <div className="flex items-center space-x-3 p-3 bg-gray-50 dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-600">
+                <input
+                  type="checkbox"
+                  id="export-l5x"
+                  checked={exportToL5X}
+                  onChange={(e) => setExportToL5X(e.target.checked)}
+                  className="h-4 w-4 text-[#FF6A00] focus:ring-[#FF6A00] border-gray-300 dark:border-gray-600 rounded"
+                />
+                <div className="flex-1">
+                  <label htmlFor="export-l5x" className="text-sm font-medium text-gray-700 dark:text-gray-300 cursor-pointer">
+                    Export to Rockwell L5X Format
+                  </label>
+                  <p className="text-xs text-gray-500 dark:text-gray-400">
+                    Automatically export this release as a Rockwell Studio 5000 L5X file for deployment
+                  </p>
+                </div>
+                <div className="text-right">
+                  <span className="inline-flex items-center px-2 py-1 rounded text-xs font-medium bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300">
+                    📄 L5X
+                  </span>
+                </div>
+              </div>
             </div>
             <div className="mt-4 flex gap-2 justify-end">
               <button
                 onClick={() => setShowCreateRelease(false)}
-                className="px-4 py-2 border rounded-lg"
+                className="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700"
               >
                 Cancel
               </button>
@@ -1216,12 +1380,27 @@ export function VersioningCenter() {
                   const snapshotId = (document.getElementById('release-snapshot') as HTMLSelectElement).value
                   
                   if (name && version && snapshotId) {
-                    handleCreateRelease({ name, version, description, snapshotId })
+                    handleCreateRelease({ name, version, description, snapshotId, exportToL5X })
                   }
                 }}
-                className="px-4 py-2 bg-[#FF6A00] text-white rounded-lg"
+                disabled={isExporting}
+                className={`px-4 py-2 rounded-lg flex items-center space-x-2 ${
+                  isExporting 
+                    ? 'bg-gray-400 cursor-not-allowed' 
+                    : 'bg-[#FF6A00] hover:bg-[#E55A00]'
+                } text-white`}
               >
-                Create Release
+                {isExporting ? (
+                  <>
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                    <span>{exportToL5X ? 'Creating & Exporting...' : 'Creating...'}</span>
+                  </>
+                ) : (
+                  <>
+                    <span>Create Release</span>
+                    {exportToL5X && <span className="text-xs opacity-75">+ Export L5X</span>}
+                  </>
+                )}
               </button>
             </div>
           </div>
@@ -1233,8 +1412,8 @@ export function VersioningCenter() {
         <Dialog isOpen={showPromoteDialog} onClose={() => setShowPromoteDialog(false)} title="Promote Release">
           <div className="p-6">
             <div className="mb-6">
-              <h3 className="text-lg font-semibold text-gray-800 mb-2">Promote Release: {selectedRelease.name}</h3>
-              <p className="text-sm text-gray-600">
+              <h3 className="text-lg font-semibold text-gray-800 dark:text-gray-100 mb-2">Promote Release: {selectedRelease.name}</h3>
+              <p className="text-sm text-gray-600 dark:text-gray-400">
                 Select the target environment to promote this release to.
               </p>
             </div>
@@ -1275,8 +1454,8 @@ export function VersioningCenter() {
                   onChange={(e) => setPromotionStage(e.target.value as BranchStage)}
                   className="mr-3"
                 />
-                <span className="text-sm font-medium text-gray-700">Production Environment</span>
-                <p className="text-xs text-gray-500 ml-6">Live production deployment</p>
+                <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Production Environment</span>
+                <p className="text-xs text-gray-500 dark:text-gray-400 ml-6">Live production deployment</p>
               </label>
             </div>
 
@@ -1286,7 +1465,7 @@ export function VersioningCenter() {
                   setShowPromoteDialog(false)
                   setSelectedRelease(null)
                 }}
-                className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg text-sm font-medium hover:bg-gray-200 transition-colors"
+                className="px-4 py-2 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-lg text-sm font-medium hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
               >
                 Cancel
               </button>
@@ -1303,11 +1482,11 @@ export function VersioningCenter() {
       )}
 
       {/* Header */}
-      <div className="bg-white border-b border-gray-200 px-6 py-4">
+      <div className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-600 px-6 py-4">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-4">
-            <h1 className="text-2xl font-semibold text-gray-800">Versioning Center</h1>
-            <span className="text-sm text-gray-600">- {activeProject.name}</span>
+            <h1 className="text-2xl font-semibold text-gray-800 dark:text-white">Versioning Center</h1>
+            <span className="text-sm text-gray-600 dark:text-gray-300">- {activeProject.name}</span>
           </div>
           <div className="flex gap-2">
             <button
@@ -1315,8 +1494,8 @@ export function VersioningCenter() {
               disabled={!selectedVersion || (selectedVersion && versionHasSnapshot(selectedVersion.id))}
               className={`px-4 py-2 border rounded-lg text-sm font-medium transition-colors flex items-center gap-2 ${
                 !selectedVersion || (selectedVersion && versionHasSnapshot(selectedVersion.id))
-                  ? 'bg-gray-200 text-gray-400 cursor-not-allowed border-gray-200'
-                  : 'bg-white border-gray-300 hover:bg-gray-50 text-gray-700'
+                  ? 'bg-gray-200 dark:bg-gray-700 text-gray-400 dark:text-gray-500 cursor-not-allowed border-gray-200 dark:border-gray-600'
+                  : 'bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-600 text-gray-700 dark:text-white'
               }`}
             >
               <Package size={16} />
@@ -1325,12 +1504,12 @@ export function VersioningCenter() {
             <button
               onClick={() => setShowCreateRelease(true)}
               disabled={!selectedVersion}
-              className="px-4 py-2 bg-white border border-gray-300 rounded-lg text-sm font-medium hover:bg-gray-50 transition-colors flex items-center gap-2 disabled:opacity-50"
+              className="px-4 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg text-sm font-medium text-gray-700 dark:text-white hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors flex items-center gap-2 disabled:opacity-50"
             >
               <Tag size={16} />
               Create Release
             </button>
-            <button className="px-4 py-2 bg-white border border-gray-300 rounded-lg text-sm font-medium hover:bg-gray-50 transition-colors flex items-center gap-2">
+            <button className="px-4 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg text-sm font-medium text-gray-700 dark:text-white hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors flex items-center gap-2">
               <Upload size={16} />
               Import Bundle
             </button>
@@ -1341,12 +1520,12 @@ export function VersioningCenter() {
       {/* Main Content */}
       <div className="flex-1 flex overflow-hidden">
         {/* Left Column - Branch/Stage Tree */}
-        <div className="w-[20%] bg-white border-r border-gray-200 overflow-y-auto">
+        <div className="w-[20%] bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-600 overflow-y-auto">
           <div className="p-4">
-            <h2 className="text-sm font-semibold text-gray-700 mb-3 uppercase tracking-wide">Branches & Stages</h2>
+            <h2 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3 uppercase tracking-wide">Branches & Stages</h2>
             
             {loading ? (
-              <div className="text-sm text-gray-500">Loading branches...</div>
+              <div className="text-sm text-gray-500 dark:text-gray-400">Loading branches...</div>
             ) : (
               <div className="space-y-1">
                 {/* Standard branches with release counts */}
@@ -1364,13 +1543,13 @@ export function VersioningCenter() {
                     <div key={key}>
                       <button
                         onClick={() => toggleBranch(key)}
-                        className="w-full flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-gray-50 transition-colors text-left"
+                        className="w-full flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors text-left"
                       >
-                        <span className="text-gray-400">
+                        <span className="text-gray-400 dark:text-gray-500">
                           {isExpanded ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
                         </span>
-                        <GitBranch size={16} className="text-gray-500" />
-                        <span className="text-sm font-medium text-gray-700 flex-1">
+                        <GitBranch size={16} className="text-gray-500 dark:text-gray-400" />
+                        <span className="text-sm font-medium text-gray-700 dark:text-gray-300 flex-1">
                           {label}
                         </span>
                         <span className={`text-xs px-1.5 py-0.5 rounded-full ${stageColors[primaryStage]}`}>
@@ -1388,19 +1567,19 @@ export function VersioningCenter() {
                               <button
                                 key={release.id}
                                 onClick={() => setSelectedRelease(release)}
-                                className="w-full flex items-center gap-2 px-2 py-1.5 rounded text-left hover:bg-blue-50 transition-colors"
+                                className="w-full flex items-center gap-2 px-2 py-1.5 rounded text-left hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors"
                               >
-                                <Package size={12} className="text-blue-500" />
-                                <span className="text-xs text-gray-600 flex-1 truncate">
+                                <Package size={12} className="text-blue-500 dark:text-blue-400" />
+                                <span className="text-xs text-gray-600 dark:text-gray-400 flex-1 truncate">
                                   {release.name}
                                 </span>
-                                <span className="text-xs text-gray-400">
+                                <span className="text-xs text-gray-400 dark:text-gray-500">
                                   v{release.version}
                                 </span>
                               </button>
                             ))}
                           {releases.filter(r => stages.includes(r.stage)).length > 5 && (
-                            <div className="text-xs text-gray-400 px-2 py-1">
+                            <div className="text-xs text-gray-400 dark:text-gray-500 px-2 py-1">
                               +{releases.filter(r => stages.includes(r.stage)).length - 5} more
                             </div>
                           )}
@@ -1413,9 +1592,9 @@ export function VersioningCenter() {
             )}
 
             {/* Quick Stats */}
-            <div className="mt-6 pt-4 border-t border-gray-200">
-              <h3 className="text-xs font-semibold text-gray-600 mb-2 uppercase tracking-wide">Statistics</h3>
-              <div className="space-y-1 text-sm text-gray-600">
+            <div className="mt-6 pt-4 border-t border-gray-200 dark:border-gray-600">
+              <h3 className="text-xs font-semibold text-gray-600 dark:text-gray-400 mb-2 uppercase tracking-wide">Statistics</h3>
+              <div className="space-y-1 text-sm text-gray-600 dark:text-gray-400">
                 <div className="flex justify-between">
                   <span>Versions:</span>
                   <span className="font-medium">{versions.length}</span>
@@ -1435,7 +1614,7 @@ export function VersioningCenter() {
         {/* Main Column - Versions List */}
         <div className="flex-1 flex flex-col overflow-hidden">
           {/* Tabs */}
-          <div className="bg-white border-b border-gray-200 px-6">
+          <div className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-600 px-6">
             <div className="flex gap-6">
               <button
                 onClick={() => setActiveTab('versions')}
@@ -1479,7 +1658,7 @@ export function VersioningCenter() {
                 {activeTab === 'versions' && (
                   <div className="space-y-3">
                     {versions.length === 0 ? (
-                      <div className="text-center text-gray-500 py-8">
+                      <div className="text-center text-gray-500 dark:text-gray-400 py-8">
                         No versions yet. Create your first version!
                       </div>
                     ) : (
@@ -1488,8 +1667,10 @@ export function VersioningCenter() {
                           key={version.id}
                           initial={{ opacity: 0, y: 10 }}
                           animate={{ opacity: 1, y: 0 }}
-                          className={`bg-white border rounded-lg p-4 hover:shadow-md transition-all cursor-pointer ${
-                            selectedVersion?.id === version.id ? 'border-[#FF6A00] ring-2 ring-[#FF6A00]/20' : 'border-gray-200'
+                          className={`border rounded-lg p-4 hover:shadow-md transition-all cursor-pointer ${
+                            selectedVersion?.id === version.id
+                              ? 'border-[#FF6A00] bg-orange-50 dark:bg-orange-900/20'
+                              : 'bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-600'
                           }`}
                           onClick={() => setSelectedVersion(version)}
                         >
@@ -1498,35 +1679,35 @@ export function VersioningCenter() {
                               <GitCommit size={20} className="text-gray-400" />
                               <div>
                                 <div className="flex items-center gap-2 mb-1">
-                                  <h3 className="text-base font-semibold text-gray-800">{version.version}</h3>
+                                  <h3 className="text-base font-semibold text-gray-800 dark:text-gray-100">{version.version}</h3>
                                   {getStatusIcon(version.status)}
                                 </div>
-                                <p className="text-sm text-gray-600">{version.message || 'No message'}</p>
+                                <p className="text-sm text-gray-600 dark:text-gray-400">{version.message || 'No message'}</p>
                               </div>
                             </div>
                           </div>
 
                           <div className="grid grid-cols-4 gap-4 text-sm">
-                            <div className="flex items-center gap-2 text-gray-600">
+                            <div className="flex items-center gap-2 text-gray-600 dark:text-gray-400">
                               <User size={14} />
                               {version.author}
                             </div>
-                            <div className="flex items-center gap-2 text-gray-600">
+                            <div className="flex items-center gap-2 text-gray-600 dark:text-gray-400">
                               <Clock size={14} />
                               {new Date(version.timestamp).toLocaleDateString()}
                             </div>
-                            <div className="flex items-center gap-2 text-gray-600">
+                            <div className="flex items-center gap-2 text-gray-600 dark:text-gray-400">
                               <FileCode size={14} />
                               {version.filesChanged} files
                             </div>
-                            <div className="flex items-center gap-2 text-gray-600">
+                            <div className="flex items-center gap-2 text-gray-600 dark:text-gray-400">
                               <Hash size={14} />
                               {version.checksum?.substring(0, 8)}
                             </div>
                           </div>
 
                           <div className="mt-3 flex items-center justify-between">
-                            <div className="flex gap-2 text-xs text-gray-600">
+                            <div className="flex gap-2 text-xs text-gray-600 dark:text-gray-400">
                               <span>Approvals: {version.approvals}/{version.approvalsRequired}</span>
                             </div>
                             <div className="flex gap-2">
@@ -1535,7 +1716,7 @@ export function VersioningCenter() {
                                   e.stopPropagation()
                                   handleViewDiff(version)
                                 }}
-                                className="px-3 py-1 text-xs bg-gray-100 hover:bg-gray-200 rounded transition-colors flex items-center gap-1"
+                                className="px-3 py-1 text-xs bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300 rounded transition-colors flex items-center gap-1"
                               >
                                 <Eye size={12} />
                                 Diff
@@ -1548,8 +1729,8 @@ export function VersioningCenter() {
                                 disabled={snapshots.some(s => s.versionId === version.id)}
                                 className={`px-3 py-1 text-xs rounded transition-colors flex items-center gap-1 ${
                                   snapshots.some(s => s.versionId === version.id)
-                                    ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
-                                    : 'bg-orange-100 hover:bg-orange-200 text-orange-700'
+                                    ? 'bg-gray-300 dark:bg-gray-600 text-gray-500 dark:text-gray-400 cursor-not-allowed'
+                                    : 'bg-orange-100 dark:bg-orange-900/30 hover:bg-orange-200 dark:hover:bg-orange-900/50 text-orange-700 dark:text-orange-300'
                                 }`}
                               >
                                 <Package size={12} />
@@ -1561,7 +1742,7 @@ export function VersioningCenter() {
                                   handleApproveVersion(version)
                                 }}
                                 disabled={version.approvals >= version.approvalsRequired}
-                                className="px-3 py-1 text-xs bg-green-100 hover:bg-green-200 text-green-700 rounded transition-colors disabled:opacity-50"
+                                className="px-3 py-1 text-xs bg-green-100 dark:bg-green-900/30 hover:bg-green-200 dark:hover:bg-green-900/50 text-green-700 dark:text-green-300 rounded transition-colors disabled:opacity-50"
                               >
                                 Approve
                               </button>
@@ -1586,7 +1767,7 @@ export function VersioningCenter() {
                 {activeTab === 'releases' && (
                   <div className="space-y-3">
                     {releases.length === 0 ? (
-                      <div className="text-center text-gray-500 py-8">
+                      <div className="text-center text-gray-500 dark:text-gray-400 py-8">
                         No releases yet. Create your first release!
                       </div>
                     ) : (
@@ -1598,8 +1779,8 @@ export function VersioningCenter() {
                           onClick={() => setSelectedRelease(release)}
                           className={`border rounded-lg p-4 hover:shadow-md transition-all cursor-pointer ${
                             selectedRelease?.id === release.id
-                              ? 'border-[#FF6A00] bg-orange-50'
-                              : 'bg-white border-gray-200'
+                              ? 'border-[#FF6A00] bg-orange-50 dark:bg-orange-900/20'
+                              : 'bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-600'
                           }`}
                         >
                           <div className="flex items-start justify-between mb-3">
@@ -1607,32 +1788,32 @@ export function VersioningCenter() {
                               <Package size={20} className="text-[#FF6A00]" />
                               <div>
                                 <div className="flex items-center gap-2 mb-1">
-                                  <h3 className="text-base font-semibold text-gray-800">{release.name}</h3>
+                                  <h3 className="text-base font-semibold text-gray-800 dark:text-gray-100">{release.name}</h3>
                                   <span className={`text-xs px-2 py-0.5 rounded-full ${stageColors[release.stage]}`}>
                                     {release.stage}
                                   </span>
                                 </div>
-                                <p className="text-sm text-gray-600">{release.version}</p>
+                                <p className="text-sm text-gray-600 dark:text-gray-400">{release.version}</p>
                               </div>
                             </div>
                             <span className={`text-xs px-2 py-1 rounded-full ${
-                              release.status === 'active' ? 'bg-green-100 text-green-700' :
-                              release.status === 'deprecated' ? 'bg-yellow-100 text-yellow-700' :
-                              'bg-gray-100 text-gray-700'
+                              release.status === 'active' ? 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300' :
+                              release.status === 'deprecated' ? 'bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-300' :
+                              'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300'
                             }`}>
                               {release.status}
                             </span>
                           </div>
 
                           <div className="mt-3 flex items-center justify-between">
-                            <div className="flex gap-4 text-sm text-gray-600">
+                            <div className="flex gap-4 text-sm text-gray-600 dark:text-gray-400">
                               <span>{release.version}</span>
                               <span>•</span>
                               <span>{new Date(release.createdAt).toLocaleDateString()}</span>
                               {release.signed && (
                                 <>
                                   <span>•</span>
-                                  <span className="flex items-center gap-1 text-blue-600">
+                                  <span className="flex items-center gap-1 text-blue-600 dark:text-blue-400">
                                     <Shield size={14} />
                                     Signed
                                   </span>
@@ -1646,7 +1827,7 @@ export function VersioningCenter() {
                                     setSelectedRelease(release)
                                     handleSignRelease(release)
                                   }}
-                                  className="px-3 py-1 text-xs bg-blue-100 hover:bg-blue-200 text-blue-700 rounded transition-colors flex items-center gap-1"
+                                  className="px-3 py-1 text-xs bg-blue-100 dark:bg-blue-900/30 hover:bg-blue-200 dark:hover:bg-blue-900/50 text-blue-700 dark:text-blue-300 rounded transition-colors flex items-center gap-1"
                                 >
                                   <Shield size={12} />
                                   Sign
@@ -1665,7 +1846,7 @@ export function VersioningCenter() {
                                   Promote Release
                                 </button>
                               ) : (
-                                <span className="text-xs text-gray-400 px-3 py-1">
+                                <span className="text-xs text-gray-400 dark:text-gray-500 px-3 py-1">
                                   Production
                                 </span>
                               )}
@@ -1680,7 +1861,7 @@ export function VersioningCenter() {
                 {activeTab === 'snapshots' && (
                   <div className="space-y-3">
                     {snapshots.length === 0 ? (
-                      <div className="text-center text-gray-500 py-8">
+                      <div className="text-center text-gray-500 dark:text-gray-400 py-8">
                         No snapshots yet. Create your first snapshot!
                       </div>
                     ) : (
@@ -1692,16 +1873,16 @@ export function VersioningCenter() {
                           onClick={() => setSelectedSnapshot(snapshot)}
                           className={`border rounded-lg p-4 hover:shadow-md transition-all cursor-pointer ${
                             selectedSnapshot?.id === snapshot.id
-                              ? 'border-[#FF6A00] bg-orange-50'
-                              : 'bg-white border-gray-200'
+                              ? 'border-[#FF6A00] bg-orange-50 dark:bg-orange-900/20'
+                              : 'bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-600'
                           }`}
                         >
                           <div className="flex items-start justify-between">
                             <div className="flex items-center gap-3 mb-2">
                               <Package size={20} className="text-gray-400" />
                               <div>
-                                <h3 className="text-base font-semibold text-gray-800">{snapshot.name}</h3>
-                                <p className="text-sm text-gray-600">{snapshot.description}</p>
+                                <h3 className="text-base font-semibold text-gray-800 dark:text-gray-100">{snapshot.name}</h3>
+                                <p className="text-sm text-gray-600 dark:text-gray-400">{snapshot.description}</p>
                               </div>
                             </div>
                             <button
@@ -1713,7 +1894,7 @@ export function VersioningCenter() {
                               disabled={snapshotHasRelease(snapshot.id)}
                               className={`px-3 py-1.5 text-xs rounded transition-colors flex items-center gap-1 ${
                                 snapshotHasRelease(snapshot.id)
-                                  ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                                  ? 'bg-gray-300 dark:bg-gray-600 text-gray-500 dark:text-gray-400 cursor-not-allowed'
                                   : 'bg-[#FF6A00] text-white hover:bg-[#E55F00]'
                               }`}
                             >
@@ -1721,7 +1902,7 @@ export function VersioningCenter() {
                               {snapshotHasRelease(snapshot.id) ? 'Release Exists' : 'Create Release'}
                             </button>
                           </div>
-                          <div className="text-sm text-gray-600">
+                          <div className="text-sm text-gray-600 dark:text-gray-400">
                             Created {new Date(snapshot.createdAt).toLocaleDateString()} by {snapshot.createdBy}
                           </div>
                         </motion.div>
@@ -1735,21 +1916,21 @@ export function VersioningCenter() {
         </div>
 
         {/* Right Column - Version/Snapshot/Release Details */}
-        <div className="w-[20%] bg-white border-l border-gray-200 overflow-y-auto">
+        <div className="w-[20%] bg-white dark:bg-gray-800 border-l border-gray-200 dark:border-gray-600 overflow-y-auto">
           <div className="p-4">
             {/* Snapshot Details */}
             {activeTab === 'snapshots' && selectedSnapshot ? (
               <>
-                <h2 className="text-sm font-semibold text-gray-700 mb-4 uppercase tracking-wide">Snapshot Details</h2>
+                <h2 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-4 uppercase tracking-wide">Snapshot Details</h2>
                 
                 <div className="space-y-4">
                   {/* Snapshot Info */}
                   <div>
-                    <h3 className="text-xs font-medium text-gray-600 mb-2">Information</h3>
-                    <div className="text-sm text-gray-800">
+                    <h3 className="text-xs font-medium text-gray-600 dark:text-gray-400 mb-2">Information</h3>
+                    <div className="text-sm text-gray-800 dark:text-gray-100">
                       <div className="font-medium">{selectedSnapshot.name}</div>
-                      <div className="text-gray-600 text-xs mt-1">{selectedSnapshot.description}</div>
-                      <div className="text-gray-500 text-xs mt-2">
+                      <div className="text-gray-600 dark:text-gray-400 text-xs mt-1">{selectedSnapshot.description}</div>
+                      <div className="text-gray-500 dark:text-gray-500 text-xs mt-2">
                         Created {new Date(selectedSnapshot.createdAt).toLocaleDateString()} by {selectedSnapshot.createdBy}
                       </div>
                     </div>
@@ -1757,13 +1938,13 @@ export function VersioningCenter() {
 
                   {/* Snapshot Files */}
                   <div>
-                    <h3 className="text-xs font-medium text-gray-600 mb-2">
+                    <h3 className="text-xs font-medium text-gray-600 dark:text-gray-400 mb-2">
                       Files ({snapshotFiles.length})
                     </h3>
                     <div className="space-y-1 max-h-40 overflow-y-auto">
                       {snapshotFiles.length > 0 ? (
                         snapshotFiles.map((file: any, i: number) => (
-                          <div key={i} className="flex items-center gap-2 text-sm text-gray-700 py-1">
+                          <div key={i} className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300 py-1">
                             <FileCode size={14} className={
                               file.changeType === 'added' ? 'text-green-500' :
                               file.changeType === 'deleted' ? 'text-red-500' :
@@ -1791,7 +1972,7 @@ export function VersioningCenter() {
                       disabled={snapshotHasRelease(selectedSnapshot.id)}
                       className={`w-full px-3 py-2 rounded-lg text-sm font-medium transition-colors flex items-center justify-center gap-2 ${
                         snapshotHasRelease(selectedSnapshot.id)
-                          ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                          ? 'bg-gray-100 dark:bg-gray-700 text-gray-400 dark:text-gray-500 cursor-not-allowed'
                           : 'bg-[#FF6A00] text-white hover:bg-[#E55F00]'
                       }`}
                     >
@@ -1904,7 +2085,7 @@ export function VersioningCenter() {
                       disabled={selectedRelease.signed}
                       className={`w-full px-3 py-2 rounded-lg text-sm font-medium transition-colors flex items-center justify-center gap-2 ${
                         selectedRelease.signed
-                          ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                          ? 'bg-gray-100 dark:bg-gray-700 text-gray-400 dark:text-gray-500 cursor-not-allowed'
                           : 'bg-green-500 text-white hover:bg-green-600'
                       }`}
                     >
@@ -1931,29 +2112,29 @@ export function VersioningCenter() {
             /* Version Details */
             activeTab === 'versions' && selectedVersion && selectedVersionDetails ? (
               <>
-                <h2 className="text-sm font-semibold text-gray-700 mb-4 uppercase tracking-wide">Version Details</h2>
+                <h2 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-4 uppercase tracking-wide">Version Details</h2>
                 
                 <div className="space-y-4">
                   {/* Status Section */}
                   <div>
-                    <h3 className="text-xs font-medium text-gray-600 mb-2">Status</h3>
+                    <h3 className="text-xs font-medium text-gray-600 dark:text-gray-400 mb-2">Status</h3>
                     <div className="flex items-center gap-2">
                       {getStatusIcon(selectedVersion.status)}
-                      <span className="text-sm text-gray-800 capitalize">{selectedVersion.status}</span>
+                      <span className="text-sm text-gray-800 dark:text-gray-200 capitalize">{selectedVersion.status}</span>
                     </div>
                   </div>
 
                   {/* Approvals */}
                   <div>
-                    <h3 className="text-xs font-medium text-gray-600 mb-2">Approvals</h3>
+                    <h3 className="text-xs font-medium text-gray-600 dark:text-gray-400 mb-2">Approvals</h3>
                     <div className="text-sm">
-                      <span className="font-medium">{selectedVersion.approvals}</span>
-                      <span className="text-gray-600"> of {selectedVersion.approvalsRequired}</span>
+                      <span className="font-medium text-gray-900 dark:text-gray-100">{selectedVersion.approvals}</span>
+                      <span className="text-gray-600 dark:text-gray-400"> of {selectedVersion.approvalsRequired}</span>
                     </div>
                     {selectedVersionDetails.approvers && selectedVersionDetails.approvers.length > 0 && (
                       <div className="mt-2 space-y-1">
                         {selectedVersionDetails.approvers.map((approver: any, idx: number) => (
-                          <div key={idx} className="text-xs text-gray-600 flex items-center gap-2">
+                          <div key={idx} className="text-xs text-gray-600 dark:text-gray-400 flex items-center gap-2">
                             <CheckCircle size={12} className="text-green-500" />
                             {approver.name}
                           </div>
@@ -1964,7 +2145,7 @@ export function VersioningCenter() {
 
                   {/* File Tree */}
                   <div>
-                    <h3 className="text-xs font-medium text-gray-600 mb-2">
+                    <h3 className="text-xs font-medium text-gray-600 dark:text-gray-400 mb-2">
                       Changed Files ({selectedVersionDetails.files?.length || 0})
                     </h3>
                     <div className="space-y-1 max-h-40 overflow-y-auto">
@@ -1984,13 +2165,13 @@ export function VersioningCenter() {
                   {/* Changelog */}
                   {selectedVersionDetails.changelog && selectedVersionDetails.changelog.length > 0 && (
                     <div>
-                      <h3 className="text-xs font-medium text-gray-600 mb-2">History</h3>
+                      <h3 className="text-xs font-medium text-gray-600 dark:text-gray-400 mb-2">History</h3>
                       <div className="space-y-2 max-h-40 overflow-y-auto">
                         {selectedVersionDetails.changelog.map((entry: any, idx: number) => (
-                          <div key={idx} className="text-xs text-gray-600 border-l-2 border-gray-300 pl-2">
-                            <div className="font-medium">{entry.action}</div>
-                            <div className="text-gray-500">by {entry.actor}</div>
-                            <div className="text-gray-500">
+                          <div key={idx} className="text-xs text-gray-600 dark:text-gray-400 border-l-2 border-gray-300 dark:border-gray-600 pl-2">
+                            <div className="font-medium text-gray-700 dark:text-gray-300">{entry.action}</div>
+                            <div className="text-gray-500 dark:text-gray-400">by {entry.actor}</div>
+                            <div className="text-gray-500 dark:text-gray-400">
                               {new Date(entry.timestamp).toLocaleString()}
                             </div>
                           </div>
@@ -2002,8 +2183,8 @@ export function VersioningCenter() {
                   {/* Storage Info */}
                   {(selectedVersion as any).totalSizeBytes && (
                     <div>
-                      <h3 className="text-xs font-medium text-gray-600 mb-2">Storage</h3>
-                      <div className="text-xs text-gray-600 space-y-1">
+                      <h3 className="text-xs font-medium text-gray-600 dark:text-gray-400 mb-2">Storage</h3>
+                      <div className="text-xs text-gray-600 dark:text-gray-400 space-y-1">
                         <div>Original: {((selectedVersion as any).totalSizeBytes / 1024).toFixed(2)} KB</div>
                         {(selectedVersion as any).compressedSizeBytes && (
                           <div>Compressed: {((selectedVersion as any).compressedSizeBytes / 1024).toFixed(2)} KB</div>
@@ -2013,10 +2194,10 @@ export function VersioningCenter() {
                   )}
 
                   {/* Actions */}
-                  <div className="pt-4 border-t border-gray-200 space-y-2">
+                  <div className="pt-4 border-t border-gray-200 dark:border-gray-600 space-y-2">
                     <button
                       onClick={() => handleViewDiff(selectedVersion)}
-                      className="w-full px-3 py-2 bg-gray-100 text-gray-700 rounded-lg text-sm font-medium hover:bg-gray-200 transition-colors flex items-center justify-center gap-2"
+                      className="w-full px-3 py-2 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-lg text-sm font-medium hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors flex items-center justify-center gap-2"
                     >
                       <Eye size={16} />
                       View Diff
@@ -2031,7 +2212,7 @@ export function VersioningCenter() {
                     {selectedVersion.signed && (
                       <button 
                         onClick={() => handleVerifySignature(selectedVersion)}
-                        className="w-full px-3 py-2 bg-gray-100 text-gray-700 rounded-lg text-sm font-medium hover:bg-gray-200 transition-colors flex items-center justify-center gap-2"
+                        className="w-full px-3 py-2 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-lg text-sm font-medium hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors flex items-center justify-center gap-2"
                       >
                         <Shield size={16} />
                         Verify Signature
@@ -2041,7 +2222,7 @@ export function VersioningCenter() {
                 </div>
               </>
             ) : (
-              <div className="text-center text-gray-500 text-sm mt-8">
+              <div className="text-center text-gray-500 dark:text-gray-400 text-sm mt-8">
                 {activeTab === 'versions' && 'Select a version to view details'}
                 {activeTab === 'snapshots' && 'Select a snapshot to view details'}
                 {activeTab === 'releases' && 'Select a release to view details'}
@@ -2176,7 +2357,7 @@ export function VersioningCenter() {
             <div className="mt-6 flex gap-3 justify-end">
               <button
                 onClick={() => setShowSafetyChecksDialog(false)}
-                className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50"
+                className="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 dark:text-gray-100"
               >
                 Close
               </button>

@@ -1,5 +1,7 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
+import { deviceAuth } from '../utils/deviceAuth'
+import { useLicenseStore } from './licenseStore'
 import type { Project } from '../types'
 
 type ProjectState = {
@@ -37,7 +39,7 @@ export const useProjectStore = create<ProjectState>()(
         
         // Update last opened on backend
         if (project) {
-          fetch(`${API_BASE}/projects/${project.id}/last-opened`, {
+          deviceAuth.authenticatedFetch(`${API_BASE}/projects/${project.id}/last-opened`, {
             method: 'PUT',
           }).catch(console.error)
         }
@@ -46,7 +48,13 @@ export const useProjectStore = create<ProjectState>()(
       loadProjects: async () => {
         set({ isLoading: true })
         try {
-          const response = await fetch(`${API_BASE}/projects`)
+          // Check license before making request
+          const licenseStore = useLicenseStore.getState()
+          if (!licenseStore.hasValidLicense) {
+            throw new Error('Valid license required to access projects')
+          }
+
+          const response = await deviceAuth.authenticatedFetch(`${API_BASE}/projects`)
           const data = await response.json()
           
           if (data.success) {
@@ -68,7 +76,13 @@ export const useProjectStore = create<ProjectState>()(
       createProject: async (name, description) => {
         set({ isCreating: true })
         try {
-          const response = await fetch(`${API_BASE}/projects`, {
+          // Check license before making request
+          const licenseStore = useLicenseStore.getState()
+          if (!licenseStore.hasValidLicense) {
+            throw new Error('Valid license required to create projects')
+          }
+
+          const response = await deviceAuth.authenticatedFetch(`${API_BASE}/projects`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ name, description }),
@@ -96,7 +110,13 @@ export const useProjectStore = create<ProjectState>()(
 
       deleteProject: async (projectId) => {
         try {
-          const response = await fetch(`${API_BASE}/projects/${projectId}`, {
+          // Check license before making request
+          const licenseStore = useLicenseStore.getState()
+          if (!licenseStore.hasValidLicense) {
+            throw new Error('Valid license required to delete projects')
+          }
+
+          const response = await deviceAuth.authenticatedFetch(`${API_BASE}/projects/${projectId}`, {
             method: 'DELETE',
           })
           
@@ -120,7 +140,7 @@ export const useProjectStore = create<ProjectState>()(
 
       updateLastOpened: async (projectId) => {
         try {
-          await fetch(`${API_BASE}/projects/${projectId}/last-opened`, {
+          await deviceAuth.authenticatedFetch(`${API_BASE}/projects/${projectId}/last-opened`, {
             method: 'PUT',
           })
           

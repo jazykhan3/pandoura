@@ -9,6 +9,7 @@ export type RouteKey =
   | 'versioning'
   | 'projects'
   | 'settings'
+  | 'profile'
 
 type UiState = {
   activeRoute: RouteKey

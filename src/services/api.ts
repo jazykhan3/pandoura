@@ -483,15 +483,12 @@ export const simulatorApi = {
         currentLine: 1,
         executionMode: 'interpreter',
         cycleCount: 0,
-        ioValues: {
-          Tank_Level: 50.0,
-          Temperature_PV: 72.5,
-          Pump_Motor: false
-        },
+        ioValues: {},  // Empty for completely dynamic behavior
         breakpoints: [],
         variables: []
       }, 200)
     }
+    // Make actual backend call - no static fallbacks for completely dynamic behavior
     const res = await fetch(`${API_BASE}/simulate/status`)
     return res.json()
   },
@@ -510,13 +507,7 @@ export const simulatorApi = {
     if (DUMMY_MODE) {
       return dummyFetch({ 
         success: true,
-        variables: {
-          Tank_Level: 50.0,
-          Temperature_PV: 72.5,
-          Temperature_SP: 75.0,
-          Pump_Motor: false,
-          Heater_Output: 0.0
-        }
+        variables: {}  // Empty for completely dynamic behavior
       }, 100)
     }
     const res = await fetch(`${API_BASE}/simulate/variables`)
@@ -1316,6 +1307,37 @@ export const versionApi = {
     return res.json();
   },
 
+  async getRelease(projectId: string, releaseId: string) {
+    const res = await fetch(`${API_BASE}/versions/projects/${projectId}/releases/${releaseId}`);
+    return res.json();
+  },
+
+  async getReleaseSafetyChecks(releaseId: string) {
+    const res = await fetch(`${API_BASE}/versions/releases/${releaseId}/safety-checks`);
+    return res.json();
+  },
+
+  async runSafetyChecks(releaseId: string) {
+    const res = await fetch(`${API_BASE}/versions/releases/${releaseId}/run-safety-checks`, {
+      method: 'POST'
+    });
+    return res.json();
+  },
+
+  async initiateDeploy(releaseId: string, environment: string, strategy: string = 'atomic') {
+    const res = await fetch(`${API_BASE}/deploy/initiate`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ 
+        releaseId, 
+        environment, 
+        strategy,
+        initiatedBy: 'current-user' 
+      }),
+    });
+    return res.json();
+  },
+
   async createRelease(projectId: string, data: {
     snapshotId: string;
     versionId: string;
@@ -1441,6 +1463,11 @@ export const deploymentApi = {
   },
 
   // Approvals
+  async getDeploymentApprovals(deployId: string) {
+    const res = await fetch(`${API_BASE}/deploy/deployments/${deployId}/approvals`);
+    return res.json();
+  },
+
   async getDeploymentApprovals(deployId: string) {
     const res = await fetch(`${API_BASE}/deploy/deployments/${deployId}/approvals`);
     return res.json();

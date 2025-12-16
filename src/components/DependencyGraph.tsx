@@ -255,7 +255,7 @@ export function DependencyGraph({
 
         {/* Selected Node Details */}
         {selectedNode && selectedNode.id !== tag.id && (
-          <div className="border rounded-lg p-4 bg-white">
+          <div className="border border-gray-200 dark:border-gray-600 rounded-lg p-4 bg-white dark:bg-gray-800">
             <h4 className="font-semibold text-gray-900 mb-2">Selected Node</h4>
             <div className="space-y-2 text-sm">
               <div className="flex items-center gap-2">

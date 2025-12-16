@@ -19,6 +19,12 @@ export function ShadowRuntime() {
   const syncStatus = useSyncStore((s) => s.status)
   const { isRunning, isPaused, currentLine, ioValues } = useSimulatorStore()
   
+  // Debug logging for troubleshooting
+  useEffect(() => {
+    console.log('🔍 ShadowRuntime ioValues updated:', ioValues)
+    console.log('🔍 Number of values:', Object.keys(ioValues).length)
+  }, [ioValues])
+  
   const [metrics, setMetrics] = useState<RuntimeMetrics>({
     latency: 0,
     throughput: 0,
@@ -81,7 +87,7 @@ export function ShadowRuntime() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold">Shadow Runtime</h1>
-          <p className="text-sm text-neutral-600 mt-1">
+          <p className="text-sm text-neutral-600 dark:text-gray-400 mt-1">
             Test and validate logic in a safe shadow environment before deploying to production
           </p>
         </div>
@@ -89,8 +95,8 @@ export function ShadowRuntime() {
         {/* Connection Status Badge */}
         <div className={`px-4 py-2 rounded-lg border-2 ${
           syncStatus.connected
-            ? 'bg-green-50 border-green-500 text-green-900'
-            : 'bg-red-50 border-red-500 text-red-900'
+            ? 'bg-green-50 dark:bg-green-900 dark:bg-opacity-30 border-green-500 text-green-900 dark:text-green-300'
+            : 'bg-red-50 dark:bg-red-900 dark:bg-opacity-30 border-red-500 text-red-900 dark:text-red-300'
         }`}>
           <div className="flex items-center gap-2">
             <div className={`w-2 h-2 rounded-full ${
@@ -112,14 +118,14 @@ export function ShadowRuntime() {
       </div>
 
       {/* Tabs */}
-      <div className="border-b border-neutral-200">
+      <div className="border-b border-neutral-200 dark:border-gray-700">
         <div className="flex gap-4">
           <button
             onClick={() => setActiveTab('overview')}
             className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
               activeTab === 'overview'
                 ? 'border-[#FF6A00] text-[#FF6A00]'
-                : 'border-transparent text-neutral-600 hover:text-neutral-900'
+                : 'border-transparent text-neutral-600 dark:text-gray-300 hover:text-neutral-900 dark:hover:text-white'
             }`}
           >
             Overview
@@ -129,7 +135,7 @@ export function ShadowRuntime() {
             className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
               activeTab === 'sync'
                 ? 'border-[#FF6A00] text-[#FF6A00]'
-                : 'border-transparent text-neutral-600 hover:text-neutral-900'
+                : 'border-transparent text-neutral-600 dark:text-gray-300 hover:text-neutral-900 dark:hover:text-white'
             }`}
           >
             Sync Console
@@ -144,7 +150,7 @@ export function ShadowRuntime() {
             className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
               activeTab === 'simulator'
                 ? 'border-[#FF6A00] text-[#FF6A00]'
-                : 'border-transparent text-neutral-600 hover:text-neutral-900'
+                : 'border-transparent text-neutral-600 dark:text-gray-300 hover:text-neutral-900 dark:hover:text-white'
             }`}
           >
             Simulator
@@ -154,7 +160,7 @@ export function ShadowRuntime() {
             className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
               activeTab === 'deploy'
                 ? 'border-[#FF6A00] text-[#FF6A00]'
-                : 'border-transparent text-neutral-600 hover:text-neutral-900'
+                : 'border-transparent text-neutral-600 dark:text-gray-300 hover:text-neutral-900 dark:hover:text-white'
             }`}
           >
             Deploy
@@ -166,7 +172,7 @@ export function ShadowRuntime() {
       {activeTab === 'overview' && (
         <>
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <Card>
+            <Card className="p-6">
               <CardHeader>Live Process Mirror</CardHeader>
               <div className="space-y-4 max-h-[500px] overflow-y-auto">
                 {Object.keys(ioValues).length === 0 ? (
@@ -178,17 +184,17 @@ export function ShadowRuntime() {
                     {/* Boolean I/O - Digital Inputs/Outputs */}
                     {Object.entries(ioValues).some(([_, value]) => typeof value === 'boolean') && (
                       <div>
-                        <div className="text-sm font-medium text-neutral-700 mb-2">Digital I/O</div>
+                        <div className="text-sm font-medium text-neutral-700 dark:text-gray-300 mb-2">Digital I/O</div>
                         <div className="space-y-2">
                           {Object.entries(ioValues)
                             .filter(([_, value]) => typeof value === 'boolean')
                             .map(([name, value]) => (
-                              <div key={name} className="flex items-center justify-between p-2 bg-neutral-50 rounded">
-                                <span className="text-sm font-mono">{name}</span>
+                              <div key={name} className="flex items-center justify-between p-3 bg-neutral-50 dark:bg-gray-800 rounded">
+                                <span className="text-sm font-mono dark:text-gray-300">{name}</span>
                                 <span className={`px-3 py-1 rounded-md text-sm font-medium ${
                                   value
                                     ? 'bg-green-600 text-white'
-                                    : 'bg-neutral-300 text-neutral-700'
+                                    : 'bg-neutral-300 dark:bg-neutral-600 text-neutral-700 dark:text-neutral-200'
                                 }`}>
                                   {value ? 'ON' : 'OFF'}
                                 </span>
@@ -201,7 +207,7 @@ export function ShadowRuntime() {
                     {/* Numeric I/O - Analog Inputs/Outputs */}
                     {Object.entries(ioValues).some(([_, value]) => typeof value === 'number') && (
                       <div>
-                        <div className="text-sm font-medium text-neutral-700 mb-2">Analog I/O</div>
+                        <div className="text-sm font-medium text-neutral-700 dark:text-gray-300 mb-2">Analog I/O</div>
                         <div className="space-y-3">
                           {Object.entries(ioValues)
                             .filter(([_, value]) => typeof value === 'number')
@@ -216,11 +222,11 @@ export function ShadowRuntime() {
                               return (
                                 <div 
                                   key={name} 
-                                  className={`p-2 rounded ${isOutput ? 'bg-blue-50 border border-blue-200' : 'bg-neutral-50'}`}
+                                  className={`p-3 rounded ${isOutput ? 'bg-blue-50 dark:bg-blue-900/30 border border-blue-200 dark:border-blue-700' : 'bg-neutral-50 dark:bg-gray-800'}`}
                                 >
                                   <div className="flex items-center justify-between mb-1">
-                                    <span className="text-sm font-mono">{name}</span>
-                                    <span className={`text-sm font-medium ${isOutput ? 'text-blue-800' : 'text-neutral-900'}`}>
+                                    <span className="text-sm font-mono dark:text-gray-300">{name}</span>
+                                    <span className={`text-sm font-medium ${isOutput ? 'text-blue-800 dark:text-blue-300' : 'text-neutral-900 dark:text-gray-100'}`}>
                                       {typeof value === 'number' ? value.toFixed(2) : value}{unit}
                                     </span>
                                   </div>
@@ -250,16 +256,20 @@ export function ShadowRuntime() {
                       </div>
                     )}
 
-                    <div className="pt-3 border-t border-neutral-200">
-                      <div className="text-xs text-neutral-500">Last update: {new Date().toLocaleTimeString()}</div>
-                      <div className="text-xs text-green-600 mt-1">● Live data from simulator</div>
+                    <div className="pt-3 border-t border-neutral-200 dark:border-gray-700">
+                      <div className="text-xs text-neutral-500 dark:text-gray-400">Last update: {new Date().toLocaleTimeString()}</div>
+                      <div className="text-xs text-green-600 dark:text-green-400 mt-1">● Live data from simulator</div>
+                      <div className="text-xs text-blue-600 dark:text-blue-400 mt-1">Values: {Object.keys(ioValues).length} variables loaded</div>
+                      {!isRunning && Object.keys(ioValues).length > 0 && (
+                        <div className="text-xs text-amber-600 dark:text-amber-400 mt-1">⚠️ Simulator stopped - showing last known values</div>
+                      )}
                     </div>
                   </>
                 )}
               </div>
             </Card>
 
-            <Card>
+            <Card className="p-6">
               <CardHeader>
                 <div className="flex items-center justify-between">
                   <span>Shadow Logic Status</span>
@@ -280,10 +290,10 @@ export function ShadowRuntime() {
               <div className="flex flex-col h-full">
                 {deployedLogic ? (
                   <>
-                    <div className="text-xs text-neutral-600 mb-2">
+                    <div className="text-xs text-neutral-600 dark:text-gray-400 mb-2">
                       <div className="flex items-center justify-between">
                         <div>
-                          <strong>{deployedLogic.name}</strong> • {deployedLogic.vendor}
+                          <strong className="dark:text-gray-200">{deployedLogic.name}</strong> • {deployedLogic.vendor}
                         </div>
                         {currentLine && (
                           <div className="text-blue-600 font-medium">
@@ -291,11 +301,11 @@ export function ShadowRuntime() {
                           </div>
                         )}
                       </div>
-                      <div className="text-neutral-500 mt-1">
+                      <div className="text-neutral-500 dark:text-gray-400 mt-1">
                         Deployed: {new Date(deployedLogic.deployedAt).toLocaleString()}
                       </div>
                     </div>
-                    <div className="flex-1 text-xs font-mono text-neutral-700 space-y-1 bg-neutral-50 p-2 rounded border overflow-y-auto">
+                    <div className="flex-1 text-xs font-mono text-neutral-700 dark:text-gray-300 space-y-1 bg-neutral-50 dark:bg-gray-800 p-3 rounded border dark:border-gray-700 overflow-y-auto">
                       {deployedLogic.content.split('\n').slice(0, 8).map((line: string, i: number) => (
                         <div 
                           key={i} 
@@ -305,19 +315,19 @@ export function ShadowRuntime() {
                             currentLine === i + 1 ? 'bg-yellow-200 font-bold' : ''
                           }`}
                         >
-                          <span className="text-neutral-400 mr-2">{String(i + 1).padStart(2, ' ')}</span>
+                          <span className="text-neutral-400 dark:text-gray-500 mr-2">{String(i + 1).padStart(2, ' ')}</span>
                           {line || ' '}
                         </div>
                       ))}
                       {deployedLogic.content.split('\n').length > 8 && (
-                        <div className="text-neutral-400">... ({deployedLogic.content.split('\n').length - 8} more lines)</div>
+                        <div className="text-neutral-400 dark:text-gray-500">... ({deployedLogic.content.split('\n').length - 8} more lines)</div>
                       )}
                     </div>
                     <div className="mt-2 space-y-1">
                       <div className={`p-2 border rounded text-xs ${
                         isRunning 
-                          ? 'bg-green-50 border-green-200 text-green-700'
-                          : 'bg-blue-50 border-blue-200 text-blue-700'
+                          ? 'bg-green-50 dark:bg-green-900/30 border-green-200 dark:border-green-700 text-green-700 dark:text-green-300'
+                          : 'bg-blue-50 dark:bg-blue-900/30 border-blue-200 dark:border-blue-700 text-blue-700 dark:text-blue-300'
                       }`}>
                         {isRunning 
                           ? `✓ Logic executing ${isPaused ? '(paused)' : '(active)'}` 
@@ -333,7 +343,7 @@ export function ShadowRuntime() {
                     </div>
                   </>
                 ) : (
-                  <div className="flex-1 flex flex-col items-center justify-center text-neutral-500">
+                  <div className="flex-1 flex flex-col items-center justify-center text-neutral-500 dark:text-gray-400">
                     <div className="text-4xl mb-2">📝</div>
                     <div className="text-sm font-medium">No Logic Deployed</div>
                     <div className="text-xs mt-1 text-center">Push logic from Logic Editor to see preview here</div>
@@ -343,34 +353,34 @@ export function ShadowRuntime() {
             </Card>
           </div>
 
-          <Card>
+          <Card className="p-6">
             <CardHeader>Runtime Health</CardHeader>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
               <div>
-                <div className="text-neutral-600 mb-1">Latency</div>
-                <div className="text-2xl font-semibold text-neutral-900">{metrics.latency}ms</div>
+                <div className="text-neutral-600 dark:text-gray-400 mb-1">Latency</div>
+                <div className="text-2xl font-semibold text-neutral-900 dark:text-white">{metrics.latency}ms</div>
               </div>
               <div>
-                <div className="text-neutral-600 mb-1">Throughput</div>
-                <div className="text-2xl font-semibold text-neutral-900">{metrics.throughput} ops/s</div>
+                <div className="text-neutral-600 dark:text-gray-400 mb-1">Throughput</div>
+                <div className="text-2xl font-semibold text-neutral-900 dark:text-white">{metrics.throughput} ops/s</div>
               </div>
               <div>
-                <div className="text-neutral-600 mb-1">Errors</div>
-                <div className="text-2xl font-semibold text-green-600">{metrics.errors}</div>
+                <div className="text-neutral-600 dark:text-gray-400 mb-1">Errors</div>
+                <div className="text-2xl font-semibold text-green-600 dark:text-green-400">{metrics.errors}</div>
               </div>
               <div>
-                <div className="text-neutral-600 mb-1">Cycle Time</div>
-                <div className="text-2xl font-semibold text-neutral-900">{metrics.cycleTime}ms</div>
+                <div className="text-neutral-600 dark:text-gray-400 mb-1">Cycle Time</div>
+                <div className="text-2xl font-semibold text-neutral-900 dark:text-white">{metrics.cycleTime}ms</div>
               </div>
             </div>
           </Card>
 
           {/* Sync Status Summary */}
-          <Card>
+          <Card className="p-6">
             <CardHeader>Sync Status</CardHeader>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
               <div>
-                <div className="text-neutral-600 mb-1">Shadow Runtime</div>
+                <div className="text-neutral-600 dark:text-gray-400 mb-1">Shadow Runtime</div>
                 <div className={`font-semibold ${syncStatus.shadowOk ? 'text-green-600' : 'text-neutral-400'}`}>
                   {syncStatus.shadowOk ? '✓ Ready' : '✗ Not Ready'}
                 </div>
@@ -382,19 +392,19 @@ export function ShadowRuntime() {
                 )}
               </div>
               <div>
-                <div className="text-neutral-600 mb-1">Live Runtime</div>
+                <div className="text-neutral-600 dark:text-gray-400 mb-1">Live Runtime</div>
                 <div className={`font-semibold ${syncStatus.liveOk ? 'text-green-600' : 'text-neutral-400'}`}>
                   {syncStatus.liveOk ? '✓ Connected' : '✗ Not Connected'}
                 </div>
               </div>
               <div>
-                <div className="text-neutral-600 mb-1">Last Sync</div>
-                <div className="font-semibold text-neutral-900">
+                <div className="text-neutral-600 dark:text-gray-400 mb-1">Last Sync</div>
+                <div className="font-semibold text-neutral-900 dark:text-white">
                   {syncStatus.lastSync ? new Date(syncStatus.lastSync).toLocaleTimeString() : 'Never'}
                 </div>
               </div>
               <div>
-                <div className="text-neutral-600 mb-1">Conflicts</div>
+                <div className="text-neutral-600 dark:text-gray-400 mb-1">Conflicts</div>
                 <div className={`font-semibold ${
                   syncStatus.conflicts.filter(c => !c.resolved).length > 0 ? 'text-amber-600' : 'text-green-600'
                 }`}>

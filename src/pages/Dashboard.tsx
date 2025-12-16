@@ -34,26 +34,26 @@ export function Dashboard() {
 
   return (
     <div className="space-y-6">
-      <h1 className="text-2xl font-bold">Dashboard</h1>
+      <h1 className="text-2xl font-bold text-gray-800 dark:text-white">Dashboard</h1>
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         <Card>
           <CardHeader>Project Status</CardHeader>
           <div className="space-y-2">
             <div className="flex justify-between text-sm">
-              <span className="text-neutral-600">Active Tags:</span>
-              <span className="font-semibold text-neutral-900">{stats.activeTags}</span>
+              <span className="text-neutral-600 dark:text-gray-400">Active Tags:</span>
+              <span className="font-semibold text-neutral-900 dark:text-white">{stats.activeTags}</span>
             </div>
             <div className="flex justify-between text-sm">
-              <span className="text-neutral-600">Logic Blocks:</span>
-              <span className="font-semibold text-neutral-900">{stats.logicBlocks}</span>
+              <span className="text-neutral-600 dark:text-gray-400">Logic Blocks:</span>
+              <span className="font-semibold text-neutral-900 dark:text-white">{stats.logicBlocks}</span>
             </div>
             <div className="flex justify-between text-sm">
-              <span className="text-neutral-600">Runtime Status:</span>
+              <span className="text-neutral-600 dark:text-gray-400">Runtime Status:</span>
               <span className="font-semibold text-green-600">{stats.runtimeStatus}</span>
             </div>
             <div className="flex justify-between text-sm">
-              <span className="text-neutral-600">Last Deploy:</span>
-              <span className="font-semibold text-neutral-900">{stats.lastDeploy}</span>
+              <span className="text-neutral-600 dark:text-gray-400">Last Deploy:</span>
+              <span className="font-semibold text-neutral-900 dark:text-white">{stats.lastDeploy}</span>
             </div>
           </div>
         </Card>
@@ -63,10 +63,10 @@ export function Dashboard() {
           <div className="space-y-2 text-sm">
             {activities.map((activity) => (
               <div key={activity.id} className="flex items-start gap-2">
-                <span className="text-neutral-400 mt-0.5">•</span>
+                <span className="text-neutral-400 dark:text-gray-500 mt-0.5">•</span>
                 <div>
-                  <div className="text-neutral-900">{activity.message}</div>
-                  <div className="text-xs text-neutral-500">{formatTimeAgo(activity.timestamp)}</div>
+                  <div className="text-neutral-900 dark:text-white">{activity.message}</div>
+                  <div className="text-xs text-neutral-500 dark:text-gray-400">{formatTimeAgo(activity.timestamp)}</div>
                 </div>
               </div>
             ))}
@@ -79,8 +79,8 @@ export function Dashboard() {
             {connections.map((conn) => (
               <div key={conn.id} className="flex items-center justify-between">
                 <div>
-                  <div className="text-sm font-medium text-neutral-900">{conn.name}</div>
-                  <div className="text-xs text-neutral-500">{conn.ip}</div>
+                  <div className="text-sm font-medium text-neutral-900 dark:text-white">{conn.name}</div>
+                  <div className="text-xs text-neutral-500 dark:text-gray-400">{conn.ip}</div>
                 </div>
                 <StatusIndicator status={conn.status} />
               </div>

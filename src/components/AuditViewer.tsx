@@ -352,7 +352,7 @@ export function AuditViewer() {
       )}
 
       {/* Entries List */}
-      <div className="bg-white border rounded-lg">
+      <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-lg">
         <div className="px-6 py-4 border-b">
           <h2 className="text-lg font-medium text-gray-900">Audit Entries</h2>
         </div>
@@ -421,7 +421,7 @@ export function AuditViewer() {
           <motion.div
             initial={{ opacity: 0, scale: 0.95 }}
             animate={{ opacity: 1, scale: 1 }}
-            className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[80vh] overflow-hidden"
+            className="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-2xl w-full max-h-[80vh] overflow-hidden"
           >
             <div className="px-6 py-4 border-b">
               <div className="flex items-center justify-between">

@@ -235,7 +235,7 @@ export type SimulatorLog = {
   id: string
   timestamp: string
   message: string
-  type: 'info' | 'warning' | 'error' | 'tag_change'
+  type: 'info' | 'warning' | 'error' | 'tag_change' | 'drift' | 'execution'
   data?: Record<string, unknown>
 }
 
@@ -365,6 +365,8 @@ export type Release = {
   signature?: string
   metadata?: Record<string, unknown>
   bundle?: string
+  bundleChecksum?: string
+  checksumVerified?: boolean
   status: 'active' | 'deprecated' | 'archived'
   tags?: string[]
 }

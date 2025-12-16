@@ -46,7 +46,7 @@ export function ConflictResolutionModal({
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-      <div className="bg-white rounded-lg shadow-xl max-w-4xl w-full mx-4 max-h-[90vh] overflow-hidden">
+      <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-4xl w-full mx-4 max-h-[90vh] overflow-hidden">
         {/* Header */}
         <div className="bg-amber-50 border-b border-amber-200 px-6 py-4">
           <div className="flex items-center justify-between">
@@ -107,7 +107,7 @@ export function ConflictResolutionModal({
               {/* Individual Conflicts */}
               <div className="space-y-3">
                 {unresolvedConflicts.map((conflict) => (
-                  <div key={conflict.id} className="bg-white border border-neutral-300 rounded-lg p-4">
+                  <div key={conflict.id} className="bg-white dark:bg-gray-700 border border-neutral-300 dark:border-gray-600 rounded-lg p-4">
                     <div className="flex items-start justify-between mb-3">
                       <div>
                         <h4 className="font-semibold text-lg">{conflict.tagName}</h4>

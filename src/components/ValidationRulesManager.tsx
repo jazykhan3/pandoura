@@ -21,6 +21,7 @@ interface ValidationRulesManagerProps {
   onSave: (rules: TagValidationRule[]) => void
 }
 
+
 export function ValidationRulesManager({
   isOpen,
   onClose,
@@ -131,13 +132,13 @@ export function ValidationRulesManager({
   const getSeverityColor = (severity: string) => {
     switch (severity) {
       case 'error':
-        return 'text-red-600 bg-red-50'
+        return 'text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/20'
       case 'warning':
-        return 'text-yellow-600 bg-yellow-50'
+        return 'text-yellow-600 dark:text-yellow-400 bg-yellow-50 dark:bg-yellow-900/20'
       case 'info':
-        return 'text-blue-600 bg-blue-50'
+        return 'text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/20'
       default:
-        return 'text-gray-600 bg-gray-50'
+        return 'text-gray-600 dark:text-gray-300 bg-gray-50 dark:bg-gray-700'
     }
   }
 
@@ -154,10 +155,10 @@ export function ValidationRulesManager({
     >
       <div className="p-6 space-y-4">
         {/* Type Info Banner */}
-        <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+        <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-700 rounded-lg p-3">
           <div className="flex items-center gap-2">
-            <Info size={16} className="text-blue-600" />
-            <span className="text-sm text-blue-900">
+            <Info size={16} className="text-blue-600 dark:text-blue-400" />
+            <span className="text-sm text-blue-900 dark:text-blue-200">
               Tag Type: <strong>{tagType || 'Unknown'}</strong>
               {isNumericType() && ' (Numeric validations available)'}
             </span>
@@ -166,37 +167,37 @@ export function ValidationRulesManager({
 
         {/* Engineering Units & Alarms (for numeric types) */}
         {isNumericType() && (
-          <div className="border rounded-lg p-4 bg-gray-50">
-            <h3 className="text-sm font-semibold text-gray-700 mb-3">Engineering Settings</h3>
+          <div className="border border-gray-200 dark:border-gray-600 rounded-lg p-4 bg-gray-50 dark:bg-gray-800">
+            <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3">Engineering Settings</h3>
             <div className="grid grid-cols-3 gap-3">
               <div>
-                <label className="block text-xs text-gray-600 mb-1">Engineering Units</label>
+                <label className="block text-xs text-gray-600 dark:text-gray-400 mb-1">Engineering Units</label>
                 <input
                   type="text"
                   value={engineeringUnits}
                   onChange={(e) => setEngineeringUnits(e.target.value)}
                   placeholder="e.g., °C, PSI, m/s"
-                  className="w-full px-3 py-2 border rounded-lg text-sm"
+                   className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
                 />
               </div>
               <div>
-                <label className="block text-xs text-gray-600 mb-1">Alarm Min Threshold</label>
+                <label className="block text-xs text-gray-600 dark:text-gray-400 mb-1">Alarm Min Threshold</label>
                 <input
                   type="number"
                   value={alarmMin}
                   onChange={(e) => setAlarmMin(e.target.value ? parseFloat(e.target.value) : '')}
                   placeholder="Low alarm"
-                  className="w-full px-3 py-2 border rounded-lg text-sm"
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
                 />
               </div>
               <div>
-                <label className="block text-xs text-gray-600 mb-1">Alarm Max Threshold</label>
+                <label className="block text-xs text-gray-600 dark:text-gray-400 mb-1">Alarm Max Threshold</label>
                 <input
                   type="number"
                   value={alarmMax}
                   onChange={(e) => setAlarmMax(e.target.value ? parseFloat(e.target.value) : '')}
                   placeholder="High alarm"
-                  className="w-full px-3 py-2 border rounded-lg text-sm"
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
                 />
               </div>
             </div>
@@ -221,10 +222,10 @@ export function ValidationRulesManager({
               initial={{ opacity: 0, height: 0 }}
               animate={{ opacity: 1, height: 'auto' }}
               exit={{ opacity: 0, height: 0 }}
-              className="border rounded-lg p-4 bg-gray-50"
+              className="border border-gray-200 dark:border-gray-600 rounded-lg p-4 bg-gray-50 dark:bg-gray-800"
             >
               <div className="flex items-center justify-between mb-3">
-                <h3 className="text-sm font-semibold text-gray-700">New Validation Rule</h3>
+                <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300">New Validation Rule</h3>
                 <button
                   onClick={() => {
                     setShowAddForm(false)
@@ -253,7 +254,7 @@ export function ValidationRulesManager({
                           setNewRuleValue('')
                         }
                       }}
-                      className="w-full px-3 py-2 border rounded-lg text-sm"
+                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
                     >
                       <option value="min">Minimum Value</option>
                       <option value="max">Maximum Value</option>
@@ -267,7 +268,7 @@ export function ValidationRulesManager({
                     <select
                       value={newRuleSeverity}
                       onChange={(e) => setNewRuleSeverity(e.target.value as any)}
-                      className="w-full px-3 py-2 border rounded-lg text-sm"
+                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
                     >
                       <option value="error">Error (Block)</option>
                       <option value="warning">Warning</option>
@@ -278,7 +279,7 @@ export function ValidationRulesManager({
 
                 {/* Value Input */}
                 <div>
-                  <label className="block text-xs text-gray-600 mb-1">Value/Constraint</label>
+                  <label className="block text-xs text-gray-600 dark:text-gray-400 mb-1">Value/Constraint</label>
                   {newRuleType === 'range' ? (
                     <div className="grid grid-cols-2 gap-2">
                       <input
@@ -286,14 +287,14 @@ export function ValidationRulesManager({
                         value={newRuleValue.min}
                         onChange={(e) => setNewRuleValue({ ...newRuleValue, min: parseFloat(e.target.value) || 0 })}
                         placeholder="Min"
-                        className="px-3 py-2 border rounded-lg text-sm"
+                        className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
                       />
                       <input
                         type="number"
                         value={newRuleValue.max}
                         onChange={(e) => setNewRuleValue({ ...newRuleValue, max: parseFloat(e.target.value) || 0 })}
                         placeholder="Max"
-                        className="px-3 py-2 border rounded-lg text-sm"
+                        className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
                       />
                     </div>
                   ) : newRuleType === 'custom' ? (
@@ -301,7 +302,7 @@ export function ValidationRulesManager({
                       value={newRuleValue}
                       onChange={(e) => setNewRuleValue(e.target.value)}
                       placeholder="// JavaScript expression\n// 'value' is the tag value\nreturn value > 0 && value < 100;"
-                      className="w-full px-3 py-2 border rounded-lg text-sm font-mono h-24"
+                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm font-mono h-24 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
                     />
                   ) : newRuleType === 'regex' ? (
                     <input
@@ -309,7 +310,7 @@ export function ValidationRulesManager({
                       value={newRuleValue}
                       onChange={(e) => setNewRuleValue(e.target.value)}
                       placeholder="^[A-Z0-9]+$"
-                      className="w-full px-3 py-2 border rounded-lg text-sm font-mono"
+                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm font-mono bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
                     />
                   ) : (
                     <input
@@ -317,19 +318,19 @@ export function ValidationRulesManager({
                       value={newRuleValue}
                       onChange={(e) => setNewRuleValue(parseFloat(e.target.value) || 0)}
                       placeholder="Enter value"
-                      className="w-full px-3 py-2 border rounded-lg text-sm"
+                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
                     />
                   )}
                 </div>
 
                 <div>
-                  <label className="block text-xs text-gray-600 mb-1">Error Message (Optional)</label>
+                  <label className="block text-xs text-gray-600 dark:text-gray-400 mb-1">Error Message (Optional)</label>
                   <input
                     type="text"
                     value={newRuleMessage}
                     onChange={(e) => setNewRuleMessage(e.target.value)}
                     placeholder={getDefaultMessage(newRuleType, newRuleValue)}
-                    className="w-full px-3 py-2 border rounded-lg text-sm"
+                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
                   />
                 </div>
 
@@ -361,11 +362,11 @@ export function ValidationRulesManager({
             ) : (
               <div className="divide-y">
                 {rules.map((rule) => (
-                  <div key={rule.id} className="p-4 hover:bg-gray-50">
+                  <div key={rule.id} className="p-4 hover:bg-gray-50 dark:hover:bg-gray-700">
                     <div className="flex items-start justify-between">
                       <div className="flex-1">
                         <div className="flex items-center gap-2 mb-2">
-                          <span className="text-xs font-medium text-gray-500 uppercase">
+                          <span className="text-xs font-medium text-gray-500 uppercase ">
                             {rule.type}
                           </span>
                           <span className={`px-2 py-0.5 rounded text-xs font-medium ${getSeverityColor(rule.severity!)}`}>
@@ -373,7 +374,7 @@ export function ValidationRulesManager({
                           </span>
                         </div>
                         <div className="mb-2">
-                          <span className="text-sm font-medium text-gray-700">Value: </span>
+                          <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Value: </span>
                           <span className="text-sm text-gray-900">{renderRuleValue(rule)}</span>
                         </div>
                         <p className="text-sm text-gray-600">{rule.message}</p>
@@ -396,12 +397,12 @@ export function ValidationRulesManager({
         </div>
 
         {/* Validation on Operations */}
-        <div className="bg-amber-50 border border-amber-200 rounded-lg p-3">
+        <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700 rounded-lg p-3">
           <div className="flex items-start gap-2">
-            <AlertTriangle size={16} className="text-amber-600 mt-0.5" />
+            <AlertTriangle size={16} className="text-amber-600 dark:text-amber-400 mt-0.5" />
             <div className="flex-1">
-              <p className="text-xs font-medium text-amber-900">Validation Applies To:</p>
-              <ul className="text-xs text-amber-800 mt-1 space-y-1">
+              <p className="text-xs font-medium text-amber-900 dark:text-amber-200">Validation Applies To:</p>
+              <ul className="text-xs text-amber-800 dark:text-amber-300 mt-1 space-y-1">
                 <li>• Manual tag value updates</li>
                 <li>• CSV/JSON imports</li>
                 <li>• Bulk operations</li>
@@ -419,7 +420,7 @@ export function ValidationRulesManager({
           <div className="flex gap-2">
             <button
               onClick={onClose}
-              className="px-4 py-2 border rounded-lg hover:bg-gray-50"
+              className="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
             >
               Cancel
             </button>

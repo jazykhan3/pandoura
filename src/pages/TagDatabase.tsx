@@ -14,9 +14,6 @@ import {
   GitBranch,
   Shield,
   AlertTriangle,
-  Check,
-  ChevronRight,
-  ChevronDown,
   Code,
   Box,
   Grid3x3,
@@ -42,7 +39,7 @@ import { ValidationRulesManager } from '../components/ValidationRulesManager'
 import { useSyncStore } from '../store/syncStore'
 import { useProjectStore } from '../store/projectStore'
 import { tagApi } from '../services/api'
-import type { Tag, TagScope, TagLifecycle, UserDefinedType, UDTMember, TagHierarchyNode, TagRefactoringPreview, BulkTagOperation, TagDependency, TagAlias, TagValidationRule } from '../types'
+import type { Tag, TagScope, TagLifecycle, UserDefinedType, TagRefactoringPreview, BulkTagOperation, TagDependency, TagAlias, TagValidationRule } from '../types'
 
 type ViewMode = 'list' | 'tree' | 'hierarchy'
 type FilterOptions = {
@@ -60,7 +57,7 @@ export function TagDatabase() {
   const { activeProject } = useProjectStore()
   const [tags, setTags] = useState<Tag[]>([])
   const [udts, setUdts] = useState<UserDefinedType[]>([])
-  const [hierarchyNodes, setHierarchyNodes] = useState<TagHierarchyNode[]>([])
+
   const [searchTerm, setSearchTerm] = useState('')
   const [regexSearch, setRegexSearch] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
@@ -91,7 +88,7 @@ export function TagDatabase() {
   // Selected items
   const [selectedTags, setSelectedTags] = useState<Set<string>>(new Set())
   const [selectedTag, setSelectedTag] = useState<Tag | null>(null)
-  const [expandedNodes, setExpandedNodes] = useState<Set<string>>(new Set())
+
   const [refactoringPreview, setRefactoringPreview] = useState<TagRefactoringPreview | null>(null)
   const [bulkOperation, setBulkOperation] = useState<BulkTagOperation | null>(null)
   const [tagDependencies, setTagDependencies] = useState<TagDependency[]>([])
@@ -151,11 +148,11 @@ export function TagDatabase() {
 
   const loadHierarchy = async () => {
     try {
-      const result = await tagApi.getHierarchy(activeProject?.id)
-      setHierarchyNodes(result || [])
+
+
     } catch (error) {
       console.error('Failed to load hierarchy:', error)
-      setHierarchyNodes([])
+
     }
   }
 
@@ -561,15 +558,7 @@ export function TagDatabase() {
     }
   }
 
-  const toggleNode = (nodeId: string) => {
-    const newExpanded = new Set(expandedNodes)
-    if (newExpanded.has(nodeId)) {
-      newExpanded.delete(nodeId)
-    } else {
-      newExpanded.add(nodeId)
-    }
-    setExpandedNodes(newExpanded)
-  }
+
 
   // Filtering logic
   const filteredTags = tags.filter(tag => {
@@ -658,11 +647,11 @@ export function TagDatabase() {
 
   const getLifecycleColor = (lifecycle?: TagLifecycle) => {
     switch (lifecycle) {
-      case 'active': return 'bg-green-100 text-green-700'
-      case 'deprecated': return 'bg-yellow-100 text-yellow-700'
-      case 'draft': return 'bg-gray-100 text-gray-700'
-      case 'archived': return 'bg-red-100 text-red-700'
-      default: return 'bg-blue-100 text-blue-700'
+      case 'active': return 'bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-200'
+      case 'deprecated': return 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900 dark:text-yellow-200'
+      case 'draft': return 'bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-200'
+      case 'archived': return 'bg-red-100 text-red-700 dark:bg-red-900 dark:text-red-200'
+      default: return 'bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-200'
     }
   }
 
@@ -680,28 +669,28 @@ export function TagDatabase() {
       <div className="h-full flex items-center justify-center bg-gray-50">
         <div className="text-center">
           <AlertTriangle size={48} className="text-gray-400 mx-auto mb-4" />
-          <p className="text-gray-600">No project selected</p>
+          <p className="text-gray-600 dark:text-gray-400">No project selected</p>
         </div>
       </div>
     )
   }
 
   return (
-    <div className="h-full flex flex-col bg-gray-50">
+    <div className="h-full flex flex-col bg-gray-50 dark:bg-panda-surface-dark">
       {/* Header */}
-      <div className="bg-white border-b border-gray-200 px-6 py-4">
+      <div className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-600 px-6 py-4">
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-4">
-            <h1 className="text-2xl font-semibold text-gray-800">Tag Database</h1>
-            <span className="text-sm text-gray-600">- {activeProject.name}</span>
+            <h1 className="text-2xl font-semibold text-gray-800 dark:text-white">Tag Database</h1>
+            <span className="text-sm text-gray-600 dark:text-gray-300">- {activeProject.name}</span>
           </div>
           <div className="flex items-center gap-2">
             {/* View mode toggle */}
-            <div className="flex bg-gray-100 rounded-lg p-1">
+            <div className="flex bg-gray-100 dark:bg-gray-700 rounded-lg p-1">
               <button
                 onClick={() => setViewMode('list')}
                 className={`px-3 py-1.5 rounded text-sm transition-colors ${
-                  viewMode === 'list' ? 'bg-white shadow-sm' : 'text-gray-600'
+                  viewMode === 'list' ? 'bg-white dark:bg-gray-600 shadow-sm text-gray-800 dark:text-white' : 'text-gray-600 dark:text-gray-300'
                 }`}
               >
                 <List size={16} />
@@ -709,7 +698,7 @@ export function TagDatabase() {
               <button
                 onClick={() => setViewMode('tree')}
                 className={`px-3 py-1.5 rounded text-sm transition-colors ${
-                  viewMode === 'tree' ? 'bg-white shadow-sm' : 'text-gray-600'
+                  viewMode === 'tree' ? 'bg-white dark:bg-gray-600 shadow-sm text-gray-800 dark:text-white' : 'text-gray-600 dark:text-gray-300'
                 }`}
               >
                 <TreePine size={16} />
@@ -717,7 +706,7 @@ export function TagDatabase() {
               <button
                 onClick={() => setViewMode('hierarchy')}
                 className={`px-3 py-1.5 rounded text-sm transition-colors ${
-                  viewMode === 'hierarchy' ? 'bg-white shadow-sm' : 'text-gray-600'
+                  viewMode === 'hierarchy' ? 'bg-white dark:bg-gray-600 shadow-sm text-gray-800 dark:text-white' : 'text-gray-600 dark:text-gray-300'
                 }`}
               >
                 <Network size={16} />
@@ -726,7 +715,7 @@ export function TagDatabase() {
 
             <button
               onClick={() => setShowCreateUDTDialog(true)}
-              className="px-4 py-2 bg-white border border-gray-300 rounded-lg text-sm font-medium hover:bg-gray-50 transition-colors flex items-center gap-2"
+              className="px-4 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg text-sm font-medium text-gray-800 dark:text-white hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors flex items-center gap-2"
             >
               <Box size={16} />
               Create UDT
@@ -744,16 +733,16 @@ export function TagDatabase() {
         {/* Search and filters */}
         <div className="flex items-center gap-3">
           <div className="flex-1 relative">
-            <Search size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+            <Search size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 dark:text-gray-500" />
             <input
               type="text"
               placeholder={regexSearch ? "Regex search (e.g., ^Motor_.*)" : "Search tags by name or address..."}
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#FF6A00] focus:border-transparent"
+              className="w-full pl-10 pr-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#FF6A00] focus:border-transparent"
             />
           </div>
-          <label className="flex items-center gap-2 text-sm text-gray-700">
+          <label className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
             <input
               type="checkbox"
               checked={regexSearch}
@@ -765,7 +754,7 @@ export function TagDatabase() {
           <button
             onClick={() => setShowFilterPanel(!showFilterPanel)}
             className={`px-4 py-2 border rounded-lg text-sm font-medium transition-colors flex items-center gap-2 ${
-              showFilterPanel ? 'bg-[#FF6A00] text-white border-[#FF6A00]' : 'bg-white border-gray-300 hover:bg-gray-50'
+              showFilterPanel ? 'bg-[#FF6A00] text-white border-[#FF6A00]' : 'bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-600 text-gray-800 dark:text-white hover:bg-gray-50 dark:hover:bg-gray-600'
             }`}
           >
             <Filter size={16} />
@@ -774,7 +763,7 @@ export function TagDatabase() {
           <button
             onClick={() => setShowDependencyGraph(true)}
             disabled={!selectedTag}
-            className="px-4 py-2 bg-white border border-gray-300 rounded-lg text-sm font-medium hover:bg-gray-50 transition-colors flex items-center gap-2 disabled:opacity-50"
+            className="px-4 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg text-sm font-medium text-gray-800 dark:text-white hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors flex items-center gap-2 disabled:opacity-50"
           >
             <GitBranch size={16} />
             Dependencies
@@ -782,7 +771,7 @@ export function TagDatabase() {
           <button
             onClick={() => setShowBulkActionsDialog(true)}
             disabled={selectedTags.size === 0}
-            className="px-4 py-2 bg-white border border-gray-300 rounded-lg text-sm font-medium hover:bg-gray-50 transition-colors flex items-center gap-2 disabled:opacity-50"
+            className="px-4 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg text-sm font-medium text-gray-700 dark:text-white hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors flex items-center gap-2 disabled:opacity-50"
           >
             <Settings size={16} />
             Bulk Actions ({selectedTags.size})
@@ -790,11 +779,11 @@ export function TagDatabase() {
           <button
             onClick={handleExport}
             disabled={isLoading || tags.length === 0}
-            className="px-4 py-2 bg-white border border-gray-300 rounded-lg text-sm font-medium hover:bg-gray-50 transition-colors flex items-center gap-2 disabled:opacity-50"
+            className="px-4 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg text-sm font-medium text-gray-800 dark:text-white hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors flex items-center gap-2 disabled:opacity-50"
           >
             <Download size={16} />
           </button>
-          <label className="px-4 py-2 bg-white border border-gray-300 rounded-lg text-sm font-medium hover:bg-gray-50 transition-colors cursor-pointer flex items-center gap-2">
+          <label className="px-4 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg text-sm font-medium text-gray-800 dark:text-white hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors cursor-pointer flex items-center gap-2">
             <Upload size={16} />
             Import
             <input
@@ -807,7 +796,7 @@ export function TagDatabase() {
           <button
             onClick={handleSyncTags}
             disabled={isLoading}
-            className="px-4 py-2 bg-white border border-gray-300 rounded-lg text-sm font-medium hover:bg-gray-50 transition-colors flex items-center gap-2 disabled:opacity-50"
+            className="px-4 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg text-sm font-medium text-gray-700 dark:text-white hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors flex items-center gap-2 disabled:opacity-50"
           >
             <RefreshCw size={16} />
           </button>
@@ -820,16 +809,16 @@ export function TagDatabase() {
               initial={{ height: 0, opacity: 0 }}
               animate={{ height: 'auto', opacity: 1 }}
               exit={{ height: 0, opacity: 0 }}
-              className="mt-4 p-6 bg-gradient-to-br from-gray-50 to-white rounded-xl border border-gray-200 shadow-sm"
+              className="mt-4 p-6 bg-gradient-to-br from-gray-50 to-white dark:from-gray-800 dark:to-surface-dark rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm"
             >
               <div className="flex items-center justify-between mb-4">
-                <h3 className="text-sm font-semibold text-gray-700 flex items-center gap-2">
+                <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-200 flex items-center gap-2">
                   <Filter size={16} />
                   Filter Tags
                 </h3>
                 <button
                   onClick={() => setFilterOptions({})}
-                  className="px-3 py-1.5 text-xs font-medium text-gray-600 hover:text-[#FF6A00] hover:bg-orange-50 rounded-md transition-colors"
+                  className="px-3 py-1.5 text-xs font-medium text-gray-600 dark:text-gray-400 hover:text-[#FF6A00] hover:bg-orange-50 dark:hover:bg-orange-900 dark:hover:bg-opacity-20 rounded-md transition-colors"
                 >
                   Clear All
                 </button>
@@ -838,12 +827,12 @@ export function TagDatabase() {
               <div className="grid grid-cols-4 gap-6">
                 {/* Type Filter */}
                 <div>
-                  <label className="block text-xs font-semibold text-gray-700 mb-2.5">Data Type</label>
+                  <label className="block text-xs font-semibold text-gray-700 dark:text-gray-200 mb-2.5">Data Type</label>
                   <select
                     multiple
                     value={filterOptions.type || []}
                     onChange={(e) => setFilterOptions({ ...filterOptions, type: Array.from(e.target.selectedOptions, o => o.value) })}
-                    className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#FF6A00] focus:border-[#FF6A00] bg-white hover:border-gray-400 transition-colors"
+                    className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-[#FF6A00] focus:border-[#FF6A00] bg-white dark:bg-gray-800 text-gray-900 dark:text-text-dark hover:border-gray-400 dark:hover:border-gray-500 transition-colors"
                     style={{ height: '160px' }}
                   >
                     <option value="BOOL" className="py-1.5">BOOL</option>
@@ -853,34 +842,34 @@ export function TagDatabase() {
                     <option value="STRING" className="py-1.5">STRING</option>
                     <option value="UDT" className="py-1.5">UDT</option>
                   </select>
-                  <p className="mt-1.5 text-xs text-gray-500">Hold Ctrl/Cmd to select multiple</p>
+                  <p className="mt-1.5 text-xs text-gray-500 dark:text-gray-400">Hold Ctrl/Cmd to select multiple</p>
                 </div>
 
                 {/* Scope Filter */}
                 <div>
-                  <label className="block text-xs font-semibold text-gray-700 mb-2.5">Scope</label>
+                  <label className="block text-xs font-semibold text-gray-700 dark:text-gray-200 mb-2.5">Scope</label>
                   <select
                     multiple
                     value={filterOptions.scope || []}
                     onChange={(e) => setFilterOptions({ ...filterOptions, scope: Array.from(e.target.selectedOptions, o => o.value) as TagScope[] })}
-                    className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#FF6A00] focus:border-[#FF6A00] bg-white hover:border-gray-400 transition-colors"
+                    className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-[#FF6A00] focus:border-[#FF6A00] bg-white dark:bg-gray-800 text-gray-900 dark:text-text-dark hover:border-gray-400 dark:hover:border-gray-500 transition-colors"
                     style={{ height: '160px' }}
                   >
                     <option value="global" className="py-1.5">Global</option>
                     <option value="program" className="py-1.5">Program</option>
                     <option value="task" className="py-1.5">Task</option>
                   </select>
-                  <p className="mt-1.5 text-xs text-gray-500">Select tag scope level</p>
+                  <p className="mt-1.5 text-xs text-gray-500 dark:text-gray-400">Select tag scope level</p>
                 </div>
 
                 {/* Lifecycle Filter */}
                 <div>
-                  <label className="block text-xs font-semibold text-gray-700 mb-2.5">Lifecycle Status</label>
+                  <label className="block text-xs font-semibold text-gray-700 dark:text-gray-200 mb-2.5">Lifecycle Status</label>
                   <select
                     multiple
                     value={filterOptions.lifecycle || []}
                     onChange={(e) => setFilterOptions({ ...filterOptions, lifecycle: Array.from(e.target.selectedOptions, o => o.value) as TagLifecycle[] })}
-                    className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#FF6A00] focus:border-[#FF6A00] bg-white hover:border-gray-400 transition-colors"
+                    className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-[#FF6A00] focus:border-[#FF6A00] bg-white dark:bg-gray-800 text-gray-900 dark:text-text-dark hover:border-gray-400 dark:hover:border-gray-500 transition-colors"
                     style={{ height: '160px' }}
                   >
                     <option value="draft" className="py-1.5">Draft</option>
@@ -888,14 +877,14 @@ export function TagDatabase() {
                     <option value="deprecated" className="py-1.5">Deprecated</option>
                     <option value="archived" className="py-1.5">Archived</option>
                   </select>
-                  <p className="mt-1.5 text-xs text-gray-500">Filter by tag status</p>
+                  <p className="mt-1.5 text-xs text-gray-500 dark:text-gray-400">Filter by tag status</p>
                 </div>
 
                 {/* Additional Filters */}
                 <div>
-                  <label className="block text-xs font-semibold text-gray-700 mb-2.5">Additional Filters</label>
-                  <div className="space-y-3 bg-white border border-gray-300 rounded-lg p-3" style={{ height: '160px' }}>
-                    <label className="flex items-center gap-2.5 text-sm text-gray-700 hover:text-gray-900 cursor-pointer group">
+                  <label className="block text-xs font-semibold text-gray-700 dark:text-gray-200 mb-2.5">Additional Filters</label>
+                  <div className="space-y-3 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg p-3" style={{ height: '160px' }}>
+                    <label className="flex items-center gap-2.5 text-sm text-gray-700 dark:text-gray-200 hover:text-gray-900 dark:hover:text-white cursor-pointer group">
                       <input
                         type="checkbox"
                         checked={filterOptions.hasValidation || false}
@@ -904,7 +893,7 @@ export function TagDatabase() {
                       />
                       <span className="group-hover:text-[#FF6A00] transition-colors">Has Validation Rules</span>
                     </label>
-                    <label className="flex items-center gap-2.5 text-sm text-gray-700 hover:text-gray-900 cursor-pointer group">
+                    <label className="flex items-center gap-2.5 text-sm text-gray-700 dark:text-gray-200 hover:text-gray-900 dark:hover:text-white cursor-pointer group">
                       <input
                         type="checkbox"
                         checked={filterOptions.hasAlias || false}
@@ -913,7 +902,7 @@ export function TagDatabase() {
                       />
                       <span className="group-hover:text-[#FF6A00] transition-colors">Has Aliases</span>
                     </label>
-                    <label className="flex items-center gap-2.5 text-sm text-gray-700 hover:text-gray-900 cursor-pointer group">
+                    <label className="flex items-center gap-2.5 text-sm text-gray-700 dark:text-gray-200 hover:text-gray-900 dark:hover:text-white cursor-pointer group">
                       <input
                         type="checkbox"
                         checked={filterOptions.requiresApproval || false}
@@ -923,43 +912,43 @@ export function TagDatabase() {
                       <span className="group-hover:text-[#FF6A00] transition-colors">Requires Approval</span>
                     </label>
                   </div>
-                  <p className="mt-1.5 text-xs text-gray-500">Special tag properties</p>
+                  <p className="mt-1.5 text-xs text-gray-500 dark:text-gray-400">Special tag properties</p>
                 </div>
               </div>
 
               {/* Active Filters Summary */}
               {(filterOptions.type?.length || filterOptions.scope?.length || filterOptions.lifecycle?.length || 
                 filterOptions.hasValidation || filterOptions.hasAlias || filterOptions.requiresApproval) && (
-                <div className="mt-4 pt-4 border-t border-gray-200">
+                <div className="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">
                   <div className="flex items-center gap-2 flex-wrap">
-                    <span className="text-xs font-medium text-gray-600">Active Filters:</span>
+                    <span className="text-xs font-medium text-gray-600 dark:text-gray-400">Active Filters:</span>
                     {filterOptions.type?.map(t => (
-                      <span key={t} className="px-2 py-1 text-xs bg-blue-100 text-blue-700 rounded-md">
+                      <span key={t} className="px-2 py-1 text-xs bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-200 rounded-md">
                         Type: {t}
                       </span>
                     ))}
                     {filterOptions.scope?.map(s => (
-                      <span key={s} className="px-2 py-1 text-xs bg-purple-100 text-purple-700 rounded-md">
+                      <span key={s} className="px-2 py-1 text-xs bg-purple-100 text-purple-700 dark:bg-purple-900 dark:text-purple-200 rounded-md">
                         Scope: {s}
                       </span>
                     ))}
                     {filterOptions.lifecycle?.map(l => (
-                      <span key={l} className="px-2 py-1 text-xs bg-green-100 text-green-700 rounded-md">
+                      <span key={l} className="px-2 py-1 text-xs bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-200 rounded-md">
                         Status: {l}
                       </span>
                     ))}
                     {filterOptions.hasValidation && (
-                      <span className="px-2 py-1 text-xs bg-amber-100 text-amber-700 rounded-md">
+                      <span className="px-2 py-1 text-xs bg-amber-100 text-amber-700 dark:bg-amber-900 dark:text-amber-200 rounded-md">
                         Has Validation
                       </span>
                     )}
                     {filterOptions.hasAlias && (
-                      <span className="px-2 py-1 text-xs bg-amber-100 text-amber-700 rounded-md">
+                      <span className="px-2 py-1 text-xs bg-amber-100 text-amber-700 dark:bg-amber-900 dark:text-amber-200 rounded-md">
                         Has Aliases
                       </span>
                     )}
                     {filterOptions.requiresApproval && (
-                      <span className="px-2 py-1 text-xs bg-red-100 text-red-700 rounded-md">
+                      <span className="px-2 py-1 text-xs bg-red-100 text-red-700 dark:bg-red-900 dark:text-red-200 rounded-md">
                         Requires Approval
                       </span>
                     )}
@@ -975,13 +964,13 @@ export function TagDatabase() {
       <div className="flex-1 overflow-hidden p-6">
         <Card>
           {isLoading ? (
-            <div className="text-center py-12 text-gray-500">Loading tags...</div>
+            <div className="text-center py-12 text-gray-500 dark:text-gray-400">Loading tags...</div>
           ) : (
             <>
               {viewMode === 'list' && (
                 <div className="overflow-x-auto">
                   <table className="w-full text-sm">
-                    <thead className="bg-gray-50 border-b border-gray-200">
+                    <thead className="bg-gray-50 dark:bg-gray-700 border-b border-gray-200 dark:border-gray-600">
                       <tr>
                         <th className="text-left py-3 px-4">
                           <input
@@ -991,23 +980,23 @@ export function TagDatabase() {
                             className="rounded"
                           />
                         </th>
-                        <th className="text-left py-3 px-4 font-medium text-gray-700">Name</th>
-                        <th className="text-left py-3 px-4 font-medium text-gray-700">Type</th>
-                        <th className="text-left py-3 px-4 font-medium text-gray-700">Scope</th>
-                        <th className="text-left py-3 px-4 font-medium text-gray-700">Lifecycle</th>
-                        <th className="text-left py-3 px-4 font-medium text-gray-700">Value</th>
-                        <th className="text-left py-3 px-4 font-medium text-gray-700">Address</th>
-                        <th className="text-left py-3 px-4 font-medium text-gray-700">Hierarchy</th>
-                        <th className="text-left py-3 px-4 font-medium text-gray-700">Flags</th>
-                        <th className="text-left py-3 px-4 font-medium text-gray-700">Actions</th>
+                        <th className="text-left py-3 px-4 font-medium text-gray-700 dark:text-gray-200">Name</th>
+                        <th className="text-left py-3 px-4 font-medium text-gray-700 dark:text-gray-200">Type</th>
+                        <th className="text-left py-3 px-4 font-medium text-gray-700 dark:text-gray-200">Scope</th>
+                        <th className="text-left py-3 px-4 font-medium text-gray-700 dark:text-gray-200">Lifecycle</th>
+                        <th className="text-left py-3 px-4 font-medium text-gray-700 dark:text-gray-200">Value</th>
+                        <th className="text-left py-3 px-4 font-medium text-gray-700 dark:text-gray-200">Address</th>
+                        <th className="text-left py-3 px-4 font-medium text-gray-700 dark:text-gray-200">Hierarchy</th>
+                        <th className="text-left py-3 px-4 font-medium text-gray-700 dark:text-gray-200">Flags</th>
+                        <th className="text-left py-3 px-4 font-medium text-gray-700 dark:text-gray-200">Actions</th>
                       </tr>
                     </thead>
                     <tbody>
                       {filteredTags.map((tag, index) => (
                         <tr
                           key={tag.id}
-                          className={`border-b border-gray-100 hover:bg-gray-50 transition-colors ${
-                            selectedTags.has(tag.id) ? 'bg-blue-50' : index % 2 === 0 ? 'bg-white' : 'bg-gray-50'
+                          className={`border-b border-gray-100 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors ${
+                            selectedTags.has(tag.id) ? 'bg-blue-50 dark:bg-blue-900' : index % 2 === 0 ? 'bg-white dark:bg-gray-800' : 'bg-gray-50 dark:bg-gray-700'
                           }`}
                         >
                           <td className="py-2 px-4">
@@ -1028,7 +1017,7 @@ export function TagDatabase() {
                             )}
                           </td>
                           <td className="py-2 px-4">
-                            <span className="px-2 py-0.5 text-xs bg-blue-100 text-blue-700 rounded">
+                            <span className="px-2 py-0.5 text-xs bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-200 rounded">
                               {tag.type}
                               {tag.udtType && ` (${tag.udtType})`}
                             </span>
@@ -1054,7 +1043,7 @@ export function TagDatabase() {
                             <div className="flex items-center gap-1">
                               {tag.validationRules && tag.validationRules.length > 0 && (
                                 <span title="Has validation rules">
-                                  <Check size={14} className="text-green-600" />
+                                  <Shield size={14} className="text-green-600 dark:text-green-400" />
                                 </span>
                               )}
                               {tag.aliases && tag.aliases.length > 0 && (
@@ -1081,7 +1070,7 @@ export function TagDatabase() {
                                   e.stopPropagation()
                                   handleEditTag(tag)
                                 }}
-                                className="p-1 hover:bg-gray-200 rounded"
+                                 className="p-1 hover:bg-blue-100 dark:hover:bg-blue-900 rounded text-blue-600 dark:text-blue-400"
                                 title="Edit"
                               >
                                 <Edit size={14} />
@@ -1091,7 +1080,7 @@ export function TagDatabase() {
                                   e.stopPropagation()
                                   handleOpenAddressMapping(tag)
                                 }}
-                                className="p-1 hover:bg-blue-100 rounded text-blue-600"
+                                className="p-1 hover:bg-blue-100 dark:hover:bg-blue-900 rounded text-blue-600 dark:text-blue-400"
                                 title="Address Mapping"
                               >
                                 <MapPin size={14} />
@@ -1101,7 +1090,7 @@ export function TagDatabase() {
                                   e.stopPropagation()
                                   handleOpenValidationRules(tag)
                                 }}
-                                className="p-1 hover:bg-green-100 rounded text-green-600"
+                                className="p-1 hover:bg-green-100 dark:hover:bg-green-900 rounded text-green-600 dark:text-green-400"
                                 title="Validation Rules"
                               >
                                 <CheckCircle2 size={14} />
@@ -1112,7 +1101,7 @@ export function TagDatabase() {
                                   setTagToRename(tag)
                                   setShowRenameDialog(true)
                                 }}
-                                className="p-1 hover:bg-gray-200 rounded"
+                                className="p-1 hover:bg-gray-200 dark:hover:bg-gray-600 rounded"
                                 title="Rename"
                               >
                                 <FileText size={14} />
@@ -1235,17 +1224,19 @@ export function TagDatabase() {
                 </div>
               )}
 
-              <div className="mt-4 px-4 py-3 bg-gray-50 border-t border-gray-200 flex items-center justify-between text-xs text-gray-600">
-                <div>
-                  Showing {filteredTags.length} of {tags.length} tags
-                  {selectedTags.size > 0 && ` • ${selectedTags.size} selected`}
+              {viewMode === 'list' && (
+                <div className="mt-4 px-4 py-3 bg-gray-50 dark:bg-gray-700 border-t border-gray-200 dark:border-gray-600 flex items-center justify-between text-xs text-gray-600 dark:text-gray-300">
+                  <div>
+                    Showing {filteredTags.length} of {tags.length} tags
+                    {selectedTags.size > 0 && ` • ${selectedTags.size} selected`}
+                  </div>
+                  <div className="flex items-center gap-4">
+                    <span>{udts.length} UDTs defined</span>
+                    <span>{tags.filter(t => t.lifecycle === 'deprecated').length} deprecated</span>
+                    <span>{tags.filter(t => t.requiresApproval).length} protected</span>
+                  </div>
                 </div>
-                <div className="flex items-center gap-4">
-                  <span>{udts.length} UDTs defined</span>
-                  <span>{tags.filter(t => t.lifecycle === 'deprecated').length} deprecated</span>
-                  <span>{tags.filter(t => t.requiresApproval).length} protected</span>
-                </div>
-              </div>
+              )}
             </>
           )}
         </Card>
@@ -1253,23 +1244,23 @@ export function TagDatabase() {
 
       {/* Create Tag Dialog */}
       {showCreateTagDialog && (
-        <Dialog isOpen={showCreateTagDialog} onClose={() => { setShowCreateTagDialog(false); resetTagForm(); }} title={selectedTag ? 'Edit Tag' : 'Create Tag'}>
-          <div className="p-6 space-y-4">
+        <Dialog isOpen={showCreateTagDialog} onClose={() => { setShowCreateTagDialog(false); resetTagForm(); }} title={selectedTag ? 'Edit Tag' : 'Create Tag'} size="large">
+          <div className="p-6 space-y-4 bg-white dark:bg-gray-900">
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Name *</label>
+                <label className="block text-sm font-medium text-gray-700 dark:text-text-dark mb-1">Name *</label>
                 <input
                   type="text"
-                  className="w-full px-3 py-2 border rounded-lg"
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-text-dark"
                   placeholder="Tag_Name"
                   value={newTagName}
                   onChange={(e) => setNewTagName(e.target.value)}
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Type *</label>
+                <label className="block text-sm font-medium text-gray-700 dark:text-text-dark mb-1">Type *</label>
                 <select 
-                  className="w-full px-3 py-2 border rounded-lg"
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-text-dark"
                   value={newTagType}
                   onChange={(e) => setNewTagType(e.target.value)}
                 >
@@ -1292,9 +1283,9 @@ export function TagDatabase() {
                 </select>
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Scope</label>
+                <label className="block text-sm font-medium text-gray-700 dark:text-text-dark mb-1">Scope</label>
                 <select 
-                  className="w-full px-3 py-2 border rounded-lg"
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-text-dark"
                   value={newTagScope}
                   onChange={(e) => setNewTagScope(e.target.value as TagScope)}
                 >
@@ -1304,9 +1295,9 @@ export function TagDatabase() {
                 </select>
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Lifecycle</label>
+                <label className="block text-sm font-medium text-gray-700 dark:text-text-dark mb-1">Lifecycle</label>
                 <select 
-                  className="w-full px-3 py-2 border rounded-lg"
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-text-dark"
                   value={newTagLifecycle}
                   onChange={(e) => setNewTagLifecycle(e.target.value as TagLifecycle)}
                 >
@@ -1315,19 +1306,19 @@ export function TagDatabase() {
                 </select>
               </div>
               <div className="col-span-2">
-                <label className="block text-sm font-medium text-gray-700 mb-1">Address</label>
+                <label className="block text-sm font-medium text-gray-700 dark:text-text-dark mb-1">Address</label>
                 <input
                   type="text"
-                  className="w-full px-3 py-2 border rounded-lg"
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-text-dark"
                   placeholder="DB1.DBX0.0"
                   value={newTagAddress}
                   onChange={(e) => setNewTagAddress(e.target.value)}
                 />
               </div>
               <div className="col-span-2">
-                <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>
+                <label className="block text-sm font-medium text-gray-700 dark:text-text-dark mb-1">Description</label>
                 <textarea
-                  className="w-full px-3 py-2 border rounded-lg"
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-text-dark"
                   rows={2}
                   placeholder="Tag description..."
                   value={newTagDescription}
@@ -1342,7 +1333,7 @@ export function TagDatabase() {
                     checked={newTagReadOnly}
                     onChange={(e) => setNewTagReadOnly(e.target.checked)}
                   />
-                  <span className="text-sm text-gray-700">Read Only</span>
+                  <span className="text-sm text-gray-700 dark:text-text-dark">Read Only</span>
                 </label>
                 <label className="flex items-center gap-2">
                   <input 
@@ -1351,7 +1342,7 @@ export function TagDatabase() {
                     checked={newTagRequiresApproval}
                     onChange={(e) => setNewTagRequiresApproval(e.target.checked)}
                   />
-                  <span className="text-sm text-gray-700">Requires Approval</span>
+                  <span className="text-sm text-gray-700 dark:text-text-dark">Requires Approval</span>
                 </label>
                 <label className="flex items-center gap-2">
                   <input 
@@ -1360,14 +1351,14 @@ export function TagDatabase() {
                     checked={newTagLockScope}
                     onChange={(e) => setNewTagLockScope(e.target.checked)}
                   />
-                  <span className="text-sm text-gray-700">Lock Scope</span>
+                  <span className="text-sm text-gray-700 dark:text-text-dark">Lock Scope</span>
                 </label>
               </div>
             </div>
-            <div className="flex justify-end gap-2 pt-4 border-t">
+            <div className="flex justify-end gap-2 pt-4 border-t border-gray-200 dark:border-gray-700">
               <button
                 onClick={() => setShowCreateTagDialog(false)}
-                className="px-4 py-2 border rounded-lg hover:bg-gray-50"
+                className="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 text-gray-900 dark:text-text-dark bg-white dark:bg-gray-800"
               >
                 Cancel
               </button>
@@ -1400,7 +1391,7 @@ export function TagDatabase() {
           onClose={() => setShowBulkActionsDialog(false)}
           onExecute={(operation, params, dryRun) => handleBulkOperation(operation, params, dryRun)}
           selectedTagsCount={selectedTags.size}
-          previewData={bulkOperation}
+          previewData={bulkOperation || undefined}
         />
       )}
 
@@ -1542,7 +1533,8 @@ export function TagDatabase() {
             setShowAddressMappingDialog(false)
             setSelectedTagForMapping(null)
           }}
-          tag={selectedTagForMapping}
+          tagId={selectedTagForMapping.id}
+          tagName={selectedTagForMapping.name}
           onSave={handleSaveAliases}
         />
       )}
@@ -1555,57 +1547,14 @@ export function TagDatabase() {
             setShowValidationRulesDialog(false)
             setSelectedTagForMapping(null)
           }}
-          tag={selectedTagForMapping}
+          tagId={selectedTagForMapping.id}
+          tagName={selectedTagForMapping.name}
+          tagType={selectedTagForMapping.type}
           onSave={handleSaveValidationRules}
         />
       )}
     </div>
   )
-
-  // Helper function to render hierarchy tree recursively
-  function renderHierarchyTree(nodes: TagHierarchyNode[], level: number = 0): React.ReactElement[] {
-    return nodes.map(node => {
-      const hasChildren = hierarchyNodes.some(n => n.parentId === node.id)
-      const isExpanded = expandedNodes.has(node.id)
-      const nodeTag = node.tagId ? tags.find(t => t.id === node.tagId) : null
-
-      return (
-        <div key={node.id}>
-          <div
-            className={`flex items-center gap-2 px-3 py-2 rounded hover:bg-gray-100 cursor-pointer ${
-              level > 0 ? `ml-${level * 6}` : ''
-            }`}
-            onClick={() => hasChildren && toggleNode(node.id)}
-            style={{ paddingLeft: `${level * 24 + 12}px` }}
-          >
-            {hasChildren ? (
-              isExpanded ? <ChevronDown size={16} /> : <ChevronRight size={16} />
-            ) : (
-              <span className="w-4" />
-            )}
-            {node.type === 'area' && <Grid3x3 size={16} className="text-purple-600" />}
-            {node.type === 'equipment' && <Box size={16} className="text-blue-600" />}
-            {node.type === 'routine' && <Code size={16} className="text-orange-600" />}
-            {node.type === 'tag' && <TagIcon size={16} className="text-green-600" />}
-            <span className="text-sm font-medium">{node.name}</span>
-            {nodeTag && (
-              <span className="text-xs text-gray-500 ml-2">
-                ({nodeTag.type})
-              </span>
-            )}
-          </div>
-          {isExpanded && hasChildren && (
-            <div>
-              {renderHierarchyTree(
-                hierarchyNodes.filter(n => n.parentId === node.id),
-                level + 1
-              )}
-            </div>
-          )}
-        </div>
-      )
-    })
-  }
 }
 
 // ============ Dialog Components ============

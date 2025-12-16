@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useSimulatorStore } from '../store/simulatorStore'
 import { useSyncStore } from '../store/syncStore'
 import { Play, Pause, Square, SkipForward, Download, Trash2, Settings } from 'lucide-react'
@@ -23,6 +23,10 @@ export function Simulator() {
   } = useSimulatorStore()
 
   const { deployedLogic } = useSyncStore()
+  
+  // Only use ioValues from simulator - no external tag polling for simulator display
+  // This ensures we show actual simulator state, not persistent database tags
+  const displayValues = ioValues
 
   // Hyper-granular simulation settings
   const [showSettings, setShowSettings] = useState(false)
@@ -40,7 +44,7 @@ export function Simulator() {
 
 
   const handleToggleBoolean = (name: string) => {
-    const currentValue = ioValues[name] as boolean
+    const currentValue = displayValues[name] as boolean
     setIOValue(name, !currentValue)
   }
 
@@ -65,7 +69,7 @@ export function Simulator() {
   return (
     <div className="space-y-4">
       {/* Control Bar */}
-      <div className="bg-white rounded-lg border border-neutral-200 p-4">
+      <div className="bg-white dark:bg-gray-800 rounded-lg border border-neutral-200 dark:border-gray-700 p-4">
         <div className="flex items-center justify-between flex-wrap gap-3">
           <div className="flex items-center gap-2">
             {!isRunning ? (
@@ -75,7 +79,7 @@ export function Simulator() {
                 className={`flex items-center gap-2 px-4 py-2 rounded-md transition-colors ${
                   deployedLogic 
                     ? 'bg-green-600 text-white hover:bg-green-700' 
-                    : 'bg-neutral-200 text-neutral-500 cursor-not-allowed'
+                    : 'bg-neutral-200 dark:bg-gray-600 text-neutral-500 dark:text-gray-400 cursor-not-allowed'
                 }`}
               >
                 <Play className="w-4 h-4" />
@@ -107,7 +111,7 @@ export function Simulator() {
                   className={`flex items-center gap-2 px-4 py-2 rounded-md transition-colors ${
                     isPaused
                       ? 'bg-blue-600 text-white hover:bg-blue-700'
-                      : 'bg-neutral-200 text-neutral-500 cursor-not-allowed'
+                      : 'bg-neutral-200 dark:bg-gray-600 text-neutral-500 dark:text-gray-400 cursor-not-allowed'
                   }`}
                 >
                   <SkipForward className="w-4 h-4" />
@@ -126,12 +130,12 @@ export function Simulator() {
           </div>
 
           <div className="flex items-center gap-4">
-            <label className="flex items-center gap-2 text-sm">
+            <label className="flex items-center gap-2 text-sm dark:text-gray-200">
               Speed:
               <select
                 value={speed}
                 onChange={(e) => setSpeed(Number(e.target.value))}
-                className="px-2 py-1 border border-neutral-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#FF6A00]"
+                className="px-2 py-1 border border-neutral-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-[#FF6A00]"
               >
                 <option value={0.5}>0.5x</option>
                 <option value={1}>1x</option>
@@ -142,7 +146,7 @@ export function Simulator() {
             </label>
 
             {currentLine && (
-              <div className="px-3 py-1 bg-amber-100 text-amber-800 rounded-md text-sm font-medium">
+              <div className="px-3 py-1 bg-amber-100 dark:bg-amber-900/30 text-amber-800 dark:text-amber-300 rounded-md text-sm font-medium">
                 Line: {currentLine}
               </div>
             )}
@@ -150,24 +154,24 @@ export function Simulator() {
             <div className={`px-3 py-1 rounded-md text-sm font-medium ${
               isRunning 
                 ? isPaused 
-                  ? 'bg-amber-100 text-amber-800' 
-                  : 'bg-green-100 text-green-800'
-                : 'bg-neutral-100 text-neutral-600'
+                  ? 'bg-amber-100 dark:bg-amber-900/30 text-amber-800 dark:text-amber-300' 
+                  : 'bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300'
+                : 'bg-neutral-100 dark:bg-gray-700 text-neutral-600 dark:text-gray-300'
             }`}>
               {isRunning ? (isPaused ? 'Paused' : 'Running') : 'Stopped'}
             </div>
 
             <div className={`px-3 py-1 rounded-md text-sm font-medium ${
               deployedLogic 
-                ? 'bg-blue-100 text-blue-800' 
-                : 'bg-red-100 text-red-800'
+                ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300' 
+                : 'bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-300'
             }`}>
               {deployedLogic ? `Logic: ${deployedLogic.name}` : 'No Logic Deployed'}
             </div>
 
             <button
               onClick={() => setShowSettings(true)}
-              className="flex items-center gap-2 px-4 py-2 bg-white border border-neutral-300 text-neutral-800 rounded-md hover:bg-neutral-50 transition-colors shadow-sm"
+              className="flex items-center gap-2 px-4 py-2 bg-white dark:bg-gray-700 border border-neutral-300 dark:border-gray-600 text-neutral-800 dark:text-gray-200 rounded-md hover:bg-neutral-50 dark:hover:bg-gray-600 transition-colors shadow-sm"
               title="Simulator Settings"
             >
               <Settings className="w-4 h-4" />
@@ -179,31 +183,31 @@ export function Simulator() {
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         {/* I/O Panel */}
-        <div className="bg-white rounded-lg border border-neutral-200 p-4">
-          <h3 className="font-semibold mb-4">I/O Panel</h3>
+        <div className="bg-white dark:bg-gray-800 rounded-lg border border-neutral-200 dark:border-gray-700 p-4">
+          <h3 className="font-semibold mb-4 dark:text-white">I/O Panel</h3>
           
-          {Object.keys(ioValues).length === 0 ? (
-            <div className="text-sm text-neutral-500 text-center py-8">
+          {Object.keys(displayValues).length === 0 ? (
+            <div className="text-sm text-neutral-500 dark:text-gray-400 text-center py-8">
               No variables loaded. Start the simulator to see I/O values.
             </div>
           ) : (
             <div className="space-y-4">
               {/* Boolean I/O - Auto-detect */}
-              {Object.entries(ioValues).some(([_, value]) => typeof value === 'boolean') && (
+              {Object.entries(displayValues).some(([_, value]) => typeof value === 'boolean') && (
                 <div>
-                  <div className="text-sm font-medium text-neutral-700 mb-2">Digital I/O</div>
+                  <div className="text-sm font-medium text-neutral-700 dark:text-gray-300 mb-2">Digital I/O</div>
                   <div className="space-y-2">
-                    {Object.entries(ioValues)
+                    {Object.entries(displayValues)
                       .filter(([_, value]) => typeof value === 'boolean')
                       .map(([name, value]) => (
-                        <div key={name} className="flex items-center justify-between p-2 bg-neutral-50 rounded">
-                          <span className="text-sm font-mono">{name}</span>
+                        <div key={name} className="flex items-center justify-between p-2 bg-neutral-50 dark:bg-gray-700 rounded">
+                          <span className="text-sm font-mono dark:text-gray-300">{name}</span>
                           <button
                             onClick={() => handleToggleBoolean(name)}
                             className={`px-3 py-1 rounded-md text-sm font-medium transition-colors ${
                               value
                                 ? 'bg-green-600 text-white'
-                                : 'bg-neutral-300 text-neutral-700'
+                                : 'bg-neutral-300 dark:bg-neutral-600 text-neutral-700 dark:text-neutral-200'
                             }`}
                           >
                             {value ? 'ON' : 'OFF'}
@@ -215,11 +219,11 @@ export function Simulator() {
               )}
 
               {/* Numeric I/O - Auto-detect */}
-              {Object.entries(ioValues).some(([_, value]) => typeof value === 'number') && (
+              {Object.entries(displayValues).some(([_, value]) => typeof value === 'number') && (
                 <div>
-                  <div className="text-sm font-medium text-neutral-700 mb-2">Analog I/O</div>
+                  <div className="text-sm font-medium text-neutral-700 dark:text-gray-300 mb-2">Analog I/O</div>
                   <div className="space-y-3">
-                    {Object.entries(ioValues)
+                    {Object.entries(displayValues)
                       .filter(([_, value]) => typeof value === 'number')
                       .map(([name, value]) => {
                         // Determine if this is a read-only output variable
@@ -234,11 +238,11 @@ export function Simulator() {
                         return (
                           <div 
                             key={name} 
-                            className={`p-2 rounded ${isOutput ? 'bg-blue-50 border border-blue-200' : 'bg-neutral-50'}`}
+                            className={`p-2 rounded ${isOutput ? 'bg-blue-50 dark:bg-blue-900/30 border border-blue-200 dark:border-blue-700' : 'bg-neutral-50 dark:bg-gray-700'}`}
                           >
                             <div className="flex items-center justify-between mb-1">
-                              <span className="text-sm font-mono">{name}</span>
-                              <span className={`text-sm font-medium ${isOutput ? 'text-blue-800' : ''}`}>
+                              <span className="text-sm font-mono dark:text-gray-300">{name}</span>
+                              <span className={`text-sm font-medium ${isOutput ? 'text-blue-800 dark:text-blue-300' : 'dark:text-gray-200'}`}>
                                 {typeof value === 'number' ? value.toFixed(2) : value}{unit}
                               </span>
                             </div>
@@ -255,13 +259,13 @@ export function Simulator() {
                             )}
                             {isOutput && (
                               <>
-                                <div className="mt-1 w-full bg-neutral-200 rounded-full h-2">
+                                <div className="mt-1 w-full bg-neutral-200 dark:bg-gray-600 rounded-full h-2">
                                   <div 
                                     className="bg-blue-600 h-2 rounded-full transition-all"
                                     style={{ width: `${Math.min(100, Math.max(0, value as number))}%` }}
                                   />
                                 </div>
-                                <div className="text-xs text-neutral-600 mt-1">Output (read-only)</div>
+                                <div className="text-xs text-neutral-600 dark:text-gray-400 mt-1">Output (read-only)</div>
                               </>
                             )}
                           </div>
@@ -274,11 +278,11 @@ export function Simulator() {
           )}
 
           {/* Snapshot */}
-          <div className="mt-4 pt-4 border-t border-neutral-200">
+          <div className="mt-4 pt-4 border-t border-neutral-200 dark:border-gray-700">
             <button
-              className="w-full px-3 py-2 text-sm bg-white border border-neutral-300 text-neutral-800 rounded-md hover:bg-neutral-50 transition-colors"
+              className="w-full px-3 py-2 text-sm bg-white dark:bg-gray-700 border border-neutral-300 dark:border-gray-600 text-neutral-800 dark:text-gray-200 rounded-md hover:bg-neutral-50 dark:hover:bg-gray-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               onClick={() => alert('Snapshot saved')}
-              disabled={Object.keys(ioValues).length === 0}
+              disabled={Object.keys(displayValues).length === 0}
             >
               Save I/O Snapshot
             </button>
@@ -286,13 +290,13 @@ export function Simulator() {
         </div>
 
         {/* Trace/Log Panel */}
-        <div className="bg-white rounded-lg border border-neutral-200 p-4 flex flex-col">
+        <div className="bg-white dark:bg-gray-800 rounded-lg border border-neutral-200 dark:border-gray-700 p-4 flex flex-col">
           <div className="flex items-center justify-between mb-4">
-            <h3 className="font-semibold">Trace Log</h3>
+            <h3 className="font-semibold dark:text-white">Trace Log</h3>
             <div className="flex items-center gap-2">
               <button
                 onClick={downloadLogs}
-                className="flex items-center gap-1 px-2 py-1 text-xs bg-white border border-neutral-300 text-neutral-800 rounded hover:bg-neutral-50 transition-colors"
+                className="flex items-center gap-1 px-2 py-1 text-xs bg-white dark:bg-gray-700 border border-neutral-300 dark:border-gray-600 text-neutral-800 dark:text-gray-200 rounded hover:bg-neutral-50 dark:hover:bg-gray-600 transition-colors"
                 title="Download Logs"
               >
                 <Download className="w-3 h-3" />
@@ -300,7 +304,7 @@ export function Simulator() {
               </button>
               <button
                 onClick={clearLogs}
-                className="flex items-center gap-1 px-2 py-1 text-xs bg-white border border-neutral-300 text-neutral-800 rounded hover:bg-neutral-50 transition-colors"
+                className="flex items-center gap-1 px-2 py-1 text-xs bg-white dark:bg-gray-700 border border-neutral-300 dark:border-gray-600 text-neutral-800 dark:text-gray-200 rounded hover:bg-neutral-50 dark:hover:bg-gray-600 transition-colors"
                 title="Clear Logs"
               >
                 <Trash2 className="w-3 h-3" />
@@ -311,7 +315,7 @@ export function Simulator() {
 
           <div className="flex-1 bg-neutral-900 text-neutral-100 rounded-md p-3 font-mono text-xs overflow-y-auto max-h-96">
             {logs.length === 0 ? (
-              <div className="text-neutral-500">No logs yet. Start the simulator to see activity.</div>
+              <div className="text-neutral-500 dark:text-gray-400">No logs yet. Start the simulator to see activity.</div>
             ) : (
               <div className="space-y-1">
                 {logs.map((log) => (
@@ -323,6 +327,8 @@ export function Simulator() {
                       log.type === 'error' ? 'text-red-400' :
                       log.type === 'warning' ? 'text-amber-400' :
                       log.type === 'tag_change' ? 'text-blue-400' :
+                      log.type === 'drift' ? 'text-orange-400' :
+                      log.type === 'execution' ? 'text-purple-400' :
                       'text-green-400'
                     }`}>
                       [{log.type.toUpperCase()}]
@@ -337,8 +343,8 @@ export function Simulator() {
       </div>
 
       {/* Breakpoint Info */}
-      <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
-        <div className="text-sm text-blue-900">
+      <div className="bg-blue-50 dark:bg-blue-900/30 border border-blue-200 dark:border-blue-700 rounded-lg p-3">
+        <div className="text-sm text-blue-900 dark:text-blue-300">
           <strong>💡 Tip:</strong> Click in the editor's left margin to set breakpoints. 
           The simulator will pause when execution reaches a breakpoint line.
         </div>
@@ -349,18 +355,19 @@ export function Simulator() {
         isOpen={showSettings}
         onClose={() => setShowSettings(false)}
         title="Simulator Configuration"
+        size="xl"
       >
-        <div className="space-y-8 p-2">
+        <div className="space-y-8 p-6">
           {/* Performance Settings Section */}
           <div className="space-y-6">
-            <div className="border-b border-neutral-200 pb-4">
-              <h3 className="text-lg font-semibold text-neutral-800">Performance Settings</h3>
-              <p className="text-sm text-neutral-600 mt-1">Configure scan cycle timing and resource limits</p>
+            <div className="border-b border-neutral-200 dark:border-gray-600 pb-4">
+              <h3 className="text-lg font-semibold text-neutral-800 dark:text-white">Performance Settings</h3>
+              <p className="text-sm text-neutral-600 dark:text-gray-400 mt-1">Configure scan cycle timing and resource limits</p>
             </div>
             
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div className="space-y-3">
-                <label className="block text-sm font-medium text-neutral-700">
+                <label className="block text-sm font-medium text-neutral-700 dark:text-gray-300">
                   Scan Time (ms)
                 </label>
                 <input
@@ -369,13 +376,13 @@ export function Simulator() {
                   max="10000"
                   value={simulatorSettings.scanTimeMs}
                   onChange={(e) => setSimulatorSettings(prev => ({ ...prev, scanTimeMs: Number(e.target.value) }))}
-                  className="w-full px-4 py-3 border border-neutral-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#FF6A00] focus:border-transparent transition-colors"
+                  className="w-full px-4 py-3 border border-neutral-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-[#FF6A00] focus:border-transparent transition-colors"
                 />
-                <div className="text-xs text-neutral-500">PLC scan cycle execution time</div>
+                <div className="text-xs text-neutral-500 dark:text-gray-400">PLC scan cycle execution time</div>
               </div>
               
               <div className="space-y-3">
-                <label className="block text-sm font-medium text-neutral-700">
+                <label className="block text-sm font-medium text-neutral-700 dark:text-gray-300">
                   CPU Quota (%)
                 </label>
                 <input
@@ -384,23 +391,23 @@ export function Simulator() {
                   max="100"
                   value={simulatorSettings.computeQuota}
                   onChange={(e) => setSimulatorSettings(prev => ({ ...prev, computeQuota: Number(e.target.value) }))}
-                  className="w-full px-4 py-3 border border-neutral-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#FF6A00] focus:border-transparent transition-colors"
+                  className="w-full px-4 py-3 border border-neutral-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-[#FF6A00] focus:border-transparent transition-colors"
                 />
-                <div className="text-xs text-neutral-500">Maximum CPU usage per scan cycle</div>
+                <div className="text-xs text-neutral-500 dark:text-gray-400">Maximum CPU usage per scan cycle</div>
               </div>
             </div>
           </div>
 
           {/* I/O Simulation Section */}
           <div className="space-y-6">
-            <div className="border-b border-neutral-200 pb-4">
-              <h3 className="text-lg font-semibold text-neutral-800">I/O Latency Simulation</h3>
-              <p className="text-sm text-neutral-600 mt-1">Realistic network and device response delays</p>
+            <div className="border-b border-neutral-200 dark:border-gray-600 pb-4">
+              <h3 className="text-lg font-semibold text-neutral-800 dark:text-white">I/O Latency Simulation</h3>
+              <p className="text-sm text-neutral-600 dark:text-gray-400 mt-1">Realistic network and device response delays</p>
             </div>
             
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div className="space-y-3">
-                <label className="block text-sm font-medium text-neutral-700">Min Latency (ms)</label>
+                <label className="block text-sm font-medium text-neutral-700 dark:text-gray-300">Min Latency (ms)</label>
                 <input
                   type="number"
                   min="0"
@@ -408,11 +415,11 @@ export function Simulator() {
                   step="0.1"
                   value={simulatorSettings.ioLatencyMin}
                   onChange={(e) => setSimulatorSettings(prev => ({ ...prev, ioLatencyMin: Number(e.target.value) }))}
-                  className="w-full px-3 py-2.5 text-sm border border-neutral-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#FF6A00] focus:border-transparent transition-colors"
+                  className="w-full px-3 py-2.5 text-sm border border-neutral-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-[#FF6A00] focus:border-transparent transition-colors"
                 />
               </div>
               <div className="space-y-3">
-                <label className="block text-sm font-medium text-neutral-700">Max Latency (ms)</label>
+                <label className="block text-sm font-medium text-neutral-700 dark:text-gray-300">Max Latency (ms)</label>
                 <input
                   type="number"
                   min="0"
@@ -420,11 +427,11 @@ export function Simulator() {
                   step="0.1"
                   value={simulatorSettings.ioLatencyMax}
                   onChange={(e) => setSimulatorSettings(prev => ({ ...prev, ioLatencyMax: Number(e.target.value) }))}
-                  className="w-full px-3 py-2.5 text-sm border border-neutral-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#FF6A00] focus:border-transparent transition-colors"
+                  className="w-full px-3 py-2.5 text-sm border border-neutral-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-[#FF6A00] focus:border-transparent transition-colors"
                 />
               </div>
               <div className="space-y-3">
-                <label className="block text-sm font-medium text-neutral-700">Jitter (%)</label>
+                <label className="block text-sm font-medium text-neutral-700 dark:text-gray-300">Jitter (%)</label>
                 <input
                   type="number"
                   min="0"
@@ -432,7 +439,7 @@ export function Simulator() {
                   step="0.1"
                   value={simulatorSettings.ioJitter}
                   onChange={(e) => setSimulatorSettings(prev => ({ ...prev, ioJitter: Number(e.target.value) }))}
-                  className="w-full px-3 py-2.5 text-sm border border-neutral-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#FF6A00] focus:border-transparent transition-colors"
+                  className="w-full px-3 py-2.5 text-sm border border-neutral-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-[#FF6A00] focus:border-transparent transition-colors"
                 />
               </div>
             </div>
@@ -440,9 +447,9 @@ export function Simulator() {
 
           {/* Safety & Diagnostics Section */}
           <div className="space-y-6">
-            <div className="border-b border-neutral-200 pb-4">
-              <h3 className="text-lg font-semibold text-neutral-800">Safety & Diagnostics</h3>
-              <p className="text-sm text-neutral-600 mt-1">System monitoring and error detection</p>
+            <div className="border-b border-neutral-200 dark:border-gray-600 pb-4">
+              <h3 className="text-lg font-semibold text-neutral-800 dark:text-white">Safety & Diagnostics</h3>
+              <p className="text-sm text-neutral-600 dark:text-gray-400 mt-1">System monitoring and error detection</p>
             </div>
             
             <div className="space-y-6">
@@ -452,19 +459,19 @@ export function Simulator() {
                   id="enableWatchdog"
                   checked={simulatorSettings.enableWatchdog}
                   onChange={(e) => setSimulatorSettings(prev => ({ ...prev, enableWatchdog: e.target.checked }))}
-                  className="mt-1 h-4 w-4 text-[#FF6A00] focus:ring-[#FF6A00] border-neutral-300 rounded"
+                  className="mt-1 h-4 w-4 text-[#FF6A00] focus:ring-[#FF6A00] border-neutral-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700"
                 />
                 <div className="flex-1">
-                  <label htmlFor="enableWatchdog" className="text-sm font-medium text-neutral-700">
+                  <label htmlFor="enableWatchdog" className="text-sm font-medium text-neutral-700 dark:text-gray-300">
                     Enable Watchdog Timer
                   </label>
-                  <p className="text-xs text-neutral-500 mt-1">Monitors scan cycle execution time for safety</p>
+                  <p className="text-xs text-neutral-500 dark:text-gray-400 mt-1">Monitors scan cycle execution time for safety</p>
                 </div>
               </div>
               
               {simulatorSettings.enableWatchdog && (
                 <div className="ml-8 space-y-3">
-                  <label className="block text-sm font-medium text-neutral-700">
+                  <label className="block text-sm font-medium text-neutral-700 dark:text-gray-300">
                     Watchdog Timeout (ms)
                   </label>
                   <input
@@ -473,9 +480,9 @@ export function Simulator() {
                     max="60000"
                     value={simulatorSettings.watchdogTimeout}
                     onChange={(e) => setSimulatorSettings(prev => ({ ...prev, watchdogTimeout: Number(e.target.value) }))}
-                    className="w-full max-w-xs px-4 py-3 border border-neutral-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#FF6A00] focus:border-transparent transition-colors"
+                    className="w-full max-w-xs px-4 py-3 border border-neutral-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-[#FF6A00] focus:border-transparent transition-colors"
                   />
-                  <div className="text-xs text-neutral-500">Maximum allowed scan time before fault condition</div>
+                  <div className="text-xs text-neutral-500 dark:text-gray-400">Maximum allowed scan time before fault condition</div>
                 </div>
               )}
 
@@ -485,23 +492,23 @@ export function Simulator() {
                   id="enableDataTypeValidation"
                   checked={simulatorSettings.enableDataTypeValidation}
                   onChange={(e) => setSimulatorSettings(prev => ({ ...prev, enableDataTypeValidation: e.target.checked }))}
-                  className="mt-1 h-4 w-4 text-[#FF6A00] focus:ring-[#FF6A00] border-neutral-300 rounded"
+                  className="mt-1 h-4 w-4 text-[#FF6A00] focus:ring-[#FF6A00] border-neutral-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700"
                 />
                 <div className="flex-1">
-                  <label htmlFor="enableDataTypeValidation" className="text-sm font-medium text-neutral-700">
+                  <label htmlFor="enableDataTypeValidation" className="text-sm font-medium text-neutral-700 dark:text-gray-300">
                     Enable Data Type Overflow Modeling
                   </label>
-                  <p className="text-xs text-neutral-500 mt-1">Simulate real PLC data type limitations and overflow behavior</p>
+                  <p className="text-xs text-neutral-500 dark:text-gray-400 mt-1">Simulate real PLC data type limitations and overflow behavior</p>
                 </div>
               </div>
             </div>
           </div>
 
           {/* Action Buttons */}
-          <div className="flex justify-end gap-4 pt-6 border-t border-neutral-200">
+          <div className="flex justify-end gap-4 pt-6 border-t border-neutral-200 dark:border-gray-600">
             <button
               onClick={() => setShowSettings(false)}
-              className="px-6 py-3 bg-white border border-neutral-300 text-neutral-700 rounded-lg hover:bg-neutral-50 transition-colors font-medium"
+              className="px-6 py-3 bg-white dark:bg-gray-700 border border-neutral-300 dark:border-gray-600 text-neutral-700 dark:text-gray-200 rounded-lg hover:bg-neutral-50 dark:hover:bg-gray-600 transition-colors font-medium"
             >
               Cancel
             </button>

@@ -119,13 +119,13 @@ export function ProjectManagement() {
   }
 
   return (
-    <div className="h-full flex flex-col bg-gray-50">
+    <div className="h-full flex flex-col bg-gray-50 dark:bg-panda-surface-dark">
       {/* Header */}
-      <div className="bg-white border-b border-gray-200 px-6 py-4">
+      <div className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-600 px-6 py-4">
         <div className="flex items-center justify-between mb-4">
           <div>
-            <h1 className="text-2xl font-semibold text-gray-800">Project Management</h1>
-            <p className="text-sm text-gray-600 mt-1">Create and manage your automation projects</p>
+            <h1 className="text-2xl font-semibold text-gray-800 dark:text-white">Project Management</h1>
+            <p className="text-sm text-gray-600 dark:text-gray-300 mt-1">Create and manage your automation projects</p>
           </div>
           <button
             onClick={() => setShowCreateDialog(true)}
@@ -145,7 +145,7 @@ export function ProjectManagement() {
               placeholder="Search projects..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#FF6A00] focus:border-transparent"
+              className="w-full pl-10 pr-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#FF6A00] focus:border-transparent"
             />
           </div>
         </div>
@@ -165,7 +165,7 @@ export function ProjectManagement() {
                 initial={{ opacity: 0, scale: 0.95 }}
                 animate={{ opacity: 1, scale: 1 }}
                 exit={{ opacity: 0, scale: 0.95 }}
-                className={`bg-white rounded-lg border p-5 hover:shadow-lg transition-all cursor-pointer relative group ${
+                className={`bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-600 p-5 hover:shadow-lg transition-all cursor-pointer relative group ${
                   activeProject?.id === project.id ? 'border-[#FF6A00] ring-2 ring-[#FF6A00]/20' : 'border-gray-200'
                 }`}
                 onClick={() => setSelectedProject(project)}
@@ -184,19 +184,19 @@ export function ProjectManagement() {
                         e.stopPropagation()
                         setShowProjectMenu(showProjectMenu === project.id ? null : project.id)
                       }}
-                      className="p-1 hover:bg-gray-100 rounded transition-colors"
+                      className="p-1 hover:bg-gray-100 dark:hover:bg-gray-700 rounded transition-colors"
                     >
-                      <MoreVertical size={16} className="text-gray-600" />
+                      <MoreVertical size={16} className="text-gray-600 dark:text-gray-300" />
                     </button>
                     {showProjectMenu === project.id && (
-                      <div className="absolute right-0 top-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg z-10 min-w-[150px]">
+                      <div className="absolute right-0 top-full mt-1 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-lg shadow-lg z-10 min-w-[150px]">
                         <button
                           onClick={(e) => {
                             e.stopPropagation()
                             setShowProjectMenu(null)
                             setSelectedProject(project)
                           }}
-                          className="w-full px-4 py-2 text-left text-sm hover:bg-gray-50 flex items-center gap-2"
+                          className="w-full px-4 py-2 text-left text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 flex items-center gap-2"
                         >
                           <Eye size={14} />
                           View Details
@@ -207,7 +207,7 @@ export function ProjectManagement() {
                             handleOpenProject(project)
                             setShowProjectMenu(null)
                           }}
-                          className="w-full px-4 py-2 text-left text-sm hover:bg-gray-50 flex items-center gap-2 text-[#FF6A00]"
+                          className="w-full px-4 py-2 text-left text-sm hover:bg-gray-50 dark:hover:bg-gray-700 flex items-center gap-2 text-[#FF6A00]"
                         >
                           <Play size={14} />
                           Set as Active
@@ -217,7 +217,7 @@ export function ProjectManagement() {
                             e.stopPropagation()
                             handleDeleteProject(project.id)
                           }}
-                          className="w-full px-4 py-2 text-left text-sm hover:bg-gray-50 flex items-center gap-2 text-red-600"
+                          className="w-full px-4 py-2 text-left text-sm hover:bg-gray-50 dark:hover:bg-gray-700 flex items-center gap-2 text-red-600 dark:text-red-400"
                         >
                           <Trash2 size={14} />
                           Delete
@@ -233,32 +233,32 @@ export function ProjectManagement() {
                 </div>
 
                 {/* Project Info */}
-                <h3 className="text-lg font-semibold text-gray-800 mb-2 pr-20">{project.name}</h3>
-                <p className="text-sm text-gray-600 mb-4 line-clamp-2">
+                <h3 className="text-lg font-semibold text-gray-800 dark:text-white mb-2 pr-20">{project.name}</h3>
+                <p className="text-sm text-gray-600 dark:text-gray-300 mb-4 line-clamp-2">
                   {project.description || 'No description provided'}
                 </p>
 
                 {/* Stats */}
                 <div className="grid grid-cols-3 gap-2 mb-4">
-                  <div className="text-center p-2 bg-gray-50 rounded">
-                    <FileCode size={16} className="mx-auto text-gray-500 mb-1" />
-                    <p className="text-xs font-medium text-gray-700">{project.stats?.logicFiles || 0}</p>
-                    <p className="text-xs text-gray-500">Logic</p>
+                  <div className="text-center p-2 bg-gray-50 dark:bg-gray-700 rounded">
+                    <FileCode size={16} className="mx-auto text-gray-500 dark:text-gray-400 mb-1" />
+                    <p className="text-xs font-medium text-gray-700 dark:text-white">{project.stats?.logicFiles || 0}</p>
+                    <p className="text-xs text-gray-500 dark:text-gray-400">Logic</p>
                   </div>
-                  <div className="text-center p-2 bg-gray-50 rounded">
-                    <Database size={16} className="mx-auto text-gray-500 mb-1" />
-                    <p className="text-xs font-medium text-gray-700">{project.stats?.tags || 0}</p>
-                    <p className="text-xs text-gray-500">Tags</p>
+                  <div className="text-center p-2 bg-gray-50 dark:bg-gray-700 rounded">
+                    <Database size={16} className="mx-auto text-gray-500 dark:text-gray-400 mb-1" />
+                    <p className="text-xs font-medium text-gray-700 dark:text-white">{project.stats?.tags || 0}</p>
+                    <p className="text-xs text-gray-500 dark:text-gray-400">Tags</p>
                   </div>
-                  <div className="text-center p-2 bg-gray-50 rounded">
-                    <GitBranch size={16} className="mx-auto text-gray-500 mb-1" />
-                    <p className="text-xs font-medium text-gray-700">{project.stats?.versions || 0}</p>
-                    <p className="text-xs text-gray-500">Versions</p>
+                  <div className="text-center p-2 bg-gray-50 dark:bg-gray-700 rounded">
+                    <GitBranch size={16} className="mx-auto text-gray-500 dark:text-gray-400 mb-1" />
+                    <p className="text-xs font-medium text-gray-700 dark:text-white">{project.stats?.versions || 0}</p>
+                    <p className="text-xs text-gray-500 dark:text-gray-400">Versions</p>
                   </div>
                 </div>
 
                 {/* Meta */}
-                <div className="flex items-center justify-between text-xs text-gray-500 border-t border-gray-100 pt-3">
+                <div className="flex items-center justify-between text-xs text-gray-500 dark:text-gray-400 border-t border-gray-100 dark:border-gray-700 pt-3">
                   <div className="flex items-center gap-1">
                     <Calendar size={12} />
                     {new Date(project.created_at).toLocaleDateString()}
@@ -308,7 +308,7 @@ export function ProjectManagement() {
               animate={{ scale: 1, opacity: 1 }}
               exit={{ scale: 0.95, opacity: 0 }}
               onClick={(e) => e.stopPropagation()}
-              className="bg-white rounded-lg p-6 w-full max-w-md"
+              className="bg-white dark:bg-gray-800 rounded-lg p-6 w-full max-w-md"
             >
               <div className="flex items-center justify-between mb-6">
                 <h2 className="text-xl font-semibold text-gray-800 flex items-center gap-2">
@@ -327,7 +327,7 @@ export function ProjectManagement() {
 
               <div className="space-y-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                     Project Name *
                   </label>
                   <input
@@ -335,14 +335,14 @@ export function ProjectManagement() {
                     value={newProjectName}
                     onChange={(e) => setNewProjectName(e.target.value)}
                     placeholder="e.g., Production Line Control"
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#FF6A00] focus:border-transparent"
+                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#FF6A00] focus:border-transparent"
                     disabled={isCreating}
                     autoFocus
                   />
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                     Description (optional)
                   </label>
                   <textarea
@@ -350,7 +350,7 @@ export function ProjectManagement() {
                     onChange={(e) => setNewProjectDescription(e.target.value)}
                     placeholder="Brief description of the project..."
                     rows={3}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#FF6A00] focus:border-transparent resize-none"
+                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#FF6A00] focus:border-transparent resize-none"
                     disabled={isCreating}
                   />
                 </div>
@@ -360,7 +360,7 @@ export function ProjectManagement() {
                 <button
                   onClick={() => setShowCreateDialog(false)}
                   disabled={isCreating}
-                  className="px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="px-4 py-2 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   Cancel
                 </button>
@@ -402,14 +402,14 @@ export function ProjectManagement() {
               animate={{ scale: 1, opacity: 1 }}
               exit={{ scale: 0.95, opacity: 0 }}
               onClick={(e) => e.stopPropagation()}
-              className="bg-white rounded-lg p-6 w-full max-w-2xl max-h-[80vh] overflow-y-auto"
+              className="bg-white dark:bg-gray-800 rounded-lg p-6 w-full max-w-2xl max-h-[80vh] overflow-y-auto"
             >
               <div className="flex items-start justify-between mb-6">
                 <div>
-                  <h2 className="text-2xl font-semibold text-gray-800 mb-2">
+                  <h2 className="text-2xl font-semibold text-gray-800 dark:text-white mb-2">
                     {selectedProject.name}
                   </h2>
-                  <p className="text-gray-600">{selectedProject.description || 'No description'}</p>
+                  <p className="text-gray-600 dark:text-gray-300">{selectedProject.description || 'No description'}</p>
                 </div>
                 <button
                   onClick={() => setSelectedProject(null)}
@@ -422,57 +422,57 @@ export function ProjectManagement() {
               <div className="space-y-4">
                 {/* Paths */}
                 <div>
-                  <h3 className="text-sm font-semibold text-gray-700 mb-2">Project Path</h3>
-                  <div className="bg-gray-50 p-3 rounded-lg">
-                    <p className="text-sm font-mono text-gray-700">{selectedProject.file_path}</p>
+                  <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">Project Path</h3>
+                  <div className="bg-gray-50 dark:bg-gray-700 p-3 rounded-lg">
+                    <p className="text-sm font-mono text-gray-700 dark:text-gray-300">{selectedProject.file_path}</p>
                   </div>
                 </div>
 
                 {/* Stats */}
                 <div>
-                  <h3 className="text-sm font-semibold text-gray-700 mb-2">Statistics</h3>
+                  <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">Statistics</h3>
                   <div className="grid grid-cols-3 gap-3">
-                    <div className="bg-blue-50 p-3 rounded-lg text-center">
-                      <FileCode size={24} className="mx-auto text-blue-600 mb-2" />
-                      <p className="text-2xl font-bold text-blue-700">
+                    <div className="bg-blue-50 dark:bg-blue-900/30 p-3 rounded-lg text-center">
+                      <FileCode size={24} className="mx-auto text-blue-600 dark:text-blue-400 mb-2" />
+                      <p className="text-2xl font-bold text-blue-700 dark:text-blue-300">
                         {selectedProject.stats?.logicFiles || 0}
                       </p>
-                      <p className="text-xs text-blue-600">Logic Files</p>
+                      <p className="text-xs text-blue-600 dark:text-blue-400">Logic Files</p>
                     </div>
-                    <div className="bg-green-50 p-3 rounded-lg text-center">
-                      <Database size={24} className="mx-auto text-green-600 mb-2" />
-                      <p className="text-2xl font-bold text-green-700">
+                    <div className="bg-green-50 dark:bg-green-900/30 p-3 rounded-lg text-center">
+                      <Database size={24} className="mx-auto text-green-600 dark:text-green-400 mb-2" />
+                      <p className="text-2xl font-bold text-green-700 dark:text-green-300">
                         {selectedProject.stats?.tags || 0}
                       </p>
-                      <p className="text-xs text-green-600">Tags</p>
+                      <p className="text-xs text-green-600 dark:text-green-400">Tags</p>
                     </div>
-                    <div className="bg-purple-50 p-3 rounded-lg text-center">
-                      <GitBranch size={24} className="mx-auto text-purple-600 mb-2" />
-                      <p className="text-2xl font-bold text-purple-700">
+                    <div className="bg-purple-50 dark:bg-purple-900/30 p-3 rounded-lg text-center">
+                      <GitBranch size={24} className="mx-auto text-purple-600 dark:text-purple-400 mb-2" />
+                      <p className="text-2xl font-bold text-purple-700 dark:text-purple-300">
                         {selectedProject.stats?.versions || 0}
                       </p>
-                      <p className="text-xs text-purple-600">Versions</p>
+                      <p className="text-xs text-purple-600 dark:text-purple-400">Versions</p>
                     </div>
                   </div>
                 </div>
 
                 {/* Metadata */}
                 <div>
-                  <h3 className="text-sm font-semibold text-gray-700 mb-2">Metadata</h3>
+                  <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">Metadata</h3>
                   <div className="space-y-2">
-                    <div className="flex items-center justify-between py-2 border-b border-gray-100">
-                      <span className="text-sm text-gray-600">Project ID:</span>
-                      <span className="text-sm font-mono text-gray-800">{selectedProject.id}</span>
+                    <div className="flex items-center justify-between py-2 border-b border-gray-100 dark:border-gray-700">
+                      <span className="text-sm text-gray-600 dark:text-gray-400">Project ID:</span>
+                      <span className="text-sm font-mono text-gray-800 dark:text-gray-200">{selectedProject.id}</span>
                     </div>
-                    <div className="flex items-center justify-between py-2 border-b border-gray-100">
-                      <span className="text-sm text-gray-600">Created:</span>
-                      <span className="text-sm text-gray-800">
+                    <div className="flex items-center justify-between py-2 border-b border-gray-100 dark:border-gray-700">
+                      <span className="text-sm text-gray-600 dark:text-gray-400">Created:</span>
+                      <span className="text-sm text-gray-800 dark:text-gray-200">
                         {new Date(selectedProject.created_at).toLocaleString()}
                       </span>
                     </div>
                     <div className="flex items-center justify-between py-2">
-                      <span className="text-sm text-gray-600">Last Opened:</span>
-                      <span className="text-sm text-gray-800">
+                      <span className="text-sm text-gray-600 dark:text-gray-400">Last Opened:</span>
+                      <span className="text-sm text-gray-800 dark:text-gray-200">
                         {new Date(selectedProject.last_opened).toLocaleString()}
                       </span>
                     </div>
@@ -480,10 +480,10 @@ export function ProjectManagement() {
                 </div>
               </div>
 
-              <div className="flex justify-end gap-3 mt-6 pt-4 border-t border-gray-200">
+              <div className="flex justify-end gap-3 mt-6 pt-4 border-t border-gray-200 dark:border-gray-700">
                 <button
                   onClick={() => setSelectedProject(null)}
-                  className="px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
+                  className="px-4 py-2 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
                 >
                   Close
                 </button>

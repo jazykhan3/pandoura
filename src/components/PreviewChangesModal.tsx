@@ -168,19 +168,19 @@ export function PreviewChangesModal({
   const getDiffLineClass = (type: LogicDiff['type']) => {
     switch (type) {
       case 'added':
-        return 'bg-green-50 border-l-4 border-green-400 text-green-800'
+        return 'bg-green-50 dark:bg-green-900/30 border-l-4 border-green-400 text-green-800 dark:text-green-300'
       case 'removed':
-        return 'bg-red-50 border-l-4 border-red-400 text-red-800'
+        return 'bg-red-50 dark:bg-red-900/30 border-l-4 border-red-400 text-red-800 dark:text-red-300'
       case 'modified':
-        return 'bg-blue-50 border-l-4 border-blue-400 text-blue-800'
+        return 'bg-blue-50 dark:bg-blue-900/30 border-l-4 border-blue-400 text-blue-800 dark:text-blue-300'
       default:
-        return 'bg-neutral-50 text-neutral-600'
+        return 'bg-neutral-50 dark:bg-gray-700 text-neutral-600 dark:text-gray-400'
     }
   }
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-      <div className="bg-white rounded-lg shadow-xl max-w-6xl w-full mx-4 max-h-[90vh] overflow-hidden">
+      <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-6xl w-full mx-4 max-h-[90vh] overflow-hidden">
         {/* Header */}
         <div className="bg-[#FF6A00] text-white px-6 py-4">
           <div className="flex items-center justify-between">
@@ -203,14 +203,14 @@ export function PreviewChangesModal({
         </div>
 
         {/* Tabs */}
-        <div className="border-b border-neutral-200">
+        <div className="border-b border-neutral-200 dark:border-gray-700">
           <div className="flex">
             <button
               onClick={() => setActiveTab('summary')}
               className={`px-6 py-3 text-sm font-medium border-b-2 transition-colors ${
                 activeTab === 'summary'
                   ? 'border-[#FF6A00] text-[#FF6A00]'
-                  : 'border-transparent text-neutral-600 hover:text-neutral-900'
+                  : 'border-transparent text-neutral-600 dark:text-gray-300 hover:text-neutral-900 dark:hover:text-white'
               }`}
             >
               <FileText className="w-4 h-4 inline mr-2" />
@@ -221,7 +221,7 @@ export function PreviewChangesModal({
               className={`px-6 py-3 text-sm font-medium border-b-2 transition-colors ${
                 activeTab === 'diff'
                   ? 'border-[#FF6A00] text-[#FF6A00]'
-                  : 'border-transparent text-neutral-600 hover:text-neutral-900'
+                  : 'border-transparent text-neutral-600 dark:text-gray-300 hover:text-neutral-900 dark:hover:text-white'
               }`}
             >
               <Zap className="w-4 h-4 inline mr-2" />
@@ -232,7 +232,7 @@ export function PreviewChangesModal({
               className={`px-6 py-3 text-sm font-medium border-b-2 transition-colors ${
                 activeTab === 'safety'
                   ? 'border-[#FF6A00] text-[#FF6A00]'
-                  : 'border-transparent text-neutral-600 hover:text-neutral-900'
+                  : 'border-transparent text-neutral-600 dark:text-gray-300 hover:text-neutral-900 dark:hover:text-white'
               }`}
             >
               <Shield className="w-4 h-4 inline mr-2" />
@@ -249,7 +249,7 @@ export function PreviewChangesModal({
             <div className="flex items-center justify-center py-12">
               <div className="text-center">
                 <div className="w-8 h-8 border-2 border-[#FF6A00] border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-                <p className="text-neutral-600">Analyzing changes and running safety checks...</p>
+                <p className="text-neutral-600 dark:text-gray-400">Analyzing changes and running safety checks...</p>
               </div>
             </div>
           ) : (
@@ -257,23 +257,23 @@ export function PreviewChangesModal({
               {activeTab === 'summary' && (
                 <div className="space-y-6">
                   {/* Overview */}
-                  <div className="bg-neutral-50 rounded-lg p-4">
-                    <h3 className="font-semibold mb-3">Change Overview</h3>
+                  <div className="bg-neutral-50 dark:bg-gray-700 rounded-lg p-4">
+                    <h3 className="font-semibold mb-3 dark:text-white">Change Overview</h3>
                     <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
                       <div>
-                        <div className="text-neutral-600 mb-1">Target Runtime</div>
-                        <div className="font-semibold capitalize">{targetRuntime}</div>
+                        <div className="text-neutral-600 dark:text-gray-400 mb-1">Target Runtime</div>
+                        <div className="font-semibold capitalize dark:text-gray-200">{targetRuntime}</div>
                       </div>
                       <div>
-                        <div className="text-neutral-600 mb-1">Logic File</div>
-                        <div className="font-semibold">{logicName}</div>
+                        <div className="text-neutral-600 dark:text-gray-400 mb-1">Logic File</div>
+                        <div className="font-semibold dark:text-gray-200">{logicName}</div>
                       </div>
                       <div>
-                        <div className="text-neutral-600 mb-1">Changes</div>
-                        <div className="font-semibold">{changesCount} lines</div>
+                        <div className="text-neutral-600 dark:text-gray-400 mb-1">Changes</div>
+                        <div className="font-semibold dark:text-gray-200">{changesCount} lines</div>
                       </div>
                       <div>
-                        <div className="text-neutral-600 mb-1">Safety Status</div>
+                        <div className="text-neutral-600 dark:text-gray-400 mb-1">Safety Status</div>
                         <div className={`font-semibold ${
                           hasErrors ? 'text-red-600' : hasWarnings ? 'text-amber-600' : 'text-green-600'
                         }`}>
@@ -284,23 +284,23 @@ export function PreviewChangesModal({
                   </div>
 
                   {/* Safety Summary */}
-                  <div className="bg-white border border-neutral-200 rounded-lg p-4">
-                    <h3 className="font-semibold mb-3">Safety Check Summary</h3>
+                  <div className="bg-white dark:bg-gray-700 border border-neutral-200 dark:border-gray-600 rounded-lg p-4">
+                    <h3 className="font-semibold mb-3 dark:text-white">Safety Check Summary</h3>
                     <div className="space-y-2">
                       {safetyChecks.map((check) => (
                         <div key={check.id} className="flex items-center gap-3">
                           {getStatusIcon(check.status)}
-                          <span className="flex-1">{check.name}</span>
-                          <span className="text-sm text-neutral-600">{check.message}</span>
+                          <span className="flex-1 dark:text-gray-200">{check.name}</span>
+                          <span className="text-sm text-neutral-600 dark:text-gray-400">{check.message}</span>
                         </div>
                       ))}
                     </div>
                   </div>
 
                   {/* Impact Assessment */}
-                  <div className="bg-white border border-neutral-200 rounded-lg p-4">
-                    <h3 className="font-semibold mb-3">Impact Assessment</h3>
-                    <div className="text-sm text-neutral-700 space-y-2">
+                  <div className="bg-white dark:bg-gray-700 border border-neutral-200 dark:border-gray-600 rounded-lg p-4">
+                    <h3 className="font-semibold mb-3 dark:text-white">Impact Assessment</h3>
+                    <div className="text-sm text-neutral-700 dark:text-gray-300 space-y-2">
                       <p>• This push will update the {targetRuntime} runtime with new logic</p>
                       <p>• {changesCount} line{changesCount !== 1 ? 's' : ''} will be modified</p>
                       {hasWarnings && <p className="text-amber-600">• Review warnings before proceeding</p>}
@@ -313,15 +313,15 @@ export function PreviewChangesModal({
               {activeTab === 'diff' && (
                 <div className="space-y-4">
                   <div className="flex items-center justify-between">
-                    <h3 className="font-semibold">Logic Changes</h3>
-                    <div className="text-sm text-neutral-600">
+                    <h3 className="font-semibold dark:text-white">Logic Changes</h3>
+                    <div className="text-sm text-neutral-600 dark:text-gray-400">
                       {changesCount} change{changesCount !== 1 ? 's' : ''} detected
                     </div>
                   </div>
 
                   <div className="bg-neutral-900 text-neutral-100 rounded-lg p-4 font-mono text-sm max-h-96 overflow-y-auto">
                     {logicDiff.length === 0 ? (
-                      <div className="text-neutral-500 text-center py-4">No changes detected</div>
+                      <div className="text-neutral-500 dark:text-gray-400 text-center py-4">No changes detected</div>
                     ) : (
                       <div className="space-y-1">
                         {logicDiff.filter(d => d.type !== 'unchanged').map((diff, index) => (
@@ -357,27 +357,27 @@ export function PreviewChangesModal({
 
               {activeTab === 'safety' && (
                 <div className="space-y-4">
-                  <h3 className="font-semibold">Safety Check Details</h3>
+                  <h3 className="font-semibold dark:text-white">Safety Check Details</h3>
                   
                   <div className="space-y-3">
                     {safetyChecks.map((check) => (
-                      <div key={check.id} className="bg-white border border-neutral-200 rounded-lg p-4">
+                      <div key={check.id} className="bg-white dark:bg-gray-700 border border-neutral-200 dark:border-gray-600 rounded-lg p-4">
                         <div className="flex items-start gap-3">
                           {getStatusIcon(check.status)}
                           <div className="flex-1">
                             <div className="flex items-center justify-between mb-2">
-                              <h4 className="font-medium">{check.name}</h4>
+                              <h4 className="font-medium dark:text-white">{check.name}</h4>
                               <span className={`text-xs px-2 py-1 rounded-full ${
-                                check.status === 'pass' ? 'bg-green-100 text-green-800' :
-                                check.status === 'warning' ? 'bg-amber-100 text-amber-800' :
-                                'bg-red-100 text-red-800'
+                                check.status === 'pass' ? 'bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300' :
+                                check.status === 'warning' ? 'bg-amber-100 dark:bg-amber-900/30 text-amber-800 dark:text-amber-300' :
+                                'bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-300'
                               }`}>
                                 {check.status.toUpperCase()}
                               </span>
                             </div>
-                            <p className="text-sm text-neutral-700 mb-2">{check.message}</p>
+                            <p className="text-sm text-neutral-700 dark:text-gray-300 mb-2">{check.message}</p>
                             {check.details && (
-                              <p className="text-xs text-neutral-600 bg-neutral-50 p-2 rounded">
+                              <p className="text-xs text-neutral-600 dark:text-gray-400 bg-neutral-50 dark:bg-gray-600 p-2 rounded">
                                 {check.details}
                               </p>
                             )}
@@ -393,16 +393,16 @@ export function PreviewChangesModal({
         </div>
 
         {/* Footer */}
-        <div className="bg-neutral-50 border-t border-neutral-200 px-6 py-4">
+        <div className="bg-neutral-50 dark:bg-gray-700 border-t border-neutral-200 dark:border-gray-600 px-6 py-4">
           <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2 text-sm text-neutral-600">
+            <div className="flex items-center gap-2 text-sm text-neutral-600 dark:text-gray-400">
               <Clock className="w-4 h-4" />
               <span>Analysis completed at {new Date().toLocaleTimeString()}</span>
             </div>
             <div className="flex gap-3">
               <button
                 onClick={onClose}
-                className="px-4 py-2 text-sm border border-neutral-300 text-neutral-700 rounded-md hover:bg-neutral-50 transition-colors"
+                className="px-4 py-2 text-sm border border-neutral-300 dark:border-gray-600 text-neutral-700 dark:text-gray-200 bg-white dark:bg-gray-800 rounded-md hover:bg-neutral-50 dark:hover:bg-gray-600 transition-colors"
               >
                 Cancel
               </button>

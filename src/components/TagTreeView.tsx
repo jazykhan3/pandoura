@@ -220,7 +220,7 @@ export function TagTreeView({
         const parts = text.split(regex)
         return parts.map((part, i) => {
           const testRegex = new RegExp(searchTerm, 'gi')
-          return testRegex.test(part) ? <mark key={i} className="bg-yellow-200 font-semibold">{part}</mark> : part
+          return testRegex.test(part) ? <mark key={i} className="bg-yellow-200 dark:bg-yellow-600 font-semibold">{part}</mark> : part
         })
       } else {
         const index = text.toLowerCase().indexOf(searchTerm.toLowerCase())
@@ -233,7 +233,7 @@ export function TagTreeView({
         return (
           <>
             {before}
-            <mark className="bg-yellow-200 font-semibold">{match}</mark>
+            <mark className="bg-yellow-200 dark:bg-yellow-600 font-semibold">{match}</mark>
             {after}
           </>
         )
@@ -254,7 +254,7 @@ export function TagTreeView({
         {/* Node Header */}
         <div
           className={`flex items-center gap-2 px-2 py-1.5 rounded-md cursor-pointer transition-colors ${
-            isSelected ? 'bg-[#FF6A00] bg-opacity-10 border-l-2 border-[#FF6A00]' : 'hover:bg-gray-100'
+            isSelected ? 'bg-[#FF6A00] bg-opacity-10 border-l-2 border-[#FF6A00]' : 'hover:bg-gray-100 dark:hover:bg-gray-700'
           }`}
           style={{ paddingLeft: `${level * 20 + 8}px` }}
           onClick={() => {
@@ -267,9 +267,9 @@ export function TagTreeView({
           {/* Expand/Collapse Icon */}
           {(hasChildren || hasTags) ? (
             isExpanded ? (
-              <ChevronDown size={16} className="text-gray-500 flex-shrink-0" />
+              <ChevronDown size={16} className="text-gray-500 dark:text-gray-400 flex-shrink-0" />
             ) : (
-              <ChevronRight size={16} className="text-gray-500 flex-shrink-0" />
+              <ChevronRight size={16} className="text-gray-500 dark:text-gray-400 flex-shrink-0" />
             )
           ) : (
             <div className="w-4" />
@@ -279,13 +279,13 @@ export function TagTreeView({
           {getNodeIcon(node.type, isExpanded)}
           
           {/* Node Name */}
-          <span className="text-sm font-medium text-gray-800 flex-1">
+          <span className="text-sm font-medium text-gray-800 dark:text-gray-200 flex-1">
             {highlightMatch(node.name)}
           </span>
           
           {/* Tag Count */}
           {hasTags && (
-            <span className="text-xs bg-gray-200 text-gray-600 px-1.5 py-0.5 rounded">
+            <span className="text-xs bg-gray-200 dark:bg-gray-600 text-gray-600 dark:text-gray-300 px-1.5 py-0.5 rounded">
               {node.tags.length}
             </span>
           )}
@@ -306,7 +306,7 @@ export function TagTreeView({
                 className={`flex items-center gap-2 px-2 py-1.5 rounded-md cursor-pointer transition-colors group ${
                   selectedTagId === tag.id 
                     ? 'bg-[#FF6A00] bg-opacity-20 border-l-2 border-[#FF6A00]' 
-                    : 'hover:bg-blue-50'
+                    : 'hover:bg-blue-50 dark:hover:bg-gray-700'
                 }`}
                 style={{ paddingLeft: `${(level + 1) * 20 + 8}px` }}
                 onClick={() => onTagSelect(tag)}
@@ -314,7 +314,7 @@ export function TagTreeView({
               >
                 <TagIcon size={14} className="text-[#FF6A00] flex-shrink-0" />
                 
-                <span className="text-sm text-gray-800 flex-1 font-mono">
+                <span className="text-sm text-gray-800 dark:text-gray-200 flex-1 font-mono">
                   {highlightMatch(tag.name)}
                 </span>
                 
@@ -341,7 +341,7 @@ export function TagTreeView({
                         e.stopPropagation()
                         onAddressMapping(tag)
                       }}
-                      className="p-1 hover:bg-blue-100 rounded text-blue-600"
+                      className="p-1 hover:bg-blue-100 dark:hover:bg-blue-900 rounded text-blue-600 dark:text-blue-400"
                       title="Address Mapping"
                     >
                       <Settings size={12} />
@@ -353,7 +353,7 @@ export function TagTreeView({
                         e.stopPropagation()
                         onValidationRules(tag)
                       }}
-                      className="p-1 hover:bg-green-100 rounded text-green-600"
+                      className="p-1 hover:bg-green-100 dark:hover:bg-green-900 rounded text-green-600 dark:text-green-400"
                       title="Validation Rules"
                     >
                       <CheckCircle size={12} />
@@ -369,10 +369,10 @@ export function TagTreeView({
   }
 
   return (
-    <div className="h-full overflow-auto p-4 bg-white">
+    <div className="h-full overflow-auto p-4 bg-white dark:bg-gray-900">
       {Object.keys(filteredTree).length === 0 ? (
-        <div className="text-center py-12 text-gray-500">
-          <TagIcon size={48} className="mx-auto mb-3 text-gray-300" />
+        <div className="text-center py-12 text-gray-500 dark:text-gray-400">
+          <TagIcon size={48} className="mx-auto mb-3 text-gray-300 dark:text-gray-600" />
           <p className="text-sm">
             {searchTerm ? 'No tags match your search' : 'No tags in hierarchy'}
           </p>

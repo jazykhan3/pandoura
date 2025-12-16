@@ -32,6 +32,7 @@ type MonacoEditorProps = {
   onCodeLensAction?: (command: string, args?: any[]) => void
   onRenameSymbol?: (oldName: string, newName?: string) => void
   onExtractFunction?: (startLine: number, endLine: number) => void
+  theme?: 'light' | 'dark'
 }
 
 // Function to format Structured Text code
@@ -83,8 +84,8 @@ function formatStructuredText(text: string, options?: any): string {
 export function MonacoEditor({ 
   value, 
   onChange, 
-  markers = [],
-  breakpoints = [],
+  markers = [], 
+  breakpoints = [], 
   onBreakpointToggle,
   currentLine,
   tags = [],
@@ -92,6 +93,7 @@ export function MonacoEditor({
   onCodeLensAction,
   onRenameSymbol,
   onExtractFunction,
+  theme = 'light'
 }: MonacoEditorProps) {
   const editorRef = useRef<editor.IStandaloneCodeEditor | null>(null)
   const monacoRef = useRef<typeof import('monaco-editor') | null>(null)
@@ -154,6 +156,13 @@ export function MonacoEditor({
       }
     }
   }, [markers])
+
+  // Update theme when theme prop changes
+  useEffect(() => {
+    if (monacoRef.current) {
+      monacoRef.current.editor.setTheme(theme === 'dark' ? 'st-theme-dark' : 'st-theme')
+    }
+  }, [theme])
 
   const handleEditorDidMount = (editor: editor.IStandaloneCodeEditor | null, monaco: typeof import('monaco-editor') | null) => {
     if (!editor || !monaco) return
@@ -265,7 +274,7 @@ export function MonacoEditor({
       }
     })
 
-    // Define ST theme
+    // Define ST light theme
     monaco.editor.defineTheme('st-theme', {
       base: 'vs',
       inherit: true,
@@ -286,7 +295,29 @@ export function MonacoEditor({
       },
     })
 
-    monaco.editor.setTheme('st-theme')
+    // Define ST dark theme
+    monaco.editor.defineTheme('st-theme-dark', {
+      base: 'vs-dark',
+      inherit: true,
+      rules: [
+        { token: 'keyword', foreground: '569CD6', fontStyle: 'bold' },
+        { token: 'type', foreground: '4EC9B0' },
+        { token: 'comment', foreground: '6A9955', fontStyle: 'italic' },
+        { token: 'string', foreground: 'CE9178' },
+        { token: 'number', foreground: 'B5CEA8' },
+        { token: 'identifier', foreground: 'D4D4D4' },
+      ],
+      colors: {
+        'editor.foreground': '#D4D4D4',
+        'editor.background': '#1E1E1E',
+        'editorLineNumber.foreground': '#858585',
+        'editor.selectionBackground': '#264F78',
+        'editor.lineHighlightBackground': '#2A2D2E',
+      },
+    })
+
+    // Apply the appropriate theme
+    monaco.editor.setTheme(theme === 'dark' ? 'st-theme-dark' : 'st-theme')
     
     // Register commands FIRST before Code Lens provider uses them
     if (onCodeLensAction) {
