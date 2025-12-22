@@ -1,4 +1,5 @@
 import type { LogicFile, Tag, ValidationResult, SimulatorLog } from '../types'
+import { deviceAuth } from '../utils/deviceAuth'
 
 const API_BASE = 'http://localhost:8000/api'
 
@@ -12,6 +13,16 @@ const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms))
 async function dummyFetch<T>(data: T, delayMs = 300): Promise<T> {
   await delay(delayMs)
   return data
+}
+
+// Helper to get authenticated headers
+async function getAuthHeaders(): Promise<HeadersInit> {
+  const sessionToken = await deviceAuth.getSessionToken()
+  const headers: HeadersInit = {}
+  if (sessionToken) {
+    headers['Authorization'] = `Bearer ${sessionToken}`
+  }
+  return headers
 }
 
 // Logic File APIs
@@ -38,7 +49,8 @@ export const logicApi = {
       ])
     }
     const url = projectId ? `${API_BASE}/logic?projectId=${projectId}` : `${API_BASE}/logic`;
-    const res = await fetch(url)
+    const headers = await getAuthHeaders()
+    const res = await fetch(url, { headers })
     return res.json()
   },
 
@@ -53,8 +65,17 @@ export const logicApi = {
         author: 'Engineer',
       })
     }
-    const res = await fetch(`${API_BASE}/logic/${id}`)
-    return res.json()
+    const headers = await getAuthHeaders()
+    console.log(`📡 Fetching logic file by ID: ${id}`)
+    const res = await fetch(`${API_BASE}/logic/${id}`, { headers })
+    const file = await res.json()
+    console.log(`📡 Received file from API:`, {
+      id: file.id,
+      name: file.name,
+      contentLength: file.content?.length || 0,
+      content: file.content?.substring(0, 50)
+    })
+    return file
   },
 
   async create(logic: Partial<LogicFile>): Promise<LogicFile> {
@@ -489,7 +510,8 @@ export const simulatorApi = {
       }, 200)
     }
     // Make actual backend call - no static fallbacks for completely dynamic behavior
-    const res = await fetch(`${API_BASE}/simulate/status`)
+    const headers = await getAuthHeaders()
+    const res = await fetch(`${API_BASE}/simulate/status`, { headers })
     return res.json()
   },
 
@@ -575,7 +597,7 @@ export const simulatorApi = {
 
 // Tag APIs
 export const tagApi = {
-  async getAll(): Promise<Tag[]> {
+  async getAll(projectId?: string): Promise<Tag[]> {
     if (DUMMY_MODE) {
       return dummyFetch([
         { 
@@ -677,8 +699,17 @@ export const tagApi = {
         },
       ])
     }
-    const res = await fetch(`${API_BASE}/tags`)
-    return res.json()
+    const sessionToken = await deviceAuth.getSessionToken()
+    const headers: HeadersInit = {}
+    if (sessionToken) {
+      headers['Authorization'] = `Bearer ${sessionToken}`
+    }
+    const url = projectId ? `${API_BASE}/tags?project_id=${projectId}` : `${API_BASE}/tags`
+    console.log(`📊 Fetching tags from: ${url}`)
+    const res = await fetch(url, { headers })
+    const tags = await res.json()
+    console.log(`📊 Received ${tags.length} tags for project ${projectId || 'all'}`)
+    return tags
   },
 
   async create(tag: Partial<Tag>): Promise<Tag> {
@@ -1161,7 +1192,8 @@ export const plcApi = {
 export const versionApi = {
   // Branches
   async getBranches(projectId: string | number) {
-    const res = await fetch(`${API_BASE}/versions/projects/${projectId}/branches`);
+    const headers = await getAuthHeaders()
+    const res = await fetch(`${API_BASE}/versions/projects/${projectId}/branches`, { headers });
     return res.json();
   },
 
@@ -1298,7 +1330,8 @@ export const versionApi = {
     if (filters?.environment) params.append('environment', filters.environment);
 
     const url = `${API_BASE}/versions/projects/${projectId}/releases${params.toString() ? '?' + params.toString() : ''}`;
-    const res = await fetch(url);
+    const headers = await getAuthHeaders()
+    const res = await fetch(url, { headers });
     return res.json();
   },
 

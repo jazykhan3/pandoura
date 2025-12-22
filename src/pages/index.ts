@@ -6,6 +6,7 @@ export { Deploy } from './Deploy'
 export { VersioningCenter } from './VersioningCenter'
 export { ProjectManagement } from './ProjectManagement'
 export { SettingsPage } from './SettingsPage'
+export { RuntimeSettings } from './RuntimeSettings'
 export { ProfilePage } from './ProfilePage'
 
 

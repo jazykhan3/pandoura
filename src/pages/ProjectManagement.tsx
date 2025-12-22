@@ -14,10 +14,12 @@ import {
   Clock,
   X,
   Play,
+  Download,
 } from 'lucide-react'
 import type { Project } from '../types'
 import { Dialog } from '../components/Dialog'
 import { useProjectStore } from '../store/projectStore'
+import { PullFromPLCDialog } from '../components/PullFromPLCDialog'
 
 export function ProjectManagement() {
   const {
@@ -43,6 +45,10 @@ export function ProjectManagement() {
     message: string
     type: 'success' | 'error' | 'info' | 'warning'
   }>({ isOpen: false, title: '', message: '', type: 'info' })
+  const [showPullDialog, setShowPullDialog] = useState(false)
+  const [pullEntryPoint, setPullEntryPoint] = useState<'project-wizard' | 'empty-project-cta' | 'topbar-menu'>('manual')
+  const [pullProjectId, setPullProjectId] = useState<string | undefined>()
+  const [pullProjectName, setPullProjectName] = useState<string | undefined>()
 
   useEffect(() => {
     loadProjects()
@@ -281,13 +287,27 @@ export function ProjectManagement() {
                 : 'Get started by creating your first project'}
             </p>
             {!searchTerm && (
-              <button
-                onClick={() => setShowCreateDialog(true)}
-                className="flex items-center gap-2 px-4 py-2 bg-[#FF6A00] text-white rounded-lg hover:bg-[#E55F00] transition-colors"
-              >
-                <FolderPlus size={20} />
-                Create New Project
-              </button>
+              <div className="flex gap-3">
+                <button
+                  onClick={() => setShowCreateDialog(true)}
+                  className="flex items-center gap-2 px-4 py-2 bg-[#FF6A00] text-white rounded-lg hover:bg-[#E55F00] transition-colors"
+                >
+                  <FolderPlus size={20} />
+                  Create New Project
+                </button>
+                <button
+                  onClick={() => {
+                    setPullEntryPoint('empty-project-cta')
+                    setPullProjectId(undefined)
+                    setPullProjectName(undefined)
+                    setShowPullDialog(true)
+                  }}
+                  className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                >
+                  <Download size={20} />
+                  Pull from PLC
+                </button>
+              </div>
             )}
           </div>
         )}
@@ -356,31 +376,49 @@ export function ProjectManagement() {
                 </div>
               </div>
 
-              <div className="flex justify-end gap-3 mt-6">
+              <div className="flex justify-between items-center mt-6">
                 <button
-                  onClick={() => setShowCreateDialog(false)}
-                  disabled={isCreating}
-                  className="px-4 py-2 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  Cancel
-                </button>
-                <button
-                  onClick={handleCreateProject}
+                  onClick={() => {
+                    const tempProjectId = `temp-${Date.now()}`
+                    setPullEntryPoint('project-wizard')
+                    setPullProjectId(tempProjectId)
+                    setPullProjectName(newProjectName || 'New Project')
+                    setShowPullDialog(true)
+                    setShowCreateDialog(false)
+                  }}
                   disabled={isCreating || !newProjectName.trim()}
-                  className="flex items-center gap-2 px-4 py-2 bg-[#FF6A00] text-white rounded-lg hover:bg-[#E55F00] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="flex items-center gap-2 px-4 py-2 text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed border border-blue-200 dark:border-blue-800"
                 >
-                  {isCreating ? (
-                    <>
-                      <Clock size={18} className="animate-spin" />
-                      Creating...
-                    </>
-                  ) : (
-                    <>
-                      <FolderPlus size={18} />
-                      Create Project
-                    </>
-                  )}
+                  <Download size={18} />
+                  Pull from PLC
                 </button>
+                
+                <div className="flex gap-3">
+                  <button
+                    onClick={() => setShowCreateDialog(false)}
+                    disabled={isCreating}
+                    className="px-4 py-2 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={handleCreateProject}
+                    disabled={isCreating || !newProjectName.trim()}
+                    className="flex items-center gap-2 px-4 py-2 bg-[#FF6A00] text-white rounded-lg hover:bg-[#E55F00] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {isCreating ? (
+                      <>
+                        <Clock size={18} className="animate-spin" />
+                        Creating...
+                      </>
+                    ) : (
+                      <>
+                        <FolderPlus size={18} />
+                        Create Project
+                      </>
+                    )}
+                  </button>
+                </div>
               </div>
             </motion.div>
           </motion.div>
@@ -509,6 +547,20 @@ export function ProjectManagement() {
         title={dialog.title}
         message={dialog.message}
         type={dialog.type}
+      />
+
+      {/* Pull from PLC Dialog */}
+      <PullFromPLCDialog
+        isOpen={showPullDialog}
+        onClose={() => setShowPullDialog(false)}
+        currentUser={{
+          userId: '1',
+          username: 'developer',
+          role: 'engineer'
+        }}
+        projectId={pullProjectId}
+        projectName={pullProjectName}
+        entryPoint={pullEntryPoint}
       />
     </div>
   )

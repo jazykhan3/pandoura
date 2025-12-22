@@ -10,6 +10,7 @@ import { useTheme } from '../context/ThemeContext'
 import { LicenseTypeSelectionModal } from './LicenseTypeSelectionModal'
 import { LicenseActivationModal } from './LicenseActivationModal'
 import { TeamsEnterpriseConfigModal } from './TeamsEnterpriseConfigModal'
+import { PullFromPLCDialog } from './PullFromPLCDialog'
 import {
   Home,
   Activity,
@@ -27,6 +28,7 @@ import {
   LogOut,
   AlertTriangle,
   Key,
+  Download,
 } from 'lucide-react'
 
 type NavItem = {
@@ -58,6 +60,7 @@ export function Layout({ children }: { children: ReactNode }) {
   const [showLicenseTypeModal, setShowLicenseTypeModal] = useState(false)
   const [showSoloActivationModal, setShowSoloActivationModal] = useState(false)
   const [showTeamsActivationModal, setShowTeamsActivationModal] = useState(false)
+  const [showPullDialog, setShowPullDialog] = useState(false)
 
   useEffect(() => {
     loadProjects()
@@ -117,7 +120,7 @@ export function Layout({ children }: { children: ReactNode }) {
     <Tooltip.Provider delayDuration={300}>
       <div className="h-full grid xl:grid-cols-[240px_1fr] lg:grid-cols-[64px_1fr] md:grid-cols-[64px_1fr] grid-cols-1 bg-white dark:bg-panda-surface-dark transition-colors duration-300" style={{ gridTemplateRows: 'auto 1fr auto' }}>
         
-        {/* Desktop Sidebar - hidden on mobile */}
+        {/* Desktop Sidebar - uses brand color (not accent) */}
         <aside className="hidden md:flex col-start-1 row-span-3 bg-[#FF6A00] dark:bg-gray-900 text-white flex-col transition-colors duration-300">
           <div className="h-14 flex items-center px-4 font-semibold tracking-wide text-base xl:justify-start lg:justify-center md:justify-center justify-start">
             <span className="xl:inline lg:hidden md:hidden inline">Pandaura</span>
@@ -239,6 +242,31 @@ export function Layout({ children }: { children: ReactNode }) {
           </div>
           
           <div className="flex items-center gap-2 md:gap-3">
+            {/* Pull from PLC Button - Only visible with license */}
+            {hasValidLicense && (
+              <Tooltip.Root>
+                <Tooltip.Trigger asChild>
+                  <button
+                    onClick={() => setShowPullDialog(true)}
+                    className="flex items-center gap-2 px-3 py-1.5 text-sm bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 border border-blue-200 dark:border-blue-800 rounded-lg hover:bg-blue-100 dark:hover:bg-blue-900/30 transition-colors"
+                  >
+                    <Download size={16} />
+                    <span className="hidden md:inline">Pull from PLC</span>
+                  </button>
+                </Tooltip.Trigger>
+                <Tooltip.Portal>
+                  <Tooltip.Content
+                    side="bottom"
+                    className="bg-neutral-900 text-white text-xs px-2 py-1 rounded shadow-lg md:hidden"
+                    sideOffset={5}
+                  >
+                    Pull from PLC
+                    <Tooltip.Arrow className="fill-neutral-900" />
+                  </Tooltip.Content>
+                </Tooltip.Portal>
+              </Tooltip.Root>
+            )}
+            
             {/* Project Selector Dropdown - Disabled without license */}
             <div className="relative" data-project-dropdown>
               <button
@@ -250,7 +278,7 @@ export function Layout({ children }: { children: ReactNode }) {
                     : 'opacity-60 cursor-not-allowed'
                 }`}
               >
-                <FolderOpen size={16} className="text-[#FF6A00]" />
+                <FolderOpen size={16} style={{ color: 'var(--accent-color)' }} />
                 <span className="hidden sm:inline text-gray-700 dark:text-gray-300">
                   {!hasValidLicense 
                     ? 'Activate License' 
@@ -276,14 +304,19 @@ export function Layout({ children }: { children: ReactNode }) {
                             setProjectDropdownOpen(false)
                           }}
                           className={`w-full px-4 py-2.5 text-left hover:bg-gray-50 transition-colors flex items-center gap-2 ${
-                            activeProject?.id === project.id ? 'bg-[#FF6A00]/5 border-l-2 border-[#FF6A00]' : ''
+                            activeProject?.id === project.id ? 'border-l-2' : ''
                           }`}
+                          style={activeProject?.id === project.id ? { 
+                            backgroundColor: 'var(--accent-subtle)', 
+                            borderLeftColor: 'var(--accent-color)' 
+                          } : {}}
                         >
-                          <FolderOpen size={14} className={activeProject?.id === project.id ? 'text-[#FF6A00]' : 'text-gray-400'} />
+                          <FolderOpen size={14} style={activeProject?.id === project.id ? { color: 'var(--accent-color)' } : { color: '#9ca3af' }} />
                           <div className="flex-1 min-w-0">
-                            <div className={`text-sm font-medium truncate ${
-                              activeProject?.id === project.id ? 'text-[#FF6A00]' : 'text-gray-700'
-                            }`}>
+                            <div 
+                              className="text-sm font-medium truncate"
+                              style={{ color: activeProject?.id === project.id ? 'var(--accent-color)' : '#374151' }}
+                            >
                               {project.name}
                             </div>
                             <div className="text-xs text-gray-500 truncate">
@@ -304,7 +337,8 @@ export function Layout({ children }: { children: ReactNode }) {
                         setRoute('projects')
                         setProjectDropdownOpen(false)
                       }}
-                      className="w-full px-4 py-2 text-sm text-[#FF6A00] hover:bg-gray-50 transition-colors flex items-center gap-2"
+                      className="w-full px-4 py-2 text-sm hover:bg-gray-50 transition-colors flex items-center gap-2"
+                      style={{ color: 'var(--accent-color)' }}
                     >
                       <FolderKanban size={14} />
                       Manage Projects
@@ -320,7 +354,8 @@ export function Layout({ children }: { children: ReactNode }) {
             <div className="relative" data-profile-dropdown>
               <button
                 onClick={() => setProfileDropdownOpen(!profileDropdownOpen)}
-                className="w-8 h-8 rounded-full bg-gradient-to-br from-[#FF6A00] to-[#E55A00] flex items-center justify-center hover:shadow-md transition-shadow"
+                className="w-8 h-8 rounded-full flex items-center justify-center hover:shadow-md transition-shadow"
+                style={{ background: 'linear-gradient(to bottom right, var(--accent-color), var(--accent-dark))' }}
               >
                 <User size={16} className="text-white" />
               </button>
@@ -330,7 +365,7 @@ export function Layout({ children }: { children: ReactNode }) {
                   {/* Profile Header */}
                   <div className="px-4 py-3 border-b border-gray-100 dark:border-gray-700">
                     <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 rounded-full bg-gradient-to-br from-[#FF6A00] to-[#E55A00] flex items-center justify-center">
+                      <div className="w-10 h-10 rounded-full flex items-center justify-center" style={{ background: 'linear-gradient(to bottom right, var(--accent-color), var(--accent-dark))' }}>
                         <User size={18} className="text-white" />
                       </div>
                       <div className="flex-1 min-w-0">
@@ -429,6 +464,20 @@ export function Layout({ children }: { children: ReactNode }) {
         <TeamsEnterpriseConfigModal 
           isOpen={showTeamsActivationModal}
           onComplete={handleTeamsActivationComplete}
+        />
+
+        {/* Pull from PLC Dialog */}
+        <PullFromPLCDialog
+          isOpen={showPullDialog}
+          onClose={() => setShowPullDialog(false)}
+          currentUser={{
+            userId: '1',
+            username: 'developer',
+            role: 'engineer'
+          }}
+          projectId={activeProject?.id}
+          projectName={activeProject?.name}
+          entryPoint="topbar-menu"
         />
       </div>
     </Tooltip.Provider>

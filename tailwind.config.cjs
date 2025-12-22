@@ -23,6 +23,14 @@ module.exports = {
           'card-dark': '#1F2937',
           'hover-dark': '#374151',
         },
+        accent: {
+          DEFAULT: 'var(--accent-color)',
+          hover: 'var(--accent-hover)',
+          light: 'var(--accent-light)',
+          dark: 'var(--accent-dark)',
+          subtle: 'var(--accent-subtle)',
+          muted: 'var(--accent-muted)',
+        },
       },
       boxShadow: {
         soft: '0 2px 8px rgba(0,0,0,0.06)',

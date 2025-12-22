@@ -1,4 +1,4 @@
-import { useEffect, ReactNode } from 'react'
+import { useEffect, type ReactNode } from 'react'
 import { X, CheckCircle, AlertCircle, Info, AlertTriangle } from 'lucide-react'
 
 type DialogProps = {
@@ -123,12 +123,13 @@ export function Dialog({ isOpen, onClose, title, message, children, type = 'info
                     onClose()
                   }}
                   className={`px-4 py-2 rounded-md font-medium transition-colors ${
-                    action.variant === 'primary'
-                      ? 'bg-[#FF6A00] text-white hover:bg-[#FF8020]'
-                      : action.variant === 'danger'
+                    action.variant === 'danger'
                       ? 'bg-red-600 text-white hover:bg-red-700'
+                      : action.variant === 'primary'
+                      ? 'text-white'
                       : 'bg-neutral-200 text-neutral-800 hover:bg-neutral-300 dark:bg-gray-700 dark:text-gray-200 dark:hover:bg-gray-600'
                   }`}
+                  style={action.variant === 'primary' ? { backgroundColor: 'var(--accent-color)' } : {}}
                 >
                   {action.label}
                 </button>

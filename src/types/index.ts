@@ -191,6 +191,7 @@ export type LogicFile = {
   author: string
   snapshot?: boolean
   projectId?: string
+  readOnly?: boolean
 }
 
 export type SyncEventType = 

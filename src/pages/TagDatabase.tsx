@@ -130,9 +130,19 @@ export function TagDatabase() {
   const loadTags = async () => {
     try {
       const result = await tagApi.getAll()
-      setTags(result || [])
+      // Ensure result is an array
+      if (Array.isArray(result)) {
+        setTags(result)
+      } else if (result && typeof result === 'object' && Array.isArray(result.tags)) {
+        // Handle case where API returns { tags: [...] }
+        setTags(result.tags)
+      } else {
+        console.warn('Unexpected tags response format:', result)
+        setTags([])
+      }
     } catch (error) {
       console.error('Failed to load tags:', error)
+      setTags([])
     }
   }
 
@@ -560,8 +570,8 @@ export function TagDatabase() {
 
 
 
-  // Filtering logic
-  const filteredTags = tags.filter(tag => {
+  // Filtering logic - ensure tags is always an array
+  const filteredTags = (Array.isArray(tags) ? tags : []).filter(tag => {
     // Search filter
     if (searchTerm) {
       if (regexSearch) {
@@ -1165,15 +1175,15 @@ export function TagDatabase() {
                         Areas
                       </h3>
                       <div className="space-y-1">
-                        {Array.from(new Set(tags.filter(t => t.area).map(t => t.area!))).map(area => (
+                        {Array.from(new Set((Array.isArray(tags) ? tags : []).filter(t => t.area).map(t => t.area!))).map(area => (
                           <button
                             key={area}
                             className="w-full text-left px-3 py-2 rounded hover:bg-gray-100 text-sm"
                           >
-                            {area} ({tags.filter(t => t.area === area).length})
+                            {area} ({(Array.isArray(tags) ? tags : []).filter(t => t.area === area).length})
                           </button>
                         ))}
-                        {tags.filter(t => t.area).length === 0 && (
+                        {(Array.isArray(tags) ? tags : []).filter(t => t.area).length === 0 && (
                           <p className="text-xs text-gray-500 px-3 py-2">No areas defined</p>
                         )}
                       </div>
@@ -1186,15 +1196,15 @@ export function TagDatabase() {
                         Equipment
                       </h3>
                       <div className="space-y-1">
-                        {Array.from(new Set(tags.filter(t => t.equipment).map(t => t.equipment!))).map(equipment => (
+                        {Array.from(new Set((Array.isArray(tags) ? tags : []).filter(t => t.equipment).map(t => t.equipment!))).map(equipment => (
                           <button
                             key={equipment}
                             className="w-full text-left px-3 py-2 rounded hover:bg-gray-100 text-sm"
                           >
-                            {equipment} ({tags.filter(t => t.equipment === equipment).length})
+                            {equipment} ({(Array.isArray(tags) ? tags : []).filter(t => t.equipment === equipment).length})
                           </button>
                         ))}
-                        {tags.filter(t => t.equipment).length === 0 && (
+                        {(Array.isArray(tags) ? tags : []).filter(t => t.equipment).length === 0 && (
                           <p className="text-xs text-gray-500 px-3 py-2">No equipment defined</p>
                         )}
                       </div>
@@ -1207,15 +1217,15 @@ export function TagDatabase() {
                         Routines
                       </h3>
                       <div className="space-y-1">
-                        {Array.from(new Set(tags.filter(t => t.routine).map(t => t.routine!))).map(routine => (
+                        {Array.from(new Set((Array.isArray(tags) ? tags : []).filter(t => t.routine).map(t => t.routine!))).map(routine => (
                           <button
                             key={routine}
                             className="w-full text-left px-3 py-2 rounded hover:bg-gray-100 text-sm"
                           >
-                            {routine} ({tags.filter(t => t.routine === routine).length})
+                            {routine} ({(Array.isArray(tags) ? tags : []).filter(t => t.routine === routine).length})
                           </button>
                         ))}
-                        {tags.filter(t => t.routine).length === 0 && (
+                        {(Array.isArray(tags) ? tags : []).filter(t => t.routine).length === 0 && (
                           <p className="text-xs text-gray-500 px-3 py-2">No routines defined</p>
                         )}
                       </div>
@@ -1232,8 +1242,8 @@ export function TagDatabase() {
                   </div>
                   <div className="flex items-center gap-4">
                     <span>{udts.length} UDTs defined</span>
-                    <span>{tags.filter(t => t.lifecycle === 'deprecated').length} deprecated</span>
-                    <span>{tags.filter(t => t.requiresApproval).length} protected</span>
+                    <span>{(Array.isArray(tags) ? tags : []).filter(t => t.lifecycle === 'deprecated').length} deprecated</span>
+                    <span>{(Array.isArray(tags) ? tags : []).filter(t => t.requiresApproval).length} protected</span>
                   </div>
                 </div>
               )}

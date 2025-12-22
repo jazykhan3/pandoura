@@ -7,7 +7,7 @@ type TagState = {
   isLoading: boolean
   
   // Actions
-  loadTags: () => Promise<void>
+  loadTags: (projectId?: string) => Promise<void>
   getTagNames: () => string[]
 }
 
@@ -15,10 +15,12 @@ export const useTagStore = create<TagState>((set, get) => ({
   tags: [],
   isLoading: false,
 
-  loadTags: async () => {
+  loadTags: async (projectId?: string) => {
     set({ isLoading: true })
     try {
-      const tags = await tagApi.getAll()
+      console.log(`📊 Loading tags for project: ${projectId || 'all'}`)
+      const tags = await tagApi.getAll(projectId)
+      console.log(`📊 Loaded ${tags.length} tags into store`)
       set({ tags, isLoading: false })
     } catch (error) {
       console.error('Failed to load tags:', error)

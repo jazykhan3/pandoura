@@ -2,6 +2,7 @@ import { create } from 'zustand'
 import type { SyncStatus, SyncConflict, SyncEvent } from '../types'
 import { syncWebSocket } from '../services/websocket'
 import { syncApi } from '../services/api'
+import { deviceAuth } from '../utils/deviceAuth'
 
 type DeployedLogic = {
   id: string
@@ -296,7 +297,12 @@ export const useSyncStore = create<SyncState>((set, get) => ({
   // Fetch deployed logic from backend
   fetchDeployedLogic: async () => {
     try {
-      const response = await fetch('http://localhost:8000/api/sync/status')
+      const sessionToken = await deviceAuth.getSessionToken()
+      const headers: HeadersInit = {}
+      if (sessionToken) {
+        headers['Authorization'] = `Bearer ${sessionToken}`
+      }
+      const response = await fetch('http://localhost:8000/api/sync/status', { headers })
       const status = await response.json()
       
       set(state => ({

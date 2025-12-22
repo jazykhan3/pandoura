@@ -6,6 +6,7 @@ import { DeployConsole } from '../components/DeployConsole'
 import { useSyncStore } from '../store/syncStore'
 import { useSimulatorStore } from '../store/simulatorStore'
 import { syncApi } from '../services/api'
+import { deviceAuth } from '../utils/deviceAuth'
 
 type RuntimeMetrics = {
   latency: number
@@ -38,7 +39,12 @@ export function ShadowRuntime() {
     // Fetch deployed logic status
     const fetchDeployedLogic = async () => {
       try {
-        const status = await fetch('http://localhost:8000/api/sync/status').then(r => r.json())
+        const sessionToken = await deviceAuth.getSessionToken()
+        const headers: HeadersInit = {}
+        if (sessionToken) {
+          headers['Authorization'] = `Bearer ${sessionToken}`
+        }
+        const status = await fetch('http://localhost:8000/api/sync/status', { headers }).then(r => r.json())
         setDeployedLogic(status.deployedLogic)
       } catch (error) {
         console.error('Failed to fetch deployed logic:', error)
@@ -47,8 +53,12 @@ export function ShadowRuntime() {
     fetchDeployedLogic()
     
     // Start tag streaming
-    fetch('http://localhost:8000/api/sync/start-streaming', { method: 'POST' })
-      .catch(err => console.error('Failed to start streaming:', err))
+    deviceAuth.getSessionToken().then(token => {
+      const headers: HeadersInit = { 'Content-Type': 'application/json' }
+      if (token) headers['Authorization'] = `Bearer ${token}`
+      fetch('http://localhost:8000/api/sync/start-streaming', { method: 'POST', headers })
+        .catch(err => console.error('Failed to start streaming:', err))
+    })
     
     // Poll for deployed logic updates every 3 seconds
     const logicPollInterval = setInterval(fetchDeployedLogic, 3000)
@@ -57,7 +67,10 @@ export function ShadowRuntime() {
     const dataInterval = setInterval(async () => {
       try {
         // Fetch simulator status for metrics
-        const simResponse = await fetch('http://localhost:8000/api/simulate/status')
+        const sessionToken = await deviceAuth.getSessionToken()
+        const headers: HeadersInit = {}
+        if (sessionToken) headers['Authorization'] = `Bearer ${sessionToken}`
+        const simResponse = await fetch('http://localhost:8000/api/simulate/status', { headers })
         const simData = await simResponse.json()
         
         // Calculate real metrics

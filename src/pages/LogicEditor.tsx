@@ -283,6 +283,26 @@ export function LogicEditor() {
   // Track previous project to detect changes
   const prevProjectIdRef = useRef<string | null>(null)
 
+  // Debug: Log when currentFile changes
+  useEffect(() => {
+    if (currentFile) {
+      const editorValue = unsavedChanges[currentFile.id] || currentFile.content
+      console.log(`📝 Current file changed:`, {
+        id: currentFile.id,
+        name: currentFile.name,
+        hasContent: !!currentFile.content,
+        contentLength: currentFile.content?.length || 0,
+        contentPreview: currentFile.content?.substring(0, 50) || 'EMPTY',
+        hasUnsavedChanges: unsavedChanges.hasOwnProperty(currentFile.id),
+        unsavedChangesValue: unsavedChanges[currentFile.id],
+        editorWillReceive: editorValue?.length || 0,
+        editorPreview: editorValue?.substring(0, 50) || 'EMPTY'
+      })
+    } else {
+      console.log(`📝 No current file`)
+    }
+  }, [currentFile, unsavedChanges])
+
   const [showFileSelector, setShowFileSelector] = useState(false)
   const [showChangePreview, setShowChangePreview] = useState(false)
   const [usedTags, setUsedTags] = useState<Array<any>>([])
@@ -393,6 +413,7 @@ export function LogicEditor() {
   useEffect(() => {
     // If project changed, close current file
     if (prevProjectIdRef.current && prevProjectIdRef.current !== activeProject?.id) {
+      console.log(`📂 Project changed from ${prevProjectIdRef.current} to ${activeProject?.id}`)
       // Project changed - close any open file to prevent showing old project's file
       if (currentFile) {
         useLogicStore.setState({ currentFile: null, openTabs: [] })
@@ -402,8 +423,11 @@ export function LogicEditor() {
     prevProjectIdRef.current = activeProject?.id || null
     
     if (activeProject) {
+      console.log(`📂 Loading files for project: ${activeProject.name} (${activeProject.id})`)
       loadAllFiles(activeProject.id)
-      loadTagDatabaseTags() // Load tags from database for autocomplete
+      loadTagDatabaseTags(activeProject.id) // Load tags from database for this project
+    } else {
+      console.log(`📂 No active project`)
     }
   }, [activeProject?.id, loadAllFiles, loadTagDatabaseTags, currentFile])
 
@@ -588,7 +612,12 @@ export function LogicEditor() {
       if (success) {
         // Trigger a refresh of the shadow runtime status
         try {
-          await fetch('http://localhost:8000/api/sync/status')
+          const sessionToken = await deviceAuth.getSessionToken()
+          const headers: HeadersInit = {}
+          if (sessionToken) {
+            headers['Authorization'] = `Bearer ${sessionToken}`
+          }
+          await fetch('http://localhost:8000/api/sync/status', { headers })
         } catch (e) {
           // Ignore if backend not available
         }
@@ -1570,6 +1599,12 @@ export function LogicEditor() {
                   <button
                     key={file.id}
                     onClick={() => {
+                      console.log(`🖱️ File clicked:`, {
+                        id: file.id,
+                        name: file.name,
+                        hasContent: !!file.content,
+                        contentLength: file.content?.length || 0
+                      })
                       loadFile(file.id)
                       setShowFileSelector(false)
                     }}
@@ -1600,31 +1635,75 @@ export function LogicEditor() {
 
           {/* Monaco Editor */}
           <div className="flex-1 min-h-0">
+            {(() => {
+              console.log(`🖊️ Monaco render check:`, {
+                hasCurrentFile: !!currentFile,
+                currentFileKeys: currentFile ? Object.keys(currentFile) : [],
+                currentFileId: currentFile?.id,
+                currentFileName: currentFile?.name,
+                currentFileContent: currentFile?.content?.substring(0, 50),
+                currentFileContentLength: currentFile?.content?.length,
+                filesCount: files.length,
+                fullCurrentFile: JSON.stringify(currentFile)
+              })
+              return null
+            })()}
             {currentFile ? (
-              <MonacoEditor
-                value={unsavedChanges[currentFile.id] || currentFile.content}
-                onChange={(content) => {
-                  updateContent(content)
-                }}
-                markers={validationResult ? validationResult.errors.map(error => ({
-                  startLineNumber: error.line,
-                  endLineNumber: error.line,
-                  startColumn: error.column,
-                  endColumn: error.column + 1,
-                  message: error.message,
-                  severity: error.severity === 'error' ? 8 : error.severity === 'warning' ? 4 : 1,
-                  owner: 'st-validation',
-                  resource: null as any
-                })) : []}
-                tags={tagDatabaseTags}
-                breakpoints={breakpoints}
-                theme={document.documentElement.classList.contains('dark') ? 'dark' : 'light'}
-                onBreakpointToggle={toggleBreakpoint}
-                currentLine={currentLine}
-                onCodeLensAction={handleCodeLensAction}
-                onRenameSymbol={handleRenameSymbol}
-                onExtractFunction={handleExtractFunction}
-              />
+              <>
+                {currentFile.readOnly && (
+                  <div className="bg-amber-50 dark:bg-amber-900/20 border-b border-amber-200 dark:border-amber-800 px-4 py-2 flex items-center gap-2 text-sm text-amber-800 dark:text-amber-200">
+                    <Shield className="w-4 h-4" />
+                    <span className="font-medium">Read-Only:</span>
+                    <span>This file was extracted from a PLC runtime and cannot be edited in Pandaura.</span>
+                  </div>
+                )}
+                <MonacoEditor
+                  value={(() => {
+                    if (!currentFile) {
+                      console.error(`❌ currentFile is null/undefined in Monaco value!`)
+                      return ''
+                    }
+                    const editorValue = unsavedChanges[currentFile.id] || currentFile.content
+                    console.log(`🖊️ Monaco editor receiving value:`, {
+                      fileId: currentFile.id,
+                      fileName: currentFile.name,
+                      hasUnsaved: unsavedChanges.hasOwnProperty(currentFile.id),
+                      unsavedValue: unsavedChanges[currentFile.id]?.substring(0, 30),
+                      currentFileContent: currentFile.content?.substring(0, 30),
+                      finalValue: editorValue?.substring(0, 30),
+                      finalLength: editorValue?.length || 0
+                    })
+                    return editorValue || ''
+                  })()}
+                  onChange={(content) => {
+                    if (!currentFile.readOnly) {
+                      updateContent(content)
+                    }
+                  }}
+                  readOnly={(() => {
+                    console.log(`🔒 Passing readOnly to Monaco:`, currentFile.readOnly)
+                    return currentFile.readOnly || false
+                  })()}
+                  markers={validationResult ? validationResult.errors.map(error => ({
+                    startLineNumber: error.line,
+                    endLineNumber: error.line,
+                    startColumn: error.column,
+                    endColumn: error.column + 1,
+                    message: error.message,
+                    severity: error.severity === 'error' ? 8 : error.severity === 'warning' ? 4 : 1,
+                    owner: 'st-validation',
+                    resource: null as any
+                  })) : []}
+                  tags={tagDatabaseTags}
+                  breakpoints={breakpoints}
+                  theme={document.documentElement.classList.contains('dark') ? 'dark' : 'light'}
+                  onBreakpointToggle={toggleBreakpoint}
+                  currentLine={currentLine}
+                  onCodeLensAction={handleCodeLensAction}
+                  onRenameSymbol={handleRenameSymbol}
+                  onExtractFunction={handleExtractFunction}
+                />
+              </>
             ) : (
               <div className="flex items-center justify-center h-full text-neutral-500">
                 No file open. Click "Open" or "New" to get started.

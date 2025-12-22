@@ -2,6 +2,20 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Accent Color CSS Variables - Default to Panda Orange */
+:root {
+  --accent-color: #FF6A00;
+  --accent-color-rgb: 255, 106, 0;
+  --accent-color-h: 25;
+  --accent-color-s: 100%;
+  --accent-color-l: 50%;
+  --accent-hover: hsl(25, 100%, 40%);
+  --accent-light: hsl(25, 100%, 75%);
+  --accent-dark: hsl(25, 100%, 35%);
+  --accent-subtle: hsla(25, 100%, 50%, 0.1);
+  --accent-muted: hsla(25, 100%, 50%, 0.2);
+}
+
 /* App base styles */
 html, body, #root {
   height: 100%;
@@ -132,4 +146,325 @@ body {
 
 .dark * {
   scrollbar-color: #6B7280 #374151;
+}
+
+/* ============================================
+   ACCENT COLOR OVERRIDES
+   Apply accent color to primary buttons, links, toggles, selected items
+   NOTE: Sidebar keeps the brand color (#FF6A00) - excluded via :not(aside)
+   ============================================ */
+
+/* Override hardcoded #FF6A00 background colors with accent color */
+/* Exclude sidebar (aside) elements - they keep the brand orange */
+.bg-\[\#FF6A00\]:not(aside) {
+  background-color: var(--accent-color) !important;
+}
+
+/* Sidebar uses accent color in light mode, dark bg in dark mode */
+/* Light mode: accent color */
+aside.bg-\[\#FF6A00\] {
+  background-color: var(--accent-color) !important;
+}
+
+/* Dark mode: dark background for sidebar */
+.dark aside.bg-\[\#FF6A00\],
+.dark aside.dark\:bg-gray-900 {
+  background-color: #111827 !important;
+}
+
+/* Override hover states for #FF6A00 */
+.hover\:bg-\[\#FF6A00\]\/90:hover {
+  background-color: var(--accent-hover) !important;
+}
+
+.hover\:bg-\[\#FF8020\]:hover {
+  background-color: var(--accent-hover) !important;
+}
+
+.hover\:bg-\[\#E55F00\]:hover {
+  background-color: var(--accent-hover) !important;
+}
+
+.hover\:bg-\[\#E55A00\]:hover {
+  background-color: var(--accent-hover) !important;
+}
+
+/* Override text colors */
+.text-\[\#FF6A00\] {
+  color: var(--accent-color) !important;
+}
+
+/* Override border colors */
+.border-\[\#FF6A00\] {
+  border-color: var(--accent-color) !important;
+}
+
+/* Override ring/focus colors */
+.ring-\[\#FF6A00\] {
+  --tw-ring-color: var(--accent-color) !important;
+}
+
+.focus\:ring-\[\#FF6A00\]:focus {
+  --tw-ring-color: var(--accent-color) !important;
+}
+
+/* Override panda-orange utilities */
+.bg-panda-orange {
+  background-color: var(--accent-color) !important;
+}
+
+.hover\:bg-panda-orange-dark:hover {
+  background-color: var(--accent-hover) !important;
+}
+
+.text-panda-orange {
+  color: var(--accent-color) !important;
+}
+
+.border-panda-orange {
+  border-color: var(--accent-color) !important;
+}
+
+/* Accent color utility classes */
+.btn-accent {
+  background-color: var(--accent-color);
+  color: white;
+  transition: background-color 0.2s ease;
+}
+
+.btn-accent:hover {
+  background-color: var(--accent-hover);
+}
+
+.text-accent {
+  color: var(--accent-color);
+}
+
+.bg-accent {
+  background-color: var(--accent-color);
+}
+
+.border-accent {
+  border-color: var(--accent-color);
+}
+
+.ring-accent {
+  --tw-ring-color: var(--accent-color);
+}
+
+/* Override bg-opacity for accent color */
+.bg-\[\#FF6A00\]\/5 {
+  background-color: var(--accent-subtle) !important;
+}
+
+.bg-\[\#FF6A00\]\/10 {
+  background-color: var(--accent-subtle) !important;
+}
+
+.bg-\[\#FF6A00\]\/20 {
+  background-color: var(--accent-muted) !important;
+}
+
+/* ============================================
+   PRIMARY BUTTON ACCENT COLOR OVERRIDES
+   Blue buttons are typically primary actions - use accent color
+   Green/Red buttons are semantic (success/danger) - keep as is
+   ============================================ */
+
+/* Override blue-500 buttons with accent color */
+.bg-blue-500 {
+  background-color: var(--accent-color) !important;
+}
+
+.hover\:bg-blue-600:hover {
+  background-color: var(--accent-hover) !important;
+}
+
+/* Override blue-600 buttons with accent color */
+.bg-blue-600 {
+  background-color: var(--accent-color) !important;
+}
+
+.hover\:bg-blue-700:hover {
+  background-color: var(--accent-hover) !important;
+}
+
+/* Blue text should also use accent */
+.text-blue-500 {
+  color: var(--accent-color) !important;
+}
+
+.text-blue-600 {
+  color: var(--accent-color) !important;
+}
+
+.hover\:text-blue-600:hover {
+  color: var(--accent-hover) !important;
+}
+
+.hover\:text-blue-700:hover {
+  color: var(--accent-hover) !important;
+}
+
+/* Blue borders use accent */
+.border-blue-500 {
+  border-color: var(--accent-color) !important;
+}
+
+.border-blue-600 {
+  border-color: var(--accent-color) !important;
+}
+
+/* Blue ring/focus states use accent */
+.ring-blue-500 {
+  --tw-ring-color: var(--accent-color) !important;
+}
+
+.ring-blue-600 {
+  --tw-ring-color: var(--accent-color) !important;
+}
+
+.focus\:ring-blue-500:focus {
+  --tw-ring-color: var(--accent-color) !important;
+}
+
+.focus\:ring-blue-600:focus {
+  --tw-ring-color: var(--accent-color) !important;
+}
+
+/* Blue backgrounds with opacity */
+.bg-blue-50 {
+  background-color: var(--accent-subtle) !important;
+}
+
+.bg-blue-100 {
+  background-color: var(--accent-muted) !important;
+}
+
+/* Light mode blue text adjustments */
+.text-blue-700 {
+  color: var(--accent-color) !important;
+}
+
+.text-blue-800 {
+  color: var(--accent-dark) !important;
+}
+
+/* Border variations */
+.border-blue-200 {
+  border-color: var(--accent-muted) !important;
+}
+
+/* Override indigo buttons with accent color (often used as primary) */
+.bg-indigo-500 {
+  background-color: var(--accent-color) !important;
+}
+
+.bg-indigo-600 {
+  background-color: var(--accent-color) !important;
+}
+
+.hover\:bg-indigo-600:hover {
+  background-color: var(--accent-hover) !important;
+}
+
+.hover\:bg-indigo-700:hover {
+  background-color: var(--accent-hover) !important;
+}
+
+/* ============================================
+   ORANGE COLOR OVERRIDES (for accent theming)
+   Exclude sidebar elements
+   ============================================ */
+
+/* Orange backgrounds - use accent */
+.bg-orange-50:not(aside *) {
+  background-color: var(--accent-subtle) !important;
+}
+
+.bg-orange-100:not(aside *) {
+  background-color: var(--accent-muted) !important;
+}
+
+/* Orange text - use accent */
+.text-orange-500 {
+  color: var(--accent-color) !important;
+}
+
+.text-orange-600 {
+  color: var(--accent-color) !important;
+}
+
+.text-orange-700 {
+  color: var(--accent-dark) !important;
+}
+
+/* Orange hover states */
+.hover\:bg-orange-50:hover {
+  background-color: var(--accent-subtle) !important;
+}
+
+.hover\:bg-orange-600:hover {
+  background-color: var(--accent-hover) !important;
+}
+
+.hover\:bg-orange-700:hover {
+  background-color: var(--accent-hover) !important;
+}
+
+/* Orange borders */
+.border-orange-200 {
+  border-color: var(--accent-muted) !important;
+}
+
+.border-orange-300 {
+  border-color: var(--accent-color) !important;
+}
+
+/* Profile icon and similar - text colors */
+.text-\[#FF6A00\] {
+  color: var(--accent-color) !important;
+}
+
+/* Dark mode orange backgrounds */
+.dark .bg-orange-900\/10,
+.dark .bg-orange-900\/20,
+.dark .bg-orange-900\/30 {
+  background-color: rgba(var(--accent-color-rgb), 0.15) !important;
+}
+
+/* Gradient overrides for profile icons and similar */
+.from-\[\#FF6A00\] {
+  --tw-gradient-from: var(--accent-color) !important;
+  --tw-gradient-to: transparent !important;
+  --tw-gradient-stops: var(--tw-gradient-from), var(--tw-gradient-to) !important;
+}
+
+.to-\[\#E55A00\] {
+  --tw-gradient-to: var(--accent-hover) !important;
+}
+
+.to-\[\#FF8020\] {
+  --tw-gradient-to: var(--accent-light) !important;
+}
+
+/* Additional #FF6A00 opacity variants */
+.bg-\[\#FF6A00\]\/5 {
+  background-color: rgba(var(--accent-color-rgb), 0.05) !important;
+}
+
+.bg-\[\#FF6A00\]\/10 {
+  background-color: rgba(var(--accent-color-rgb), 0.1) !important;
+}
+
+.bg-\[\#FF6A00\]\/20 {
+  background-color: rgba(var(--accent-color-rgb), 0.2) !important;
+}
+
+.bg-\[\#FF6A00\]\/90 {
+  background-color: rgba(var(--accent-color-rgb), 0.9) !important;
+}
+
+.hover\:bg-\[\#FF6A00\]\/90:hover {
+  background-color: rgba(var(--accent-color-rgb), 0.9) !important;
 }

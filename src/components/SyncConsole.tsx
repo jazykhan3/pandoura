@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { useSyncStore } from '../store/syncStore'
 import { useLogicStore } from '../store/enhancedLogicStore'
 import { Activity, AlertCircle, CheckCircle, XCircle, Wifi, WifiOff } from 'lucide-react'
+import { deviceAuth } from '../utils/deviceAuth'
 import { ConflictResolutionModal } from './ConflictResolutionModal'
 import { PreviewChangesModal } from './PreviewChangesModal'
 
@@ -17,8 +18,12 @@ export function SyncConsole() {
   // Start tag streaming and poll for updates
   useEffect(() => {
     // Start streaming on mount
-    fetch('http://localhost:8000/api/sync/start-streaming', { method: 'POST' })
-      .catch(err => console.error('Failed to start streaming:', err))
+    deviceAuth.getSessionToken().then(token => {
+      const headers: HeadersInit = { 'Content-Type': 'application/json' }
+      if (token) headers['Authorization'] = `Bearer ${token}`
+      fetch('http://localhost:8000/api/sync/start-streaming', { method: 'POST', headers })
+        .catch(err => console.error('Failed to start streaming:', err))
+    })
     
     // Poll for tag updates every second
     const interval = setInterval(async () => {

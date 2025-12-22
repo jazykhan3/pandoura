@@ -2,6 +2,7 @@ import { create } from 'zustand'
 import type { LogicFile, ValidationResult } from '../types'
 import { logicApi } from '../services/api'
 import { sessionService } from '../services/session'
+import { deviceAuth } from '../utils/deviceAuth'
 
 type EditorTab = {
   id: string
@@ -94,8 +95,17 @@ export const useLogicStore = create<LogicState>((set, get) => ({
 
   loadFile: async (id: string) => {
     try {
+      console.log(`📄 Loading file: ${id}`)
       const file = await logicApi.getById(id)
+      console.log(`📄 File loaded from API:`, {
+        name: file.name,
+        contentLength: file.content?.length || 0,
+        contentPreview: file.content?.substring(0, 50) || 'EMPTY',
+        fullContent: file.content
+      })
+      console.log(`📄 Setting currentFile in store...`)
       set({ currentFile: file })
+      console.log(`📄 currentFile has been set`)
       
       // Add to tabs if not already open
       const state = get()
@@ -113,7 +123,14 @@ export const useLogicStore = create<LogicState>((set, get) => ({
 
   loadAllFiles: async (projectId?: string) => {
     try {
+      console.log(`📄 Loading files for project: ${projectId || 'all'}`)
       const files = await logicApi.getAll(projectId)
+      console.log(`📄 Loaded ${files.length} files:`, files.map(f => f.name))
+      console.log(`📄 Files content check:`, files.map(f => ({ 
+        name: f.name, 
+        hasContent: !!f.content, 
+        contentLength: f.content?.length || 0 
+      })))
       set({ files })
     } catch (error) {
       console.error('Failed to load files:', error)
@@ -365,7 +382,10 @@ export const useLogicStore = create<LogicState>((set, get) => ({
     }
 
     try {
-      const response = await fetch(`http://localhost:8000/api/logic/${current.id}/diff?currentContent=${encodeURIComponent(currentContent)}`)
+      const sessionToken = await deviceAuth.getSessionToken()
+      const headers: HeadersInit = {}
+      if (sessionToken) headers['Authorization'] = `Bearer ${sessionToken}`
+      const response = await fetch(`http://localhost:8000/api/logic/${current.id}/diff?currentContent=${encodeURIComponent(currentContent)}`, { headers })
       if (response.ok) {
         const diffResult = await response.json()
         set({ changeMarkers: diffResult.changes || [] })

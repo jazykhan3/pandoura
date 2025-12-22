@@ -33,6 +33,7 @@ type MonacoEditorProps = {
   onRenameSymbol?: (oldName: string, newName?: string) => void
   onExtractFunction?: (startLine: number, endLine: number) => void
   theme?: 'light' | 'dark'
+  readOnly?: boolean
 }
 
 // Function to format Structured Text code
@@ -93,10 +94,21 @@ export function MonacoEditor({
   onCodeLensAction,
   onRenameSymbol,
   onExtractFunction,
-  theme = 'light'
+  theme = 'light',
+  readOnly = false
 }: MonacoEditorProps) {
   const editorRef = useRef<editor.IStandaloneCodeEditor | null>(null)
   const monacoRef = useRef<typeof import('monaco-editor') | null>(null)
+  
+  console.log(`🔒 MonacoEditor readOnly prop:`, readOnly)
+  
+  // Update editor readOnly option when it changes
+  useEffect(() => {
+    if (editorRef.current) {
+      console.log(`🔒 Updating editor readOnly to:`, readOnly)
+      editorRef.current.updateOptions({ readOnly })
+    }
+  }, [readOnly])
   
   // Expose format function to parent
   useEffect(() => {
@@ -644,6 +656,7 @@ export function MonacoEditor({
           vertical: 'visible',
           horizontal: 'visible',
         },
+        readOnly: readOnly,
       }}
     />
   )
