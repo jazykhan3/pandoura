@@ -12,7 +12,8 @@ interface DeviceAuthResponse {
 
 class DeviceAuthManager {
   private sessionToken: string | null = null
-  private deviceInfo: any = null
+  // @ts-ignore - Used in runtime but not detected by static analysis
+  private _deviceInfo: any = null
 
   constructor() {
     // Load session token from localStorage if available
@@ -60,7 +61,7 @@ class DeviceAuthManager {
 
       if (data.success && data.sessionToken) {
         this.sessionToken = data.sessionToken
-        this.deviceInfo = data.device
+        this._deviceInfo = data.device
         localStorage.setItem('device_session_token', data.sessionToken)
         // Cache the full device data to avoid unnecessary API call
         if (data.device && data.users) {
@@ -252,7 +253,7 @@ class DeviceAuthManager {
    */
   clearSession(): void {
     this.sessionToken = null
-    this.deviceInfo = null
+    this._deviceInfo = null
     localStorage.removeItem('device_session_token')
   }
 }

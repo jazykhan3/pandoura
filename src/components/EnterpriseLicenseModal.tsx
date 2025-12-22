@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { motion } from 'framer-motion'
-import { Key, Mail, Loader2, AlertCircle, Info, CheckCircle, Shield, Users, Lock, UserCog, Settings } from 'lucide-react'
+import { Key, Mail, Loader2, AlertCircle, Info, CheckCircle, Shield, UserCog, Settings } from 'lucide-react'
 import { useLicenseStore } from '../store/licenseStore'
 import { EnterpriseFirstRunModal } from './EnterpriseFirstRunModal'
 
@@ -17,16 +17,14 @@ export function EnterpriseLicenseModal({ isOpen, onClose, onBack, onAdminSetupCo
   const [deviceRole, setDeviceRole] = useState<'register' | 'provision-admin' | 'team-member' | null>(null)
   const [showFirstRun, setShowFirstRun] = useState(true)
   const [licenseKey, setLicenseKey] = useState('')
-  const [orgKey, setOrgKey] = useState('')
   const [orgName, setOrgName] = useState('')
   const [adminEmail, setAdminEmail] = useState('')
-  const [maxSeats, setMaxSeats] = useState(10)
+  const [maxSeats] = useState(10)
   const [userEmail, setUserEmail] = useState('')
-  const [enterpriseId, setEnterpriseId] = useState('')
   const [deviceName, setDeviceName] = useState('')
   const [isValidating, setIsValidating] = useState(false)
   const [validationError, setValidationError] = useState<string | null>(null)
-  const [, setLicenseInfo] = useState<any>(null)
+  const [, _setLicenseInfo] = useState<any>(null)
   const [isFirstDevice, setIsFirstDevice] = useState(false)
 
   // Comprehensive security policies state
@@ -46,7 +44,7 @@ export function EnterpriseLicenseModal({ isOpen, onClose, onBack, onAdminSetupCo
   })
 
   // RBAC configuration state
-  const [rbacConfig, setRbacConfig] = useState({
+  const [_rbacConfig, _setRbacConfig] = useState({
     defaultRole: 'developer' as 'admin' | 'developer' | 'operator' | 'viewer',
     adminRoles: ['admin'],
     approverRoles: ['admin', 'lead'],
@@ -57,7 +55,7 @@ export function EnterpriseLicenseModal({ isOpen, onClose, onBack, onAdminSetupCo
   })
 
   // Approval policies state
-  const [approvalPolicies, setApprovalPolicies] = useState({
+  const [_approvalPolicies, _setApprovalPolicies] = useState({
     deploymentApproval: {
       enabled: true,
       requiredApprovers: 2,
@@ -84,7 +82,7 @@ export function EnterpriseLicenseModal({ isOpen, onClose, onBack, onAdminSetupCo
   })
 
   // Identity store configuration
-  const [identityStore, setIdentityStore] = useState({
+  const [_identityStore, _setIdentityStore] = useState({
     type: 'local' as 'local' | 'ldap' | 'ad',
     localUsers: [] as Array<{enterpriseId: string, email: string, role: string, department: string}>,
     ldapConfig: {
@@ -137,7 +135,7 @@ export function EnterpriseLicenseModal({ isOpen, onClose, onBack, onAdminSetupCo
     deploymentWindows: [] as Array<{day: string, startTime: string, endTime: string}>
   })
 
-  const { setLicenseStatus, checkLicenseStatus: refreshLicenseStatus } = useLicenseStore()
+  const { checkLicenseStatus: refreshLicenseStatus } = useLicenseStore()
 
   // Format Enterprise license key: 1111-1111-1111-1111 (same as Solo and Teams)
   const formatEnterpriseLicenseKey = (value: string) => {
@@ -207,34 +205,6 @@ export function EnterpriseLicenseModal({ isOpen, onClose, onBack, onAdminSetupCo
       setStep('license')
     }
     console.log('✅ deviceRole set to:', option)
-  }
-
-  const checkLicenseStatus = async () => {
-    if (!licenseKey) return
-    
-    setIsValidating(true)
-    setValidationError(null)
-    
-    try {
-      const response = await fetch('/api/license/enterprise/check', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ licenseKey })
-      })
-      
-      const data = await response.json()
-      
-      if (data.success) {
-        setLicenseInfo(data)
-        setIsFirstDevice(data.isFirstDevice)
-      } else {
-        setValidationError(data.error)
-      }
-    } catch (error) {
-      setValidationError('Failed to check Enterprise license status')
-    } finally {
-      setIsValidating(false)
-    }
   }
 
   const setupEnterpriseLicense = async () => {

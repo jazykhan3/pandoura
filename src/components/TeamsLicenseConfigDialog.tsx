@@ -71,8 +71,7 @@ interface OrgIdentity {
 export function TeamsLicenseConfigDialog({ 
   isOpen, 
   onComplete,
-  onSkip,
-  onClose
+  onSkip
 }: TeamsLicenseConfigDialogProps) {
   const [currentStep, setCurrentStep] = useState(1)
   const [isSubmitting, setIsSubmitting] = useState(false)

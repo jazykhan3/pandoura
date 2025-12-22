@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react'
 import { motion } from 'framer-motion'
 import { Users, Key, Mail, Loader2, AlertCircle, Info, CheckCircle, Building, Settings } from 'lucide-react'
-import { useLicenseStore } from '../store/licenseStore'
 
 interface TeamsLicenseModalProps {
   isOpen: boolean
@@ -114,8 +113,6 @@ export function TeamsLicenseModal({ isOpen, onClose, onBack }: TeamsLicenseModal
       setIsValidating(false)
     }
   }
-
-  const { setHasValidLicense } = useLicenseStore()
   
   // Initialize device name
   useEffect(() => {
@@ -647,7 +644,6 @@ export function TeamsLicenseModal({ isOpen, onClose, onBack }: TeamsLicenseModal
           {step === 'complete' && (
             <button
               onClick={() => {
-                setHasValidLicense(true)
                 if (onClose) onClose()
               }}
               className="px-8 py-3 bg-gradient-to-r from-green-500 to-green-600 text-white rounded-lg font-semibold"

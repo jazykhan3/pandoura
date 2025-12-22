@@ -459,17 +459,6 @@ export function SnapshotScopeSelector({
   )
 }
 
-// Mock data for development
-const mockCounts: ScopeObjectCounts = {
-  programs: 12,
-  executionUnits: 8,
-  tags: 247,
-  dataTypes: 23,
-  routines: 45,
-  aois: 7,
-  constants: 156
-}
-
 function formatMemorySize(kb: number): string {
   if (kb < 1024) {
     return `${kb.toFixed(1)} KB`

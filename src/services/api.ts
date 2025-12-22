@@ -388,6 +388,7 @@ export const simulatorApi = {
     variableCount?: number;
     logicSource?: string;
     logicName?: string;
+    ioValues?: Record<string, any>;
   }> {
     if (DUMMY_MODE) {
       return dummyFetch({
@@ -396,7 +397,8 @@ export const simulatorApi = {
         executionMode: 'interpreter',
         variableCount: 8,
         logicSource: 'direct',
-        logicName: 'Unknown'
+        logicName: 'Unknown',
+        ioValues: {}
       }, 400)
     }
     const res = await fetch(`${API_BASE}/simulate/run`, {
@@ -1287,11 +1289,6 @@ export const versionApi = {
     return res.json();
   },
 
-  async getVersionFiles(versionId: string) {
-    const res = await fetch(`${API_BASE}/versions/${versionId}/files`);
-    return res.json();
-  },
-
   async compareVersions(versionId1: string, versionId2: string) {
     const res = await fetch(`${API_BASE}/versions/compare/${versionId1}/${versionId2}`);
     return res.json();
@@ -1496,11 +1493,6 @@ export const deploymentApi = {
   },
 
   // Approvals
-  async getDeploymentApprovals(deployId: string) {
-    const res = await fetch(`${API_BASE}/deploy/deployments/${deployId}/approvals`);
-    return res.json();
-  },
-
   async getDeploymentApprovals(deployId: string) {
     const res = await fetch(`${API_BASE}/deploy/deployments/${deployId}/approvals`);
     return res.json();

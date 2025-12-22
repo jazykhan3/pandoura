@@ -199,6 +199,7 @@ export type SyncEventType =
   | 'LOGIC_PUSH' 
   | 'HEARTBEAT' 
   | 'CONFLICT'
+  | 'CONFLICT_RESOLVED'
   | 'CONNECT'
   | 'DISCONNECT'
 
@@ -247,7 +248,7 @@ export type SyncStatus = {
   lastSync: string | null
   latency: number
   conflicts: SyncConflict[]
-  executionMode?: 'interpreter' | 'stopped'
+  executionMode?: 'interpreter' | 'stopped' | 'simulation' | 'beremiz'
 }
 
 export type SyncConflict = {

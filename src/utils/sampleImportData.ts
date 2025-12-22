@@ -366,9 +366,9 @@ END_PROGRAM`,
   }
 }`,
       diff: [
-        { type: 'removed', sourceLines: [1, 2, 3], content: 'PROGRAM MainProgram\n  VAR\n    ConveyorSpeed : DINT := 0;' },
-        { type: 'added', normalizedLines: [1, 2, 3], content: '{\n  "id": "pan_1a2b3c4d5e6f7890",\n  "type": "Program",' },
-        { type: 'modified', sourceLines: [8, 9], normalizedLines: [12, 13], content: 'IF EmergencyStop THEN' }
+        { type: 'removed' as const, sourceLines: [1, 2, 3], content: 'PROGRAM MainProgram\n  VAR\n    ConveyorSpeed : DINT := 0;' },
+        { type: 'added' as const, normalizedLines: [1, 2, 3], content: '{\n  "id": "pan_1a2b3c4d5e6f7890",\n  "type": "Program",' },
+        { type: 'modified' as const, sourceLines: [8, 9], normalizedLines: [12, 13], content: 'IF EmergencyStop THEN' }
       ]
     }
   ];

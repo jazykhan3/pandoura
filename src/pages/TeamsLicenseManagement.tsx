@@ -4,16 +4,11 @@ import {
   Users, 
   Shield, 
   Building, 
-  Check,
   X,
-  UserPlus,
-  UserMinus,
   Key,
   AlertCircle,
   CheckCircle2,
-  Crown,
   Eye,
-  Edit2,
   Settings
 } from 'lucide-react'
 import { Card } from '../components/Card'
@@ -54,7 +49,7 @@ interface TeamsLicenseManagementProps {
 
 export function TeamsLicenseManagement({ isOpen, onClose }: TeamsLicenseManagementProps) {
   const [config, setConfig] = useState<LicenseConfig | null>(null)
-  const [seats, setSeats] = useState<TeamsSeat[]>([])
+  const [_seats, setSeats] = useState<TeamsSeat[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [showAddSeatModal, setShowAddSeatModal] = useState(false)
@@ -203,12 +198,6 @@ export function TeamsLicenseManagement({ isOpen, onClose }: TeamsLicenseManageme
       setIsLoading(false)
     }
   }
-
-  const handleRemoveSeat = async (bindingId: string, email: string) => {
-    console.log('🔴 Remove seat clicked:', { bindingId, email })
-    setConfirmRemove({ bindingId, email })
-    console.log('🔴 Confirmation modal should show now')
-  }
   
   const handleSaveConfiguration = async () => {
     setIsSavingConfig(true)
@@ -314,36 +303,6 @@ export function TeamsLicenseManagement({ isOpen, onClose }: TeamsLicenseManageme
     } catch (err: any) {
       console.error('❌ Error removing seat:', err)
       setStatusModal({ type: 'error', message: err.message || 'Failed to remove seat' })
-    }
-  }
-
-  const getRoleIcon = (role: string) => {
-    switch (role.toLowerCase()) {
-      case 'admin':
-        return <Crown size={16} className="text-purple-500" />
-      case 'approver':
-        return <CheckCircle2 size={16} className="text-green-500" />
-      case 'editor':
-        return <Edit2 size={16} className="text-blue-500" />
-      case 'viewer':
-        return <Eye size={16} className="text-gray-500" />
-      default:
-        return <Users size={16} className="text-gray-400" />
-    }
-  }
-
-  const getRoleBadgeColor = (role: string) => {
-    switch (role.toLowerCase()) {
-      case 'admin':
-        return 'bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300'
-      case 'approver':
-        return 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300'
-      case 'editor':
-        return 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300'
-      case 'viewer':
-        return 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300'
-      default:
-        return 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400'
     }
   }
 

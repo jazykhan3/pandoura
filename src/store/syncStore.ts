@@ -1,5 +1,5 @@
 import { create } from 'zustand'
-import type { SyncStatus, SyncConflict, SyncEvent } from '../types'
+import type { SyncStatus, SyncConflict, SyncEvent, SyncEventType } from '../types'
 import { syncWebSocket } from '../services/websocket'
 import { syncApi } from '../services/api'
 import { deviceAuth } from '../utils/deviceAuth'
@@ -183,7 +183,7 @@ export const useSyncStore = create<SyncState>((set, get) => ({
           events: [
             {
               id: `event-${Date.now()}`,
-              type: 'LOGIC_PUSH',
+              type: 'LOGIC_PUSH' as SyncEventType,
               timestamp: new Date().toISOString(),
               payload: { logicId, target: 'live', success: true, warnings: result.warnings },
             },
@@ -223,7 +223,7 @@ export const useSyncStore = create<SyncState>((set, get) => ({
         events: [
           {
             id: `event-${Date.now()}`,
-            type: 'CONFLICT_RESOLVED',
+            type: 'CONFLICT_RESOLVED' as SyncEventType,
             timestamp: new Date().toISOString(),
             payload: { conflictId, resolution },
           },

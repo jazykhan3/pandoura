@@ -14,12 +14,6 @@ type Tag = {
   }
 }
 
-type CodeLensAction = {
-  title: string
-  command: string
-  arguments?: any[]
-}
-
 type MonacoEditorProps = {
   value: string
   onChange: (value: string) => void
@@ -46,7 +40,6 @@ function formatStructuredText(text: string, options?: any): string {
   
   const increaseIndentKeywords = ['VAR', 'VAR_INPUT', 'VAR_OUTPUT', 'VAR_IN_OUT', 'VAR_GLOBAL', 'IF', 'FOR', 'WHILE', 'REPEAT', 'CASE', 'PROGRAM', 'FUNCTION', 'FUNCTION_BLOCK']
   const decreaseIndentKeywords = ['END_VAR', 'END_IF', 'END_FOR', 'END_WHILE', 'END_REPEAT', 'END_CASE', 'END_PROGRAM', 'END_FUNCTION', 'END_FUNCTION_BLOCK']
-  const neutralKeywords = ['ELSE', 'ELSIF', 'THEN', 'DO', 'OF']
   
   for (let i = 0; i < lines.length; i++) {
     let line = lines[i].trim()
@@ -334,7 +327,7 @@ export function MonacoEditor({
     // Register commands FIRST before Code Lens provider uses them
     if (onCodeLensAction) {
       // Register global command for Code Lens
-      monaco.editor.registerCommand('st.runTest', (accessor, ...args) => {
+      monaco.editor.registerCommand('st.runTest', (_accessor, ...args) => {
         console.log('=== Run Test Command Executed ===')
         console.log('Command args:', args)
         onCodeLensAction('st.runTest', args)
@@ -384,14 +377,14 @@ export function MonacoEditor({
         console.log('Code Lenses generated:', lenses.length)
         return { lenses, dispose: () => {} }
       },
-      resolveCodeLens: (model, codeLens) => {
+      resolveCodeLens: (_model, codeLens) => {
         return codeLens
       },
     })
 
     // Register Code Actions Provider (Refactoring)
     monaco.languages.registerCodeActionProvider('st', {
-      provideCodeActions: (model, range, context) => {
+      provideCodeActions: (model, range, _context) => {
         const actions: any[] = []
         
         // Get the actual text at the range position dynamically
@@ -493,7 +486,7 @@ export function MonacoEditor({
         editor.addAction({
           id: 'st.runTest',
           label: 'Run Test',
-          run: (ed, ...args) => {
+          run: (_ed, ...args) => {
             console.log('=== Run Test Action Clicked ===')
             console.log('Args:', args)
             onCodeLensAction('st.runTest', args)
@@ -506,7 +499,7 @@ export function MonacoEditor({
         editor.addAction({
           id: 'st.simulate',
           label: 'Simulate',
-          run: (ed, ...args) => {
+          run: (_ed, ...args) => {
             onCodeLensAction('st.simulate', args)
           },
         })
@@ -517,7 +510,7 @@ export function MonacoEditor({
         editor.addAction({
           id: 'st.coverage',
           label: 'Coverage',
-          run: (ed, ...args) => {
+          run: (_ed, ...args) => {
             onCodeLensAction('st.coverage', args)
           },
         })
@@ -562,7 +555,7 @@ export function MonacoEditor({
         editor.addAction({
           id: 'st.extractFunction',
           label: 'Extract Function',
-          run: (ed, ...args) => {
+          run: (ed, ..._args) => {
             console.log('=== Extract Function Action Executed ===')
             
             // Get current selection DYNAMICALLY when command runs

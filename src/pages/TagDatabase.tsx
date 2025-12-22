@@ -133,9 +133,9 @@ export function TagDatabase() {
       // Ensure result is an array
       if (Array.isArray(result)) {
         setTags(result)
-      } else if (result && typeof result === 'object' && Array.isArray(result.tags)) {
+      } else if (result && typeof result === 'object' && 'tags' in result && Array.isArray((result as any).tags)) {
         // Handle case where API returns { tags: [...] }
-        setTags(result.tags)
+        setTags((result as any).tags)
       } else {
         console.warn('Unexpected tags response format:', result)
         setTags([])

@@ -46,7 +46,7 @@ export function ProjectManagement() {
     type: 'success' | 'error' | 'info' | 'warning'
   }>({ isOpen: false, title: '', message: '', type: 'info' })
   const [showPullDialog, setShowPullDialog] = useState(false)
-  const [pullEntryPoint, setPullEntryPoint] = useState<'project-wizard' | 'empty-project-cta' | 'topbar-menu'>('manual')
+  const [pullEntryPoint, setPullEntryPoint] = useState<'project-wizard' | 'empty-project-cta' | 'topbar-menu'>('project-wizard')
   const [pullProjectId, setPullProjectId] = useState<string | undefined>()
   const [pullProjectName, setPullProjectName] = useState<string | undefined>()
 

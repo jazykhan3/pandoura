@@ -124,8 +124,7 @@ export function analyzeSafety(content: string): SafetyAnalysisResult {
   const watchdogViolations: Array<{ line: number; message: string; canOverride: boolean; approved: boolean }> = []
   let hasWatchdog = false
   
-  lines.forEach((line, index) => {
-    const lineNumber = index + 1
+  lines.forEach((line) => {
     const trimmed = line.trim()
     
     if (trimmed.match(/\b(WATCHDOG|WDT|WDOG)\b/i)) {

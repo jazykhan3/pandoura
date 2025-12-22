@@ -1,7 +1,6 @@
 import { create } from 'zustand'
 import type { LogicFile, ValidationResult } from '../types'
 import { logicApi } from '../services/api'
-import { sessionService } from '../services/session'
 
 type EditorTab = {
   id: string
@@ -64,10 +63,16 @@ const STORAGE_KEY = 'pandaura:currentLogic'
 export const useLogicStore = create<LogicState>((set, get) => ({
   currentFile: null,
   files: [],
+  openTabs: [],
+  unsavedChanges: {},
   isModified: false,
   isSaving: false,
+  isValidating: false,
   validationResult: null,
+  changeMarkers: [],
+  showDiffs: false,
   vendor: 'neutral',
+  autoSave: false,
 
   loadFile: async (id: string) => {
     try {
@@ -161,11 +166,88 @@ export const useLogicStore = create<LogicState>((set, get) => ({
     set({ vendor })
   },
 
+  // Tab management
+  openTab: (file) => {
+    set(state => ({
+      openTabs: state.openTabs.find(t => t.id === file.id)
+        ? state.openTabs
+        : [...state.openTabs, { id: file.id, name: file.name, unsaved: false }]
+    }))
+  },
+
+  closeTab: (fileId) => {
+    set(state => ({
+      openTabs: state.openTabs.filter(t => t.id !== fileId),
+      unsavedChanges: Object.fromEntries(
+        Object.entries(state.unsavedChanges).filter(([id]) => id !== fileId)
+      )
+    }))
+  },
+
+  switchTab: (fileId) => {
+    const file = get().files.find(f => f.id === fileId)
+    if (file) {
+      set({ currentFile: file })
+    }
+  },
+
+  // Change tracking
+  getUnsavedContent: (fileId) => {
+    return get().unsavedChanges[fileId] || null
+  },
+
+  hasUnsavedChanges: (fileId) => {
+    if (fileId) {
+      return fileId in get().unsavedChanges
+    }
+    return Object.keys(get().unsavedChanges).length > 0
+  },
+
+  discardChanges: (fileId) => {
+    set(state => ({
+      unsavedChanges: Object.fromEntries(
+        Object.entries(state.unsavedChanges).filter(([id]) => id !== fileId)
+      )
+    }))
+  },
+
+  toggleShowDiffs: () => set(state => ({ showDiffs: !state.showDiffs })),
+
+  updateChangeMarkers: async () => {
+    // Placeholder for change marker logic
+    set({ changeMarkers: [] })
+  },
+
+  setAutoSave: (enabled) => set({ autoSave: enabled }),
+
+  loadSession: async () => {
+    const stored = localStorage.getItem(STORAGE_KEY)
+    if (stored) {
+      try {
+        const file = JSON.parse(stored)
+        set({ currentFile: file })
+      } catch (error) {
+        console.error('Failed to restore logic from storage:', error)
+      }
+    }
+  },
+
+  saveSession: async () => {
+    const current = get().currentFile
+    if (current) {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(current))
+    }
+  },
+
   reset: () => {
     set({
       currentFile: null,
+      files: [],
+      openTabs: [],
+      unsavedChanges: {},
       isModified: false,
-      validationResult: null,
+      changeMarkers: [],
+      validationResult: null
     })
   },
 }))

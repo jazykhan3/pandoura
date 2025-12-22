@@ -591,10 +591,11 @@ const mockRuntimes: RuntimeConnection[] = [
   {
     id: '1',
     name: 'Production PLC-01',
+    runtimeType: 'PLC',
     vendorType: 'rockwell',
     ipAddress: '192.168.1.100',
     port: 44818,
-    status: 'connected',
+    status: 'online',
     firmwareVersion: 'v32.12',
     runtimeVersion: 'Studio 5000 v33.0',
     lastConnectedAt: new Date(Date.now() - 300000).toISOString(),
@@ -605,6 +606,7 @@ const mockRuntimes: RuntimeConnection[] = [
   {
     id: '2',
     name: 'Staging PLC-02',
+    runtimeType: 'PLC',
     vendorType: 'rockwell',
     ipAddress: '192.168.1.101',
     port: 44818,
@@ -617,6 +619,7 @@ const mockRuntimes: RuntimeConnection[] = [
   {
     id: '3',
     name: 'Dev PLC-03',
+    runtimeType: 'PLC',
     vendorType: 'siemens',
     ipAddress: '192.168.1.102',
     port: 102,
@@ -1331,7 +1334,7 @@ export function RuntimeSettings() {
                                       ? 'bg-yellow-100 dark:bg-yellow-900/20 text-yellow-700 dark:text-yellow-400 border border-yellow-300 dark:border-yellow-800'
                                       : 'bg-red-100 dark:bg-red-900/20 text-red-700 dark:text-red-400 border border-red-300 dark:border-red-800'
                                   }`}
-                                  title={`${phase.name}: ${phase.duration_ms}ms - ${phase.message || 'OK'}`}
+                                  title={`${phase.name}: ${phase.duration_ms}ms - ${(phase as any).message || 'OK'}`}
                                 >
                                   {phase.status === 'passed' ? '✓' : phase.status === 'warning' ? '⚠' : '✗'} {phase.name}
                                 </span>

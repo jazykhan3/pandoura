@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { motion } from 'framer-motion'
-import { Settings, Shield, Users, Building, CheckCircle, ChevronRight } from 'lucide-react'
+import { Settings, Shield, Users, CheckCircle } from 'lucide-react'
 import { deviceAuth } from '../utils/deviceAuth'
 
 interface TeamsEnterpriseConfigModalProps {

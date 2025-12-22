@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { motion } from 'framer-motion'
-import { Shield, Key, Mail, X, Loader2, AlertCircle, Info } from 'lucide-react'
+import { Shield, Key, Mail, X, Loader2, AlertCircle } from 'lucide-react'
 import { useLicenseStore } from '../store/licenseStore'
 
 interface LicenseActivationModalProps {

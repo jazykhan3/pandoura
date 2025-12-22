@@ -1,4 +1,4 @@
-import type { SyncEvent, Tag } from '../types'
+import type { SyncEvent } from '../types'
 import { io, Socket } from 'socket.io-client'
 
 type WebSocketMessage = {

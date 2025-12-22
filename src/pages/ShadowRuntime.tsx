@@ -5,7 +5,7 @@ import { Simulator } from '../components/Simulator'
 import { DeployConsole } from '../components/DeployConsole'
 import { useSyncStore } from '../store/syncStore'
 import { useSimulatorStore } from '../store/simulatorStore'
-import { syncApi } from '../services/api'
+// import { syncApi } from '../services/api'
 import { deviceAuth } from '../utils/deviceAuth'
 
 type RuntimeMetrics = {

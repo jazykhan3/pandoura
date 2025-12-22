@@ -1,4 +1,3 @@
-import { useState, useEffect } from 'react'
 import { DeployConsole } from '../components/DeployConsole'
 import { useProjectStore } from '../store/projectStore'
 import { AlertCircle } from 'lucide-react'

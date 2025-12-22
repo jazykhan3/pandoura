@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import { useSimulatorStore } from '../store/simulatorStore'
 import { useSyncStore } from '../store/syncStore'
 import { Play, Pause, Square, SkipForward, Download, Trash2, Settings } from 'lucide-react'

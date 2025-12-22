@@ -89,18 +89,6 @@ type QueuedDeploy = {
   releaseData?: any
 }
 
-type DeploymentPhase = {
-  name: string
-  status: 'pending' | 'running' | 'completed' | 'failed'
-  startTime?: string
-  completedAt?: string
-  progress?: number
-  message?: string
-  results?: any
-}
-
-
-
 interface DeployConsoleProps {
   environment: 'staging' | 'production'
 }
@@ -935,13 +923,15 @@ export function DeployConsole({ environment }: DeployConsoleProps) {
       // Initialize local deployment execution with logs
       const execution: DeploymentExecution = {
         id: deployId,
+        deploymentId: deployId,
+        configId: 'default-config',
         strategy: deploymentStrategy as 'atomic' | 'canary' | 'chunked',
-        environment: environment,
         status: 'running',
         startTime: new Date().toISOString(),
         progress: 0,
         logs: [],
-        currentPhase: 'Initializing'
+        currentPhase: 'Initializing',
+        rollbacks: []
       }
       
       setDeploymentExecution(execution)
