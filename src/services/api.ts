@@ -772,7 +772,7 @@ export const tagApi = {
     const url = `${API_BASE}/tags/${tagId}/dependencies${params}`
     console.log('🌐 API: Fetching dependencies from:', url)
     const headers = await getAuthHeaders()
-    console.log('🔑 API: Auth headers:', headers.Authorization ? 'Bearer token present' : 'No token')
+    console.log('🔑 API: Auth headers:', (headers as Record<string, string>).Authorization ? 'Bearer token present' : 'No token')
     const res = await fetch(url, { headers })
     console.log('📡 API: Response status:', res.status, res.statusText)
     const data = await res.json()
