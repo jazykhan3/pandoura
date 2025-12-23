@@ -500,12 +500,14 @@ export function TagDatabase() {
   }
 
   const loadTagDependencies = async (tagId: string) => {
+    console.log('🔍 loadTagDependencies called for:', tagId)
     setIsLoading(true)
     try {
       const deps = await tagApi.getTagDependencies(tagId, activeProject?.id)
+      console.log('✅ Loaded dependencies:', deps.length, deps)
       setTagDependencies(deps)
     } catch (error) {
-      console.error('Failed to load tag dependencies:', error)
+      console.error('❌ Failed to load tag dependencies:', error)
       setTagDependencies([])
     } finally {
       setIsLoading(false)
@@ -1019,7 +1021,12 @@ export function TagDatabase() {
                           </td>
                           <td
                             className="py-2 px-4 font-mono text-gray-900 cursor-pointer hover:text-[#FF6A00]"
-                            onClick={() => setSelectedTag(tag)}
+                            onClick={() => {
+                              console.log('🏷️ Tag clicked:', tag.name, tag.id)
+                              setSelectedTag(tag)
+                              console.log('📊 Loading dependencies for:', tag.id)
+                              loadTagDependencies(tag.id)
+                            }}
                           >
                             {tag.name}
                             {tag.lifecycle === 'deprecated' && (

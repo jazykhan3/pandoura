@@ -39,6 +39,9 @@ export function DependencyGraph({
   const [selectedNode, setSelectedNode] = useState<GraphNode | null>(null)
   const [hoveredNode, setHoveredNode] = useState<GraphNode | null>(null)
 
+  // Ensure dependencies is always an array
+  const safeDependencies = Array.isArray(dependencies) ? dependencies : []
+
   useEffect(() => {
     if (!isOpen) return
 
@@ -58,7 +61,7 @@ export function DependencyGraph({
     graphNodes.push(centerNode)
 
     // Organize dependencies by type
-    const groupedDeps = dependencies.reduce((acc, dep) => {
+    const groupedDeps = safeDependencies.reduce((acc, dep) => {
       const type = dep.dependencyType
       if (!acc[type]) acc[type] = []
       acc[type].push(dep)
@@ -99,7 +102,7 @@ export function DependencyGraph({
 
     setNodes(graphNodes)
     setEdges(graphEdges)
-  }, [isOpen, tag, dependencies])
+  }, [isOpen, tag, safeDependencies])
 
   useEffect(() => {
     if (!canvasRef.current || nodes.length === 0) return
@@ -274,24 +277,24 @@ export function DependencyGraph({
         <div className="grid grid-cols-4 gap-4 mt-4">
           <div className="bg-gray-50 p-3 rounded">
             <p className="text-xs text-gray-600">Total References</p>
-            <p className="text-2xl font-bold text-gray-900">{dependencies.length}</p>
+            <p className="text-2xl font-bold text-gray-900">{safeDependencies.length}</p>
           </div>
           <div className="bg-gray-50 p-3 rounded">
             <p className="text-xs text-gray-600">Routines</p>
             <p className="text-2xl font-bold text-gray-900">
-              {new Set(dependencies.map(d => d.location.fileName)).size}
+              {new Set(safeDependencies.map(d => d.location.fileName)).size}
             </p>
           </div>
           <div className="bg-gray-50 p-3 rounded">
             <p className="text-xs text-gray-600">Read Operations</p>
             <p className="text-2xl font-bold text-gray-900">
-              {dependencies.filter(d => d.usageType === 'read').length}
+              {safeDependencies.filter(d => d.usageType === 'read').length}
             </p>
           </div>
           <div className="bg-gray-50 p-3 rounded">
             <p className="text-xs text-gray-600">Write Operations</p>
             <p className="text-2xl font-bold text-gray-900">
-              {dependencies.filter(d => d.usageType === 'write').length}
+              {safeDependencies.filter(d => d.usageType === 'write' || d.usageType === 'readwrite').length}
             </p>
           </div>
         </div>

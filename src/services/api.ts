@@ -1,5 +1,6 @@
 import type { LogicFile, Tag, ValidationResult, SimulatorLog } from '../types'
 import { deviceAuth } from '../utils/deviceAuth'
+import { mockTags } from '../data/mockData'
 
 const API_BASE = 'http://localhost:8000/api'
 
@@ -601,105 +602,7 @@ export const simulatorApi = {
 export const tagApi = {
   async getAll(projectId?: string): Promise<Tag[]> {
     if (DUMMY_MODE) {
-      return dummyFetch([
-        { 
-          id: '1', 
-          name: 'Temperature_PV', 
-          type: 'REAL' as const, 
-          value: 72.5, 
-          address: 'DB1.DBD0', 
-          lastUpdate: new Date(),
-          source: 'live' as const,
-          metadata: { description: 'Process Variable', units: '°C' },
-        },
-        { 
-          id: '2', 
-          name: 'Temperature_SP', 
-          type: 'REAL' as const, 
-          value: 75.0, 
-          address: 'DB1.DBD4', 
-          lastUpdate: new Date(),
-          source: 'shadow' as const,
-          metadata: { description: 'Setpoint', units: '°C' },
-        },
-        { 
-          id: '3', 
-          name: 'Heater_Output', 
-          type: 'REAL' as const, 
-          value: 45.2, 
-          address: 'DB1.DBD8', 
-          lastUpdate: new Date(),
-          source: 'shadow' as const,
-          metadata: { description: 'Control Output', units: '%' },
-        },
-        { 
-          id: '4', 
-          name: 'Pump_Run', 
-          type: 'BOOL' as const, 
-          value: true, 
-          address: 'DB1.DBX12.0', 
-          lastUpdate: new Date(),
-          source: 'live' as const,
-        },
-        { 
-          id: '5', 
-          name: 'Tank_Level', 
-          type: 'REAL' as const, 
-          value: 50.0, 
-          address: 'DB1.DBD12', 
-          lastUpdate: new Date(),
-          source: 'live' as const,
-          metadata: { description: 'Tank Level', units: '%' },
-        },
-        { 
-          id: '6', 
-          name: 'Emergency_Stop', 
-          type: 'BOOL' as const, 
-          value: false, 
-          address: 'DB1.DBX12.1', 
-          lastUpdate: new Date(),
-          source: 'live' as const,
-        },
-        { 
-          id: '7', 
-          name: 'Error', 
-          type: 'REAL' as const, 
-          value: 2.5, 
-          address: 'DB1.DBD16', 
-          lastUpdate: new Date(),
-          source: 'shadow' as const,
-        },
-        { 
-          id: '8', 
-          name: 'Kp', 
-          type: 'REAL' as const, 
-          value: 2.5, 
-          address: 'DB1.DBD20', 
-          lastUpdate: new Date(),
-          source: 'shadow' as const,
-          metadata: { description: 'Proportional Gain' },
-        },
-        { 
-          id: '9', 
-          name: 'Ki', 
-          type: 'REAL' as const, 
-          value: 0.1, 
-          address: 'DB1.DBD24', 
-          lastUpdate: new Date(),
-          source: 'shadow' as const,
-          metadata: { description: 'Integral Gain' },
-        },
-        { 
-          id: '10', 
-          name: 'Kd', 
-          type: 'REAL' as const, 
-          value: 0.5, 
-          address: 'DB1.DBD28', 
-          lastUpdate: new Date(),
-          source: 'shadow' as const,
-          metadata: { description: 'Derivative Gain' },
-        },
-      ])
+      return dummyFetch(mockTags)
     }
     const sessionToken = await deviceAuth.getSessionToken()
     const headers: HeadersInit = {}
@@ -860,9 +763,21 @@ export const tagApi = {
   },
 
   async getDependencies(tagId: string, projectId?: string): Promise<any> {
+    if (DUMMY_MODE) {
+      // Return mock dependencies from mockTags
+      const tag = mockTags.find(t => t.id === tagId)
+      return dummyFetch(tag?.dependencies || [])
+    }
     const params = projectId ? `?projectId=${projectId}` : ''
-    const res = await fetch(`${API_BASE}/tags/${tagId}/dependencies${params}`)
-    return res.json()
+    const url = `${API_BASE}/tags/${tagId}/dependencies${params}`
+    console.log('🌐 API: Fetching dependencies from:', url)
+    const headers = await getAuthHeaders()
+    console.log('🔑 API: Auth headers:', headers.Authorization ? 'Bearer token present' : 'No token')
+    const res = await fetch(url, { headers })
+    console.log('📡 API: Response status:', res.status, res.statusText)
+    const data = await res.json()
+    console.log('📦 API: Response data:', data)
+    return data
   },
 
   async getTagDependencies(tagId: string, projectId?: string): Promise<any[]> {

@@ -45,9 +45,124 @@ export const mockConnections: Connection[] = [
 ]
 
 export const mockTags: Tag[] = [
-  { id: '1', name: 'Motor_Speed', type: 'REAL', value: 1450.5, address: 'DB1.DBD0', lastUpdate: new Date() },
-  { id: '2', name: 'Pump_Status', type: 'BOOL', value: true, address: 'DB1.DBX4.0', lastUpdate: new Date() },
-  { id: '3', name: 'Temperature_Setpoint', type: 'INT', value: 75, address: 'DB1.DBW8', lastUpdate: new Date() },
+  { 
+    id: '1', 
+    name: 'Motor_Speed', 
+    type: 'REAL', 
+    value: 1450.5, 
+    address: 'DB1.DBD0', 
+    lastUpdate: new Date(),
+    dependencies: [
+      {
+        tagId: '1',
+        tagName: 'Motor_Speed',
+        dependencyType: 'routine',
+        usageType: 'readwrite',
+        location: {
+          fileName: 'MotorControl.st',
+          routine: 'MotorSpeedControl',
+          lineNumber: 45,
+          column: 12
+        }
+      },
+      {
+        tagId: '1',
+        tagName: 'Motor_Speed',
+        dependencyType: 'hmi',
+        usageType: 'read',
+        location: {
+          fileName: 'MainHMI.scada',
+          lineNumber: 120
+        }
+      },
+      {
+        tagId: '1',
+        tagName: 'Motor_Speed',
+        dependencyType: 'alarm',
+        usageType: 'read',
+        location: {
+          fileName: 'AlarmConfig.xml',
+          lineNumber: 78
+        }
+      },
+      {
+        tagId: '1',
+        tagName: 'Motor_Speed',
+        dependsOnTagId: '2',
+        dependencyType: 'tag',
+        usageType: 'read',
+        location: {
+          fileName: 'Interlock.st',
+          routine: 'SafetyInterlock',
+          lineNumber: 34
+        }
+      }
+    ]
+  },
+  { 
+    id: '2', 
+    name: 'Pump_Status', 
+    type: 'BOOL', 
+    value: true, 
+    address: 'DB1.DBX4.0', 
+    lastUpdate: new Date(),
+    dependencies: [
+      {
+        tagId: '2',
+        tagName: 'Pump_Status',
+        dependencyType: 'routine',
+        usageType: 'write',
+        location: {
+          fileName: 'PumpControl.st',
+          routine: 'PumpSequencer',
+          lineNumber: 67,
+          column: 8
+        }
+      },
+      {
+        tagId: '2',
+        tagName: 'Pump_Status',
+        dependencyType: 'hmi',
+        usageType: 'read',
+        location: {
+          fileName: 'PumpPanel.scada',
+          lineNumber: 23
+        }
+      }
+    ]
+  },
+  { 
+    id: '3', 
+    name: 'Temperature_Setpoint', 
+    type: 'INT', 
+    value: 75, 
+    address: 'DB1.DBW8', 
+    lastUpdate: new Date(),
+    dependencies: [
+      {
+        tagId: '3',
+        tagName: 'Temperature_Setpoint',
+        dependencyType: 'routine',
+        usageType: 'read',
+        location: {
+          fileName: 'TemperatureControl.st',
+          routine: 'PID_TempControl',
+          lineNumber: 12,
+          column: 20
+        }
+      },
+      {
+        tagId: '3',
+        tagName: 'Temperature_Setpoint',
+        dependencyType: 'file',
+        usageType: 'readwrite',
+        location: {
+          fileName: 'RecipeManager.st',
+          lineNumber: 89
+        }
+      }
+    ]
+  },
   { id: '4', name: 'Conveyor_Enable', type: 'BOOL', value: false, address: 'DB1.DBX4.1', lastUpdate: new Date() },
   { id: '5', name: 'Flow_Rate', type: 'REAL', value: 23.7, address: 'DB1.DBD12', lastUpdate: new Date() },
   { id: '6', name: 'Pressure_Value', type: 'REAL', value: 101.3, address: 'DB1.DBD16', lastUpdate: new Date() },
