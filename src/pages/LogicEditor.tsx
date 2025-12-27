@@ -286,7 +286,6 @@ export function LogicEditor() {
   const { tools: externalTools, executeTool, getContextMenuTools } = useExternalTools()
   
   // External tools state
-  const [showExternalToolsMenu, setShowExternalToolsMenu] = useState(false)
   const [externalToolsMenuPosition, setExternalToolsMenuPosition] = useState<{ x: number; y: number } | undefined>()
   
   // Track previous project to detect changes
@@ -1576,7 +1575,6 @@ export function LogicEditor() {
                     x: rect.left,
                     y: rect.bottom + 5
                   })
-                  setShowExternalToolsMenu(true)
                 } else {
                   setDialog({
                     isOpen: true,
@@ -3524,7 +3522,6 @@ export function LogicEditor() {
         }}
         position={externalToolsMenuPosition}
         onClose={() => {
-          setShowExternalToolsMenu(false)
           setExternalToolsMenuPosition(undefined)
         }}
       />
