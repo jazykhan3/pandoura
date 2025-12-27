@@ -2,11 +2,13 @@ import { useEffect, useState, useRef } from 'react'
 import { MonacoEditor } from '../components/MonacoEditor'
 import { Dialog } from '../components/Dialog'
 import { InputDialog } from '../components/InputDialog'
+import { ExternalToolsMenu } from '../components/ExternalToolsMenu'
 import { useLogicStore } from '../store/enhancedLogicStore'
 import { useSyncStore } from '../store/syncStore'
 import { useSimulatorStore } from '../store/simulatorStore'
 import { useTagStore } from '../store/tagStore'
 import { useProjectStore } from '../store/projectStore'
+import { useExternalTools } from '../hooks/useExternalTools'
 import { deviceAuth } from '../utils/deviceAuth'
 import { logicApi, versionApi, simulatorApi } from '../services/api'
 import { parseSTCode, renameSymbol, extractFunction } from '../utils/stParser'
@@ -37,6 +39,7 @@ import {
   AlertTriangle,
   Shield,
   History,
+  Plug,
 } from 'lucide-react'
 import type {
   Symbol as ProjectSymbol,
@@ -280,6 +283,11 @@ export function LogicEditor() {
   const { run: runSimulator, breakpoints, toggleBreakpoint, currentLine } = useSimulatorStore()
   const { tags: tagDatabaseTags, loadTags: loadTagDatabaseTags } = useTagStore()
   const { activeProject } = useProjectStore()
+  const { tools: externalTools, executeTool, getContextMenuTools } = useExternalTools()
+  
+  // External tools state
+  const [showExternalToolsMenu, setShowExternalToolsMenu] = useState(false)
+  const [externalToolsMenuPosition, setExternalToolsMenuPosition] = useState<{ x: number; y: number } | undefined>()
   
   // Track previous project to detect changes
   const prevProjectIdRef = useRef<string | null>(null)
@@ -1546,6 +1554,48 @@ export function LogicEditor() {
               title="Semantic Diagnostics"
             >
               <AlertTriangle className="w-4 h-4" />
+            </button>
+
+            <button
+              onClick={() => setShowDiagnosticsPanel(!showDiagnosticsPanel)}
+              className={`flex items-center gap-1.5 px-3 py-1.5 text-sm rounded-md transition-colors ${
+                showDiagnosticsPanel
+                  ? 'bg-[#FF6A00] text-white'
+                  : 'bg-white dark:bg-gray-700 border border-neutral-300 dark:border-gray-600 text-neutral-800 dark:text-white hover:bg-neutral-50 dark:hover:bg-gray-600'
+              }`}
+              title="Semantic Diagnostics"
+            >
+              <AlertTriangle className="w-4 h-4" />
+            </button>
+
+            <button
+              onClick={(e) => {
+                if (externalTools.length > 0) {
+                  const rect = e.currentTarget.getBoundingClientRect()
+                  setExternalToolsMenuPosition({
+                    x: rect.left,
+                    y: rect.bottom + 5
+                  })
+                  setShowExternalToolsMenu(true)
+                } else {
+                  setDialog({
+                    isOpen: true,
+                    title: 'No External Tools',
+                    message: 'No external tools are configured. Go to Settings → Integrations to add tools.',
+                    type: 'info'
+                  })
+                }
+              }}
+              disabled={!currentFile}
+              className={`flex items-center gap-1.5 px-3 py-1.5 text-sm rounded-md transition-colors ${
+                currentFile
+                  ? 'bg-green-500 text-white hover:bg-green-600'
+                  : 'bg-neutral-100 dark:bg-gray-800 border border-neutral-200 dark:border-gray-700 text-neutral-400 dark:text-gray-500 cursor-not-allowed'
+              }`}
+              title={`External Tools (${externalTools.length} configured)`}
+            >
+              <Plug className="w-4 h-4" />
+              Tools {externalTools.length > 0 && `(${externalTools.length})`}
             </button>
 
             <button
@@ -3420,6 +3470,64 @@ export function LogicEditor() {
           </div>
         </div>
       )}
+
+      {/* External Tools Context Menu */}
+      <ExternalToolsMenu
+        tools={getContextMenuTools()}
+        onExecuteTool={async (toolId) => {
+          if (!currentFile) {
+            setDialog({
+              isOpen: true,
+              title: 'No File Open',
+              message: 'Please open a file before running external tools.',
+              type: 'warning'
+            })
+            return
+          }
+
+          try {
+            const code = unsavedChanges[currentFile.id] || currentFile.content
+            const result = await executeTool(toolId, {
+              uri: currentFile.id,
+              code,
+              language: 'structured-text',
+              versionId: activeProject?.id,
+              projectId: activeProject?.id
+            })
+
+            // Show results
+            if (result.diagnostics && result.diagnostics.length > 0) {
+              setDialog({
+                isOpen: true,
+                title: 'External Tool Results',
+                message: `Found ${result.diagnostics.length} issue(s):\n\n${result.diagnostics.map((d: any) => 
+                  `Line ${d.line}: ${d.message}`
+                ).join('\n')}`,
+                type: result.diagnostics.some((d: any) => d.severity === 'error') ? 'error' : 'info'
+              })
+            } else {
+              setDialog({
+                isOpen: true,
+                title: 'External Tool Results',
+                message: result.message || 'Tool executed successfully.',
+                type: 'success'
+              })
+            }
+          } catch (error) {
+            setDialog({
+              isOpen: true,
+              title: 'Tool Execution Failed',
+              message: error instanceof Error ? error.message : 'Failed to execute tool',
+              type: 'error'
+            })
+          }
+        }}
+        position={externalToolsMenuPosition}
+        onClose={() => {
+          setShowExternalToolsMenu(false)
+          setExternalToolsMenuPosition(undefined)
+        }}
+      />
     </div>
   )
 }

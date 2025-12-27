@@ -657,6 +657,21 @@ export const tagApi = {
     return res.json()
   },
 
+  async delete(id: string): Promise<{ success: boolean; message: string }> {
+    if (DUMMY_MODE) {
+      return dummyFetch({
+        success: true,
+        message: 'Tag deleted successfully'
+      })
+    }
+    const headers = await getAuthHeaders()
+    const res = await fetch(`${API_BASE}/tags/${id}`, {
+      method: 'DELETE',
+      headers,
+    })
+    return res.json()
+  },
+
   async exportTags(): Promise<Blob> {
     const res = await fetch(`${API_BASE}/tags/export`)
     return res.blob()

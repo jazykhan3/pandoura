@@ -1,10 +1,14 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Card, CardHeader } from '../components/Card'
-import { Wifi, FileText, MessageCircle, Settings, Cpu, Palette, AlertTriangle, CheckCircle2, ChevronDown, ChevronRight } from 'lucide-react'
+import { Wifi, FileText, MessageCircle, Settings, Cpu, Palette, AlertTriangle, CheckCircle2, ChevronDown, ChevronRight, Plug, Trash2, Plus, Edit2, Shield, TestTube } from 'lucide-react'
 import { useTheme } from '../context/ThemeContext'
 import { RuntimeSettings } from './RuntimeSettings'
+import { ExternalToolModal } from '../components/ExternalToolModal'
+import * as externalToolsApi from '../services/externalToolsApi'
+import * as settingsApi from '../services/settingsApi'
+import type { ExternalTool } from '../services/externalToolsApi'
 
-type SettingsTab = 'general' | 'runtimes' | 'data-bridge'
+type SettingsTab = 'general' | 'runtimes' | 'data-bridge' | 'integrations' | 'deploy'
 
 export function SettingsPage() {
   const { 
@@ -55,11 +59,211 @@ export function SettingsPage() {
     includeTimestamp: true
   })
 
-  const tabs: Array<{ id: SettingsTab; label: string; icon: React.ReactNode }> = [
-    { id: 'general', label: 'General', icon: <Settings size={18} /> },
-    { id: 'runtimes', label: 'PLC / Runtimes', icon: <Cpu size={18} /> },
-    { id: 'data-bridge', label: 'Data Bridge', icon: <Wifi size={18} /> },
-  ]
+  // External Code Tools State
+  const [externalTools, setExternalTools] = useState<ExternalTool[]>([])
+  const [isToolModalOpen, setIsToolModalOpen] = useState(false)
+  const [editingTool, setEditingTool] = useState<ExternalTool | null>(null)
+  const [isLoadingTools, setIsLoadingTools] = useState(false)
+  const [toolError, setToolError] = useState<string | null>(null)
+  const [deleteConfirmation, setDeleteConfirmation] = useState<{ isOpen: boolean; toolId: string | null; toolName: string }>({ isOpen: false, toolId: null, toolName: '' })
+
+  // External Pre-Deploy Check Settings
+  const [externalCheckEnabled, setExternalCheckEnabled] = useState(false)
+  const [externalCheckUrl, setExternalCheckUrl] = useState('')
+  const [externalCheckTimeout, setExternalCheckTimeout] = useState(30000)
+  const [externalCheckThreshold, setExternalCheckThreshold] = useState<'critical' | 'high' | 'medium' | 'low'>('critical')
+  const [externalCheckAuthHeader, setExternalCheckAuthHeader] = useState('')
+  const [externalCheckRetryCount, setExternalCheckRetryCount] = useState(3)
+  const [isTestingConnection, setIsTestingConnection] = useState(false)
+  const [testConnectionResult, setTestConnectionResult] = useState<{ success: boolean; message: string } | null>(null)
+  const [isSavingSettings, setIsSavingSettings] = useState(false)
+  const [saveSettingsResult, setSaveSettingsResult] = useState<{ success: boolean; message: string } | null>(null)
+
+  // Load external tools from backend
+  useEffect(() => {
+    loadExternalTools()
+    loadDeploySettings()
+  }, [])
+
+  async function loadDeploySettings() {
+    try {
+      const settings = await settingsApi.fetchSettingsByCategory('deploy')
+      
+      if (settings.external_predeploy_check_enabled !== undefined) {
+        setExternalCheckEnabled(settings.external_predeploy_check_enabled)
+      }
+      if (settings.external_predeploy_check_url !== undefined) {
+        setExternalCheckUrl(settings.external_predeploy_check_url)
+      }
+      if (settings.external_predeploy_check_timeout !== undefined) {
+        setExternalCheckTimeout(settings.external_predeploy_check_timeout)
+      }
+      if (settings.external_predeploy_check_blocking_threshold !== undefined) {
+        setExternalCheckThreshold(settings.external_predeploy_check_blocking_threshold)
+      }
+      if (settings.external_predeploy_check_auth_header !== undefined) {
+        setExternalCheckAuthHeader(settings.external_predeploy_check_auth_header)
+      }
+      if (settings.external_predeploy_check_retry_count !== undefined) {
+        setExternalCheckRetryCount(settings.external_predeploy_check_retry_count)
+      }
+    } catch (error) {
+      console.error('Failed to load deploy settings:', error)
+    }
+  }
+
+  async function loadExternalTools() {
+    setIsLoadingTools(true)
+    setToolError(null)
+    try {
+      const tools = await externalToolsApi.fetchExternalTools()
+      setExternalTools(tools)
+    } catch (error) {
+      console.error('Failed to load external tools:', error)
+      setToolError(error instanceof Error ? error.message : 'Failed to load tools')
+    } finally {
+      setIsLoadingTools(false)
+    }
+  }
+
+  async function handleSaveTool(tool: ExternalTool) {
+    try {
+      if (editingTool?.id) {
+        // Update existing tool
+        const updated = await externalToolsApi.updateExternalTool(editingTool.id, tool)
+        setExternalTools(prev => prev.map(t => t.id === updated.id ? updated : t))
+      } else {
+        // Create new tool
+        const created = await externalToolsApi.createExternalTool(tool)
+        setExternalTools(prev => [...prev, created])
+      }
+      setIsToolModalOpen(false)
+      setEditingTool(null)
+    } catch (error) {
+      console.error('Failed to save tool:', error)
+      alert(error instanceof Error ? error.message : 'Failed to save tool')
+    }
+  }
+
+  async function handleTestConnection() {
+    if (!externalCheckUrl) {
+      setTestConnectionResult({
+        success: false,
+        message: 'Please enter an endpoint URL'
+      })
+      return
+    }
+
+    setIsTestingConnection(true)
+    setTestConnectionResult(null)
+
+    try {
+      const result = await settingsApi.testExternalCheckEndpoint(
+        externalCheckUrl,
+        externalCheckAuthHeader || undefined
+      )
+      setTestConnectionResult(result)
+    } catch (error) {
+      setTestConnectionResult({
+        success: false,
+        message: error instanceof Error ? error.message : 'Connection test failed'
+      })
+    } finally {
+      setIsTestingConnection(false)
+    }
+  }
+
+  async function handleSaveDeploySettings() {
+    setIsSavingSettings(true)
+    setSaveSettingsResult(null)
+
+    try {
+      await settingsApi.updateSettingsBatch([
+        {
+          key: 'external_predeploy_check_enabled',
+          value: externalCheckEnabled,
+          type: 'boolean',
+          category: 'deploy'
+        },
+        {
+          key: 'external_predeploy_check_url',
+          value: externalCheckUrl,
+          type: 'string',
+          category: 'deploy'
+        },
+        {
+          key: 'external_predeploy_check_timeout',
+          value: externalCheckTimeout,
+          type: 'number',
+          category: 'deploy'
+        },
+        {
+          key: 'external_predeploy_check_blocking_threshold',
+          value: externalCheckThreshold,
+          type: 'string',
+          category: 'deploy'
+        },
+        {
+          key: 'external_predeploy_check_auth_header',
+          value: externalCheckAuthHeader,
+          type: 'string',
+          category: 'deploy',
+          isEncrypted: true
+        },
+        {
+          key: 'external_predeploy_check_retry_count',
+          value: externalCheckRetryCount,
+          type: 'number',
+          category: 'deploy'
+        }
+      ])
+
+      setSaveSettingsResult({
+        success: true,
+        message: 'Settings saved successfully'
+      })
+
+      // Clear success message after 3 seconds
+      setTimeout(() => setSaveSettingsResult(null), 3000)
+    } catch (error) {
+      setSaveSettingsResult({
+        success: false,
+        message: error instanceof Error ? error.message : 'Failed to save settings'
+      })
+    } finally {
+      setIsSavingSettings(false)
+    }
+  }
+
+  async function handleDeleteTool(id: string) {
+    try {
+      await externalToolsApi.deleteExternalTool(id)
+      setExternalTools(prev => prev.filter(t => t.id !== id))
+      setDeleteConfirmation({ isOpen: false, toolId: null, toolName: '' })
+    } catch (error) {
+      console.error('Failed to delete tool:', error)
+      alert(error instanceof Error ? error.message : 'Failed to delete tool')
+    }
+  }
+
+  async function handleToggleTool(id: string, enabled: boolean) {
+    try {
+      const updated = await externalToolsApi.toggleExternalTool(id, enabled)
+      setExternalTools(prev => prev.map(t => t.id === id ? updated : t))
+    } catch (error) {
+      console.error('Failed to toggle tool:', error)
+      alert(error instanceof Error ? error.message : 'Failed to toggle tool')
+    }
+  }
+
+  const tabs: Array<{ id: SettingsTab; label: string; icon: React.ReactNode }> =
+    [
+      { id: "general", label: "General", icon: <Settings size={18} /> },
+      { id: "runtimes", label: "PLC / Runtimes", icon: <Cpu size={18} /> },
+      { id: "deploy", label: "Deployment", icon: <Shield size={18} /> },
+      { id: "integrations", label: "Integrations", icon: <Plug size={18} /> },
+      // { id: 'data-bridge', label: 'Data Bridge', icon: <Wifi size={18} /> },
+    ];
 
   return (
     <div className="space-y-6 p-6">
@@ -88,6 +292,418 @@ export function SettingsPage() {
 
       {/* Tab Content */}
       {activeTab === 'runtimes' && <RuntimeSettings />}
+      
+      {activeTab === 'deploy' && (
+        <div className="space-y-6">
+          {/* External Pre-Deploy Check Section */}
+          <Card className="p-4">
+            <CardHeader>
+              <div className="flex items-center gap-2">
+                <Shield className="w-4 h-4" />
+                External Pre-Deploy Safety Check
+              </div>
+            </CardHeader>
+            
+            <div className="mt-4 space-y-4">
+              <p className="text-sm text-neutral-600 dark:text-gray-400">
+                Integrate your in-house safety models or external validation services into Pandaura's deployment workflow.
+                External checks run automatically during pre-deploy safety validation and can block deployments based on severity thresholds.
+              </p>
+
+              {/* Enable Toggle */}
+              <div className="flex items-center justify-between p-3 bg-neutral-50 dark:bg-gray-800 rounded-lg">
+                <div>
+                  <div className="text-sm font-medium text-gray-900 dark:text-gray-100">
+                    Enable External Pre-Deploy Check
+                  </div>
+                  <div className="text-xs text-neutral-500 dark:text-gray-400 mt-1">
+                    When enabled, Pandaura will call your external service before every deployment
+                  </div>
+                </div>
+                <label className="relative inline-flex items-center cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={externalCheckEnabled}
+                    onChange={(e) => setExternalCheckEnabled(e.target.checked)}
+                    className="sr-only peer"
+                  />
+                  <div className="w-11 h-6 bg-gray-300 dark:bg-gray-600 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-[var(--accent-color)] rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[var(--accent-color)]"></div>
+                </label>
+              </div>
+
+              {/* Settings Form */}
+              <div className="space-y-4">
+                {/* Endpoint URL */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-900 dark:text-gray-100 mb-1">
+                    Endpoint URL <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="url"
+                    value={externalCheckUrl}
+                    onChange={(e) => setExternalCheckUrl(e.target.value)}
+                    placeholder="https://your-safety-service.com/api/check"
+                    className="w-full px-3 py-2 text-sm border border-neutral-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-[var(--accent-color)]"
+                  />
+                  <p className="text-xs text-neutral-500 dark:text-gray-400 mt-1">
+                    HTTP/HTTPS endpoint that will receive deployment metadata for validation
+                  </p>
+                </div>
+
+                {/* Blocking Severity Threshold */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-900 dark:text-gray-100 mb-1">
+                    Blocking Severity Threshold
+                  </label>
+                  <select
+                    value={externalCheckThreshold}
+                    onChange={(e) => setExternalCheckThreshold(e.target.value as 'critical' | 'high' | 'medium' | 'low')}
+                    className="w-full px-3 py-2 text-sm border border-neutral-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-[var(--accent-color)]"
+                  >
+                    <option value="critical">Critical Only</option>
+                    <option value="high">High & Above</option>
+                    <option value="medium">Medium & Above</option>
+                    <option value="low">Low & Above (Block All Issues)</option>
+                  </select>
+                  <p className="text-xs text-neutral-500 dark:text-gray-400 mt-1">
+                    Deployments will be blocked if external check returns severity at or above this level
+                  </p>
+                </div>
+
+                {/* Timeout */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-900 dark:text-gray-100 mb-1">
+                    Request Timeout (milliseconds)
+                  </label>
+                  <input
+                    type="number"
+                    value={externalCheckTimeout}
+                    onChange={(e) => setExternalCheckTimeout(parseInt(e.target.value) || 30000)}
+                    min={1000}
+                    max={120000}
+                    step={1000}
+                    className="w-full px-3 py-2 text-sm border border-neutral-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-[var(--accent-color)]"
+                  />
+                  <p className="text-xs text-neutral-500 dark:text-gray-400 mt-1">
+                    How long to wait for external service response before timing out
+                  </p>
+                </div>
+
+                {/* Retry Count */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-900 dark:text-gray-100 mb-1">
+                    Retry Attempts
+                  </label>
+                  <input
+                    type="number"
+                    value={externalCheckRetryCount}
+                    onChange={(e) => setExternalCheckRetryCount(parseInt(e.target.value) || 3)}
+                    min={1}
+                    max={10}
+                    className="w-full px-3 py-2 text-sm border border-neutral-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-[var(--accent-color)]"
+                  />
+                  <p className="text-xs text-neutral-500 dark:text-gray-400 mt-1">
+                    Number of retry attempts if external service request fails
+                  </p>
+                </div>
+
+                {/* Authorization Header (Optional) */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-900 dark:text-gray-100 mb-1">
+                    Authorization Header (Optional)
+                  </label>
+                  <input
+                    type="password"
+                    value={externalCheckAuthHeader}
+                    onChange={(e) => setExternalCheckAuthHeader(e.target.value)}
+                    placeholder="Bearer your-api-token"
+                    className="w-full px-3 py-2 text-sm border border-neutral-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-[var(--accent-color)]"
+                  />
+                  <p className="text-xs text-neutral-500 dark:text-gray-400 mt-1">
+                    Authorization header value for authenticating with your external service (stored encrypted)
+                  </p>
+                </div>
+              </div>
+
+              {/* Test Connection */}
+              <div className="border-t border-neutral-200 dark:border-gray-700 pt-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <div className="text-sm font-medium text-gray-900 dark:text-gray-100">
+                      Test Connection
+                    </div>
+                    <div className="text-xs text-neutral-500 dark:text-gray-400 mt-1">
+                      Verify that your external service endpoint is reachable
+                    </div>
+                  </div>
+                  <button
+                    onClick={handleTestConnection}
+                    disabled={isTestingConnection || !externalCheckUrl}
+                    className="flex items-center gap-2 px-4 py-2 text-sm bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                  >
+                    <TestTube className="w-4 h-4" />
+                    {isTestingConnection ? 'Testing...' : 'Test Connection'}
+                  </button>
+                </div>
+
+                {/* Test Result */}
+                {testConnectionResult && (
+                  <div className={`mt-3 p-3 rounded-lg text-sm ${
+                    testConnectionResult.success
+                      ? 'bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 text-green-900 dark:text-green-100'
+                      : 'bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-red-900 dark:text-red-100'
+                  }`}>
+                    <div className="flex items-center gap-2">
+                      {testConnectionResult.success ? (
+                        <CheckCircle2 className="w-4 h-4" />
+                      ) : (
+                        <AlertTriangle className="w-4 h-4" />
+                      )}
+                      <span className="font-medium">{testConnectionResult.message}</span>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Save Button */}
+              <div className="border-t border-neutral-200 dark:border-gray-700 pt-4 flex items-center justify-between">
+                <div>
+                  {saveSettingsResult && (
+                    <div className={`text-sm flex items-center gap-2 ${
+                      saveSettingsResult.success
+                        ? 'text-green-600 dark:text-green-400'
+                        : 'text-red-600 dark:text-red-400'
+                    }`}>
+                      {saveSettingsResult.success ? (
+                        <CheckCircle2 className="w-4 h-4" />
+                      ) : (
+                        <AlertTriangle className="w-4 h-4" />
+                      )}
+                      {saveSettingsResult.message}
+                    </div>
+                  )}
+                </div>
+                <button
+                  onClick={handleSaveDeploySettings}
+                  disabled={isSavingSettings}
+                  className="px-6 py-2 text-sm bg-[var(--accent-color)] text-white rounded hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed transition-opacity font-medium"
+                >
+                  {isSavingSettings ? 'Saving...' : 'Save Settings'}
+                </button>
+              </div>
+
+              {/* API Documentation */}
+              <div className="mt-4 p-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg">
+                <div className="text-sm font-medium text-blue-900 dark:text-blue-100 mb-2">
+                  📖 External Service API Contract
+                </div>
+                <div className="text-xs text-blue-800 dark:text-blue-200 space-y-2 font-mono">
+                  <div><strong>Request:</strong> POST {externalCheckUrl || 'https://your-endpoint.com/check'}</div>
+                  <div className="pl-4 text-xs">
+                    {`{\n  "deploymentId": "uuid",\n  "releaseId": "uuid",\n  "projectId": "uuid",\n  "environment": "production",\n  "bundle": { ... }\n}`}
+                  </div>
+                  <div className="mt-2"><strong>Expected Response:</strong></div>
+                  <div className="pl-4 text-xs">
+                    {`{\n  "status": "approved" | "rejected" | "warning",\n  "severity": "critical" | "high" | "medium" | "low" | "info",\n  "message": "Human-readable message",\n  "details": { ... },\n  "annotations": [...]\n}`}
+                  </div>
+                </div>
+              </div>
+            </div>
+          </Card>
+        </div>
+      )}
+      
+      {activeTab === 'integrations' && (
+        <div className="space-y-6">
+          {/* External Code Tools Section */}
+          <Card className="p-4">
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Plug className="w-4 h-4" />
+                  External Code Tools
+                </div>
+                <button
+                  onClick={() => {
+                    setEditingTool(null)
+                    setIsToolModalOpen(true)
+                  }}
+                  className="flex items-center gap-1 px-3 py-1.5 text-sm bg-[var(--accent-color)] text-white rounded hover:opacity-90 transition-opacity"
+                >
+                  <Plus className="w-4 h-4" />
+                  Add Tool
+                </button>
+              </div>
+            </CardHeader>
+            
+            <div className="mt-4 space-y-3">
+              <p className="text-sm text-neutral-600 dark:text-gray-400">
+                Attach your own scripts, analyzers, linters, and AI services to the Structured Text editor.
+                Tools can be accessed via context menu and CodeLens in the editor.
+              </p>
+
+              {/* Error Message */}
+              {toolError && (
+                <div className="p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg text-sm text-red-900 dark:text-red-100">
+                  {toolError}
+                </div>
+              )}
+
+              {/* Loading State */}
+              {isLoadingTools && (
+                <div className="text-center py-8">
+                  <div className="inline-block w-8 h-8 border-4 border-gray-300 dark:border-gray-600 border-t-[var(--accent-color)] rounded-full animate-spin" />
+                  <p className="mt-2 text-sm text-neutral-500 dark:text-gray-400">Loading tools...</p>
+                </div>
+              )}
+
+              {/* Tools Table */}
+              {!isLoadingTools && externalTools.length > 0 ? (
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead className="bg-neutral-100 dark:bg-gray-800">
+                      <tr>
+                        <th className="text-left px-3 py-2 text-xs font-medium text-neutral-600 dark:text-gray-400">Tool Name</th>
+                        <th className="text-left px-3 py-2 text-xs font-medium text-neutral-600 dark:text-gray-400">URL / Command</th>
+                        <th className="text-left px-3 py-2 text-xs font-medium text-neutral-600 dark:text-gray-400">Mode</th>
+                        <th className="text-left px-3 py-2 text-xs font-medium text-neutral-600 dark:text-gray-400">Status</th>
+                        <th className="text-right px-3 py-2 text-xs font-medium text-neutral-600 dark:text-gray-400">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-neutral-200 dark:divide-gray-700">
+                      {externalTools.map((tool) => (
+                        <tr key={tool.id} className="hover:bg-neutral-50 dark:hover:bg-gray-800/50">
+                          <td className="px-3 py-3 text-gray-900 dark:text-gray-100 font-medium">{tool.name}</td>
+                          <td className="px-3 py-3 text-neutral-600 dark:text-gray-400 font-mono text-xs truncate max-w-xs">
+                            {tool.urlOrCommand}
+                          </td>
+                          <td className="px-3 py-3">
+                            <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${
+                              tool.mode === 'http' 
+                                ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300'
+                                : 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300'
+                            }`}>
+                              {tool.mode.toUpperCase()}
+                            </span>
+                          </td>
+                          <td className="px-3 py-3">
+                            <button
+                              onClick={() => tool.id && handleToggleTool(tool.id, !tool.enabled)}
+                              className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium transition-colors ${
+                                tool.enabled
+                                  ? 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300 hover:bg-green-200 dark:hover:bg-green-900/50'
+                                  : 'bg-neutral-200 dark:bg-gray-700 text-neutral-600 dark:text-gray-400 hover:bg-neutral-300 dark:hover:bg-gray-600'
+                              }`}
+                            >
+                              {tool.enabled ? 'Enabled' : 'Disabled'}
+                            </button>
+                          </td>
+                          <td className="px-3 py-3 text-right">
+                            <div className="flex items-center justify-end gap-2">
+                              <button
+                                onClick={() => {
+                                  setEditingTool(tool)
+                                  setIsToolModalOpen(true)
+                                }}
+                                className="p-1 text-blue-600 dark:text-blue-400 hover:bg-blue-100 dark:hover:bg-blue-900/30 rounded transition-colors"
+                                title="Edit"
+                              >
+                                <Edit2 className="w-4 h-4" />
+                              </button>
+                              <button
+                                onClick={() => {
+                                  setDeleteConfirmation({
+                                    isOpen: true,
+                                    toolId: tool.id || '',
+                                    toolName: tool.name
+                                  })
+                                }}
+                                className="p-1 text-red-600 dark:text-red-400 hover:bg-red-100 dark:hover:bg-red-900/30 rounded transition-colors"
+                                title="Delete"
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              ) : !isLoadingTools ? (
+                <div className="text-center py-8 text-neutral-500 dark:text-gray-400">
+                  <Plug className="w-12 h-12 mx-auto mb-2 opacity-30" />
+                  <p className="text-sm">No external tools configured</p>
+                  <p className="text-xs mt-1">Click "Add Tool" to get started</p>
+                </div>
+              ) : null}
+           
+            </div>
+          </Card>
+        </div>
+      )}
+
+      {/* External Tool Modal */}
+      <ExternalToolModal
+        isOpen={isToolModalOpen}
+        onClose={() => {
+          setIsToolModalOpen(false)
+          setEditingTool(null)
+        }}
+        onSave={handleSaveTool}
+        editingTool={editingTool}
+      />
+
+      {/* Delete Confirmation Modal */}
+      {deleteConfirmation.isOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center">
+          {/* Backdrop */}
+          <div 
+            className="absolute inset-0 bg-black/50 backdrop-blur-sm"
+            onClick={() => setDeleteConfirmation({ isOpen: false, toolId: null, toolName: '' })}
+          />
+          
+          {/* Modal */}
+          <div className="relative w-full max-w-md mx-4 bg-white dark:bg-gray-900 rounded-lg shadow-2xl border border-gray-200 dark:border-gray-700">
+            {/* Header */}
+            <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
+              <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100">
+                Delete Tool
+              </h2>
+            </div>
+
+            {/* Content */}
+            <div className="p-6">
+              <p className="text-sm text-gray-700 dark:text-gray-300">
+                Are you sure you want to delete <strong className="font-semibold">"{deleteConfirmation.toolName}"</strong>?
+              </p>
+              <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">
+                This action cannot be undone.
+              </p>
+            </div>
+
+            {/* Actions */}
+            <div className="flex justify-end gap-3 px-6 py-4 border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800">
+              <button
+                onClick={() => setDeleteConfirmation({ isOpen: false, toolId: null, toolName: '' })}
+                className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => {
+                  if (deleteConfirmation.toolId) {
+                    handleDeleteTool(deleteConfirmation.toolId)
+                  }
+                }}
+                className="px-4 py-2 text-sm font-medium text-white bg-red-600 rounded-lg hover:bg-red-700 transition-colors"
+              >
+                Delete Tool
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
       
       {activeTab === 'general' && (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -605,7 +1221,7 @@ export function SettingsPage() {
         </div>
       )}
       
-      {activeTab === 'data-bridge' && (
+      {/* {activeTab === 'data-bridge' && (
         <div className="space-y-6">
           <Card className="md:col-span-2 p-4">
             <CardHeader>Data Bridge Configuration</CardHeader>
@@ -618,7 +1234,7 @@ export function SettingsPage() {
             </div>
           </Card>
         </div>
-      )}
+      )} */}
     </div>
   )
 }
