@@ -208,17 +208,15 @@ export function DeployConsole({ environment }: DeployConsoleProps) {
     
     try {
       setLoading(true)
-      // Load all releases and filter for staging ones (queued for deployment)
+      // Load all releases (no filtering by environment for now)
       const result = await versionApi.getReleases(activeProject.id)
       
       if (result.success) {
-        // Filter for staging releases (these are queued for deployment)
-        const stagingReleases = result.releases.filter((release: any) => 
-          release.stage === 'staging' || release.stage === 'qa'
-        )
+        // Show all releases regardless of stage
+        const allReleases = result.releases
         
         // Convert releases to queued deploy format for display
-        const deploysFromReleases = stagingReleases.map((release: any) => ({
+        const deploysFromReleases = allReleases.map((release: any) => ({
           id: release.id,
           versionId: release.versionId || release.version_id,
           version: release.version,
@@ -567,17 +565,23 @@ export function DeployConsole({ environment }: DeployConsoleProps) {
         })
       })
       
-      // Basic syntax error detection
-      const lines = file.content.split('\n')
-      lines.forEach((line: string, index: number) => {
-        line = line.trim().toUpperCase()
-        if (line.includes('IF ') && !content.includes('END_IF')) {
-          syntaxErrors.push(`${file.filePath}:${index + 1} - Missing END_IF`)
-        }
-        if (line.includes('PROGRAM ') && !content.includes('END_PROGRAM')) {
-          syntaxErrors.push(`${file.filePath}:${index + 1} - Missing END_PROGRAM`)
-        }
-      })
+      // Basic syntax error detection - check at file level
+      // Note: content is already uppercased at line 478
+      
+      // Check if file has PROGRAM declaration without END_PROGRAM
+      const hasProgramDeclaration = /\bPROGRAM\s+\w+/i.test(file.content)
+      const hasEndProgram = /\bEND_PROGRAM\b/i.test(file.content)
+      
+      if (hasProgramDeclaration && !hasEndProgram) {
+        syntaxErrors.push(`${file.filePath}:1 - Missing END_PROGRAM`)
+      }
+      
+      // Check for unmatched IF blocks using regex word boundaries
+      const ifMatches = (file.content.match(/\bIF\b/gi) || []).length
+      const endIfMatches = (file.content.match(/\bEND_IF\b/gi) || []).length
+      if (ifMatches > endIfMatches) {
+        syntaxErrors.push(`${file.filePath}:1 - Unmatched IF statement (found ${ifMatches} IF, ${endIfMatches} END_IF)`)
+      }
     })
     
     const uniqueTags = [...new Set(tagReferences)]

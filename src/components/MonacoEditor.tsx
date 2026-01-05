@@ -1,7 +1,10 @@
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useState, useCallback } from 'react'
 import Editor from '@monaco-editor/react'
 import type { editor } from 'monaco-editor'
 import { extractRoutines } from '../utils/stParser'
+import { useLSPWorker } from '../hooks/useLSPWorker'
+import { useDebounce } from '../hooks/useDebounce'
+import type { ExternalTool } from '../services/externalToolsApi'
 
 type Tag = {
   id: string
@@ -12,6 +15,15 @@ type Tag = {
     description?: string
     units?: string
   }
+}
+
+export type ExternalToolDiagnostic = {
+  line: number
+  column: number
+  severity: 'ERROR' | 'WARNING' | 'INFO'
+  message: string
+  code?: string
+  source?: string
 }
 
 type MonacoEditorProps = {
@@ -28,6 +40,11 @@ type MonacoEditorProps = {
   onExtractFunction?: (startLine: number, endLine: number) => void
   theme?: 'light' | 'dark'
   readOnly?: boolean
+  externalTools?: ExternalTool[]
+  onExternalToolExecute?: (toolId: string, context: any) => Promise<void>
+  externalToolDiagnostics?: ExternalToolDiagnostic[]
+  fileUri?: string
+  language?: string
 }
 
 // Function to format Structured Text code
@@ -88,12 +105,72 @@ export function MonacoEditor({
   onRenameSymbol,
   onExtractFunction,
   theme = 'light',
-  readOnly = false
+  readOnly = false,
+  externalTools = [],
+  onExternalToolExecute,
+  externalToolDiagnostics = [],
+  fileUri = '',
+  language = 'structured-text'
 }: MonacoEditorProps) {
   const editorRef = useRef<editor.IStandaloneCodeEditor | null>(null)
   const monacoRef = useRef<typeof import('monaco-editor') | null>(null)
+  const [isParsingInWorker, setIsParsingInWorker] = useState(false)
+  
+  // Debounce value changes to avoid excessive re-parsing
+  const debouncedValue = useDebounce(value, 300)
   
   console.log(`🔒 MonacoEditor readOnly prop:`, readOnly)
+  
+  // Initialize LSP worker with lazy parsing
+  const { parse } = useLSPWorker({
+    onParseComplete: useCallback((result) => {
+      if (result.error) {
+        console.error('LSP parsing error:', result.error)
+        return
+      }
+      
+      // Update markers with diagnostics from worker
+      if (result.diagnostics && editorRef.current && monacoRef.current) {
+        const model = editorRef.current.getModel()
+        if (model) {
+          const workerMarkers = result.diagnostics.map(diag => ({
+            startLineNumber: diag.line,
+            endLineNumber: diag.line,
+            startColumn: diag.column,
+            endColumn: diag.column + 10,
+            message: diag.message,
+            severity: diag.severity === 'ERROR' 
+              ? monacoRef.current!.MarkerSeverity.Error
+              : diag.severity === 'WARNING'
+              ? monacoRef.current!.MarkerSeverity.Warning
+              : monacoRef.current!.MarkerSeverity.Info,
+            source: 'lsp-worker',
+            code: diag.code,
+          }))
+          
+          monacoRef.current.editor.setModelMarkers(model, 'lsp-worker', workerMarkers)
+        }
+      }
+      
+      setIsParsingInWorker(false)
+    }, []),
+    onError: useCallback((error) => {
+      console.error('LSP Worker error:', error)
+      setIsParsingInWorker(false)
+    }, [])
+  })
+  
+  // Parse code in worker when value changes (debounced)
+  useEffect(() => {
+    if (debouncedValue && fileUri) {
+      setIsParsingInWorker(true)
+      // Use lazy parsing for better performance
+      parse(debouncedValue, fileUri, 'lazy').catch(err => {
+        console.error('Failed to parse in worker:', err)
+        setIsParsingInWorker(false)
+      })
+    }
+  }, [debouncedValue, fileUri, parse])
   
   // Update editor readOnly option when it changes
   useEffect(() => {
@@ -168,6 +245,43 @@ export function MonacoEditor({
       monacoRef.current.editor.setTheme(theme === 'dark' ? 'st-theme-dark' : 'st-theme')
     }
   }, [theme])
+
+  // Convert external tool diagnostics to Monaco markers
+  useEffect(() => {
+    if (editorRef.current && monacoRef.current) {
+      const model = editorRef.current.getModel()
+      if (model) {
+        console.log('🎨 Monaco: Setting markers from external tool diagnostics:', externalToolDiagnostics)
+        
+        // Convert external tool diagnostics to markers
+        const externalMarkers = (externalToolDiagnostics || [])
+          .filter(diag => diag.line !== undefined && diag.line > 0) // Only use diagnostics with valid line numbers
+          .map(diag => ({
+            startLineNumber: diag.line,
+            endLineNumber: diag.line,
+            startColumn: diag.column || 1,
+            endColumn: diag.column ? diag.column + 10 : model.getLineMaxColumn(diag.line),
+            message: diag.message,
+            severity: diag.severity === 'ERROR' 
+              ? monacoRef.current!.MarkerSeverity.Error
+              : diag.severity === 'WARNING'
+              ? monacoRef.current!.MarkerSeverity.Warning
+              : monacoRef.current!.MarkerSeverity.Info,
+            source: diag.source || 'external-tool',
+            code: diag.code,
+          }))
+
+        console.log('🎨 Monaco: Created markers:', externalMarkers)
+        
+        // Merge with existing validation markers
+        const validationMarkers = markers || []
+        const allMarkers = [...validationMarkers, ...externalMarkers]
+        
+        console.log('🎨 Monaco: Setting all markers:', allMarkers)
+        monacoRef.current.editor.setModelMarkers(model, 'st-validation', allMarkers)
+      }
+    }
+  }, [externalToolDiagnostics, markers])
 
   const handleEditorDidMount = (editor: editor.IStandaloneCodeEditor | null, monaco: typeof import('monaco-editor') | null) => {
     if (!editor || !monaco) return
@@ -603,6 +717,85 @@ export function MonacoEditor({
       monaco.editor.setModelMarkers(model, 'st-validation', markers)
     } else if (model) {
       monaco.editor.setModelMarkers(model, 'st-validation', [])
+    }
+
+    // Register External Tools CodeLens Provider
+    if (externalTools.length > 0 && onExternalToolExecute) {
+      monaco.languages.registerCodeLensProvider('st', {
+        provideCodeLenses: () => {
+          const lenses: any[] = []
+          
+          // Add external tool lenses at the top of the file
+          externalTools.forEach((tool) => {
+            lenses.push({
+              range: {
+                startLineNumber: 1,
+                startColumn: 1,
+                endLineNumber: 1,
+                endColumn: 1,
+              },
+              id: `external-tool-${tool.id}`,
+              command: {
+                id: `external.tool.${tool.id}`,
+                title: `▶ ${tool.name}`,
+                arguments: [tool.id],
+              },
+            })
+          })
+          
+          return { lenses, dispose: () => {} }
+        },
+        resolveCodeLens: (_model, codeLens) => codeLens,
+      })
+
+      // Register commands for external tools
+      externalTools.forEach((tool) => {
+        const commandId = `external.tool.${tool.id}`
+        
+        // Check if command is already registered
+        if (!monaco.editor.getEditors().some(e => (e as any)._commandService?.executeCommand(commandId))) {
+          monaco.editor.registerCommand(commandId, async (_accessor, toolId) => {
+            if (onExternalToolExecute) {
+              const currentModel = editor.getModel()
+              const currentCode = currentModel?.getValue() || ''
+              
+              await onExternalToolExecute(toolId, {
+                uri: fileUri,
+                code: currentCode,
+                language: language,
+                range: undefined
+              })
+            }
+          })
+        }
+
+        // Also add as editor action for context menu
+        disposables.push(
+          editor.addAction({
+            id: commandId,
+            label: tool.name,
+            contextMenuGroupId: 'external-tools',
+            contextMenuOrder: 10 + externalTools.indexOf(tool),
+            run: async (_ed, toolId = tool.id) => {
+              if (onExternalToolExecute) {
+                const currentModel = _ed.getModel()
+                const currentCode = currentModel?.getValue() || ''
+                const selection = _ed.getSelection()
+                
+                await onExternalToolExecute(toolId, {
+                  uri: fileUri,
+                  code: currentCode,
+                  language: language,
+                  range: selection ? {
+                    start: currentModel?.getOffsetAt(selection.getStartPosition()),
+                    end: currentModel?.getOffsetAt(selection.getEndPosition())
+                  } : undefined
+                })
+              }
+            },
+          })
+        )
+      })
     }
 
     // Add custom CSS for breakpoints and current line

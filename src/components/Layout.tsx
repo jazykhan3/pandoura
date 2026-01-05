@@ -11,6 +11,7 @@ import { LicenseTypeSelectionModal } from './LicenseTypeSelectionModal'
 import { LicenseActivationModal } from './LicenseActivationModal'
 import { TeamsEnterpriseConfigModal } from './TeamsEnterpriseConfigModal'
 import { PullFromPLCDialog } from './PullFromPLCDialog'
+import deviceAuth from '../utils/deviceAuth'
 import {
   Home,
   Activity,
@@ -61,10 +62,57 @@ export function Layout({ children }: { children: ReactNode }) {
   const [showSoloActivationModal, setShowSoloActivationModal] = useState(false)
   const [showTeamsActivationModal, setShowTeamsActivationModal] = useState(false)
   const [showPullDialog, setShowPullDialog] = useState(false)
+  const [currentUser, setCurrentUser] = useState<{ userId: string; username: string; displayName: string; email: string; role: string } | null>(null)
 
   useEffect(() => {
     loadProjects()
   }, [loadProjects])
+
+  // Load current user data
+  useEffect(() => {
+    const loadUser = async () => {
+      try {
+        console.log('🔍 Loading user data...')
+        const deviceData = await deviceAuth.getDeviceInfo()
+        console.log('📊 Device data received:', deviceData)
+        
+        if (deviceData && deviceData.users && deviceData.users[0]) {
+          const user = deviceData.users[0]
+          console.log('👤 User from device:', user)
+          console.log('🔑 User role:', user.user_role)
+          
+          const loadedUser = {
+            userId: user.id?.toString() || '1',
+            username: user.os_username,
+            displayName: user.display_name || user.os_username,
+            email: user.user_email || `${user.os_username}@local.device`,
+            role: (user.user_role || 'viewer').toLowerCase()
+          }
+          console.log('✅ Setting currentUser:', loadedUser)
+          setCurrentUser(loadedUser)
+        } else {
+          console.warn('⚠️ No user data in deviceData, using fallback')
+          setCurrentUser({
+            userId: '1',
+            username: 'user',
+            displayName: 'User',
+            email: 'user@local.device',
+            role: 'viewer'
+          })
+        }
+      } catch (error) {
+        console.error('❌ Failed to load user data:', error)
+        setCurrentUser({
+          userId: '1',
+          username: 'user',
+          displayName: 'User',
+          email: 'user@local.device',
+          role: 'viewer'
+        })
+      }
+    }
+    loadUser()
+  }, [])
 
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
@@ -121,12 +169,12 @@ export function Layout({ children }: { children: ReactNode }) {
       <div className="h-full grid xl:grid-cols-[240px_1fr] lg:grid-cols-[64px_1fr] md:grid-cols-[64px_1fr] grid-cols-1 bg-white dark:bg-panda-surface-dark transition-colors duration-300" style={{ gridTemplateRows: 'auto 1fr auto' }}>
         
         {/* Desktop Sidebar - uses brand color (not accent) */}
-        <aside className="hidden md:flex col-start-1 row-span-3 bg-[#FF6A00] dark:bg-gray-900 text-white flex-col transition-colors duration-300">
+        <aside className="hidden md:flex col-start-1 row-span-3 bg-[#FF6A00] dark:bg-gray-900 text-white flex-col transition-colors duration-300 pb-0">
           <div className="h-14 flex items-center px-4 font-semibold tracking-wide text-base xl:justify-start lg:justify-center md:justify-center justify-start">
             <span className="xl:inline lg:hidden md:hidden inline">Pandaura</span>
             <span className="xl:hidden lg:inline md:inline hidden text-xl">P</span>
           </div>
-          <nav className="flex-1 px-2 space-y-1">
+          <nav className="flex-1 px-2 space-y-1 overflow-y-auto pb-4">
             {navItems.map((item) => {
               const isActive = active === item.key
               return (
@@ -210,17 +258,19 @@ export function Layout({ children }: { children: ReactNode }) {
 
         {/* License Activation Banner - Shows when no valid license */}
         {!hasValidLicense && (
-          <div className="md:col-start-2 col-start-1 bg-gradient-to-r from-orange-500 to-red-500 text-white px-4 py-2 flex items-center justify-between gap-3 shadow-lg z-50">
-            <div className="flex items-center gap-3">
+          <div 
+            className="col-start-2 row-start-3 text-white px-4 py-2 md:flex hidden items-center justify-between gap-4 shadow-lg z-50"
+            style={{ background: 'var(--accent-gradient)' }}
+          >
+            <div className="flex items-center gap-3 flex-1 min-w-0">
               <AlertTriangle size={18} className="flex-shrink-0" />
-              <div className="flex-1 min-w-0">
-                <p className="text-sm font-semibold">License Activation Required</p>
-                <p className="text-xs opacity-90">Device initialized with TPM security. Activate license to unlock all features.</p>
+              <div className="min-w-0">
+                <p className="text-sm font-semibold text-white">License Activation Required - Device initialized with TPM security. Activate license to unlock all features.</p>
               </div>
             </div>
             <button
               onClick={() => setShowLicenseTypeModal(true)}
-              className="flex items-center gap-2 px-4 py-2 bg-white text-orange-600 rounded-lg hover:bg-orange-50 transition-colors font-medium text-sm whitespace-nowrap flex-shrink-0"
+              className="flex items-center gap-2 px-4 py-2 bg-white/20 hover:bg-white/30 text-white border border-white/40 rounded-lg transition-colors font-medium text-sm whitespace-nowrap flex-shrink-0 backdrop-blur-sm"
             >
               <Key size={16} />
               Activate License
@@ -229,7 +279,7 @@ export function Layout({ children }: { children: ReactNode }) {
         )}
 
         {/* Topbar */}
-        <header className="md:col-start-2 col-start-1 row-start-1 bg-white dark:bg-panda-card-dark shadow-soft dark:shadow-soft-dark border-b border-[#E5E7EB] dark:border-panda-border-dark flex items-center justify-between px-4 md:px-6 h-14 transition-colors duration-300">
+        <header className="col-start-2 row-start-1 bg-white dark:bg-panda-card-dark shadow-soft dark:shadow-soft-dark border-b border-[#E5E7EB] dark:border-panda-border-dark flex items-center justify-between px-4 md:px-6 h-14 transition-colors duration-300">
           <div className="flex items-center gap-3">
             {/* Mobile menu button */}
             <button
@@ -369,8 +419,8 @@ export function Layout({ children }: { children: ReactNode }) {
                         <User size={18} className="text-white" />
                       </div>
                       <div className="flex-1 min-w-0">
-                        <div className="font-medium text-gray-900 dark:text-white truncate">Natasha</div>
-                        <div className="text-xs text-gray-500 dark:text-gray-400 truncate">natasha@pandaura.com</div>
+                        <div className="font-medium text-gray-900 dark:text-white truncate">{currentUser?.displayName || 'User'}</div>
+                        <div className="text-xs text-gray-500 dark:text-gray-400 truncate">{currentUser?.email || 'Loading...'}</div>
                       </div>
                     </div>
                   </div>
@@ -470,10 +520,11 @@ export function Layout({ children }: { children: ReactNode }) {
         <PullFromPLCDialog
           isOpen={showPullDialog}
           onClose={() => setShowPullDialog(false)}
-          currentUser={{
+          currentUser={currentUser || {
             userId: '1',
-            username: 'developer',
-            role: 'engineer'
+            username: 'user',
+            email: 'user@local.device',
+            role: 'viewer'
           }}
           projectId={activeProject?.id}
           projectName={activeProject?.name}

@@ -3,6 +3,7 @@ import { MonacoEditor } from '../components/MonacoEditor'
 import { Dialog } from '../components/Dialog'
 import { InputDialog } from '../components/InputDialog'
 import { ExternalToolsMenu } from '../components/ExternalToolsMenu'
+import { ProblemsPanel } from '../components/ProblemsPanel'
 import { useLogicStore } from '../store/enhancedLogicStore'
 import { useSyncStore } from '../store/syncStore'
 import { useSimulatorStore } from '../store/simulatorStore'
@@ -51,6 +52,10 @@ import type {
   ReplaceScope,
   LogicFile,
 } from '../types'
+import { VirtualizedList } from '../components/VirtualizedList'
+
+// Threshold to treat a logic file as "large" for expensive analyses
+const LARGE_FILE_ANALYSIS_THRESHOLD = 500_000 // ~500KB of text
 
 // Utility function to extract tag declarations from PLC code
 function extractTagsFromCode(content: string) {
@@ -287,6 +292,15 @@ export function LogicEditor() {
   
   // External tools state
   const [externalToolsMenuPosition, setExternalToolsMenuPosition] = useState<{ x: number; y: number } | undefined>()
+  const [isExecutingTool, setIsExecutingTool] = useState(false)
+  const [externalToolDiagnostics, setExternalToolDiagnostics] = useState<Array<{
+    line: number
+    column: number
+    severity: 'ERROR' | 'WARNING' | 'INFO'
+    message: string
+    code?: string
+    source?: string
+  }>>([])
   
   // Track previous project to detect changes
   const prevProjectIdRef = useRef<string | null>(null)
@@ -313,6 +327,7 @@ export function LogicEditor() {
 
   const [showFileSelector, setShowFileSelector] = useState(false)
   const [showChangePreview, setShowChangePreview] = useState(false)
+  const [showProblemsPanel, setShowProblemsPanel] = useState(true) // Show problems panel by default
   const [usedTags, setUsedTags] = useState<Array<any>>([])
   const [dialog, setDialog] = useState<{
     isOpen: boolean
@@ -387,6 +402,9 @@ export function LogicEditor() {
   const [showCompareDialog, setShowCompareDialog] = useState(false)
   const [compareVersion, setCompareVersion] = useState('')
 
+  const currentEditorContent = currentFile ? (unsavedChanges[currentFile.id] || currentFile.content || '') : ''
+  const isLargeFileForDiff = currentEditorContent.length > LARGE_FILE_ANALYSIS_THRESHOLD
+
   // Auto-show change preview when there are modifications
   useEffect(() => {
     if (isModified && currentFile && unsavedChanges[currentFile.id]) {
@@ -398,6 +416,13 @@ export function LogicEditor() {
   useEffect(() => {
     if (currentFile) {
       const currentContent = unsavedChanges[currentFile.id] || currentFile.content || ''
+
+      // Skip heavy tag-usage analysis for very large files to keep UI responsive
+      if (currentContent.length > LARGE_FILE_ANALYSIS_THRESHOLD) {
+        setUsedTags([])
+        return
+      }
+
       const analyzedTags = analyzeTagUsage(currentContent)
       
       // Debug logging (commented out for production)
@@ -802,6 +827,121 @@ export function LogicEditor() {
         message: `Code coverage for '${routineName}':\n\nLines: 0 / 0 (0%)\nBranches: 0 / 0 (0%)\n\nRun tests to generate coverage data.`,
         type: 'info',
       })
+    }
+  }
+
+  // Handler for executing external tools
+  const handleExternalToolExecute = async (toolId: string, context: any) => {
+    if (!currentFile) {
+      console.error('No current file for external tool execution')
+      return
+    }
+
+    setIsExecutingTool(true)
+    setExternalToolDiagnostics([]) // Clear previous diagnostics
+    
+    try {
+      console.log(`🔧 Executing external tool ${toolId}`)
+      console.log('Context:', context)
+
+      const result = await executeTool(toolId, {
+        uri: context.uri || currentFile.id,
+        code: context.code,
+        language: context.language || 'structured-text',
+        versionId: (currentFile as any).version_id || (currentFile as any).versionId,
+        projectId: activeProject?.id,
+        range: context.range
+      })
+
+      console.log('🔧 External tool result:', result)
+
+      // Check if execution was successful
+      if (result.success === false) {
+        // Tool execution failed
+        const errorDetails = []
+        
+        if (result.exitCode && result.exitCode !== 0) {
+          errorDetails.push(`Exit Code: ${result.exitCode}`)
+        }
+        
+        if (result.output) {
+          errorDetails.push(`Output: ${result.output}`)
+        }
+        
+        if (result.executionTime) {
+          errorDetails.push(`Execution Time: ${result.executionTime}ms`)
+        }
+
+        const errorMessage = errorDetails.length > 0 
+          ? errorDetails.join('\n') 
+          : 'Tool execution failed with no additional details.'
+
+        setDialog({
+          isOpen: true,
+          title: `Tool Failed: ${result.toolName || 'External Tool'}`,
+          message: `The external tool execution failed.\n\n${errorMessage}\n\nPlease check:\n• Tool URL/command is correct\n• Tool is accessible/executable\n• Tool returns valid response format`,
+          type: 'error'
+        })
+        return
+      }
+
+      // Handle diagnostics in the response
+      if (result.diagnostics && Array.isArray(result.diagnostics) && result.diagnostics.length > 0) {
+        console.log('📊 RAW diagnostics from backend:', JSON.stringify(result.diagnostics, null, 2))
+        
+        // Transform diagnostics from backend format to frontend format
+        const transformedDiagnostics = result.diagnostics.map((d: any, idx: number) => {
+          // Backend can send diagnostics with range.start.line OR flat line property
+          const line = d.range?.start?.line !== undefined 
+            ? d.range.start.line + 1 // Backend uses 0-based, frontend uses 1-based
+            : (d.line || 1) // Use provided line or default to 1
+          
+          const column = d.range?.start?.character !== undefined
+            ? d.range.start.character + 1
+            : (d.column || 1) // Use provided column or default to 1
+
+          // Handle both 'severity' and 'type' fields (test server uses 'type')
+          const severityValue = (d.severity || d.type || 'info').toUpperCase()
+
+          const transformed = {
+            id: d.id || `diag-${Date.now()}-${idx}`,
+            severity: severityValue === 'ERROR' ? 'ERROR' : severityValue === 'WARNING' ? 'WARNING' : 'INFO',
+            message: d.message || 'No message provided',
+            line: line,
+            column: column,
+            source: d.source || 'external-tool',
+            type: (d.severity || d.type || 'info').toLowerCase()
+          }
+          
+          console.log(`   Diagnostic ${idx + 1}:`, transformed)
+          return transformed
+        })
+
+        console.log('✅ Setting transformed diagnostics:', transformedDiagnostics)
+        
+        // Set diagnostics - they will show in Problems Panel and as squiggly lines
+        setExternalToolDiagnostics(transformedDiagnostics)
+        
+        // Auto-show problems panel
+        setShowProblemsPanel(true)
+        
+        console.log(`✅ ${result.toolName || 'Tool'} found ${transformedDiagnostics.length} issue(s)`)
+        console.log('✅ Problems panel should now be visible:', true)
+      } else {
+        // Clear diagnostics if no issues found
+        setExternalToolDiagnostics([])
+        console.log(`✅ ${result.toolName || 'Tool'} completed - no issues found`)
+      }
+    } catch (error) {
+      console.error('External tool execution failed:', error)
+      setDialog({
+        isOpen: true,
+        title: 'External Tool Failed',
+        message: error instanceof Error ? error.message : 'Failed to execute external tool',
+        type: 'error'
+      })
+    } finally {
+      setIsExecutingTool(false)
     }
   }
 
@@ -1490,7 +1630,7 @@ export function LogicEditor() {
               disabled={!currentFile}
               className={`flex items-center gap-1.5 px-3 py-1.5 text-sm rounded-md transition-colors ${
                 currentFile
-                  ? 'bg-purple-500 text-white hover:bg-purple-600'
+                  ? 'bg-[var(--accent-color)] text-white hover:bg-[var(--accent-hover)]'
                   : 'bg-neutral-100 border border-neutral-200 text-neutral-400 cursor-not-allowed'
               }`}
               title="Create Release"
@@ -1587,7 +1727,7 @@ export function LogicEditor() {
               disabled={!currentFile}
               className={`flex items-center gap-1.5 px-3 py-1.5 text-sm rounded-md transition-colors ${
                 currentFile
-                  ? 'bg-green-500 text-white hover:bg-green-600'
+                  ? 'bg-[var(--accent-color)] text-white hover:bg-[var(--accent-hover)]'
                   : 'bg-neutral-100 dark:bg-gray-800 border border-neutral-200 dark:border-gray-700 text-neutral-400 dark:text-gray-500 cursor-not-allowed'
               }`}
               title={`External Tools (${externalTools.length} configured)`}
@@ -1626,7 +1766,7 @@ export function LogicEditor() {
 
             <button
               onClick={handleRunSimulator}
-              className="flex items-center gap-1.5 px-3 py-1.5 text-sm bg-green-600 text-white rounded-md hover:bg-green-700 transition-colors"
+              className="flex items-center gap-1.5 px-3 py-1.5 text-sm bg-[var(--accent-color)] text-white rounded-md hover:bg-[var(--accent-hover)] transition-colors"
               title="Run in Simulator with ST Interpreter"
             >
               <Play className="w-4 h-4" />
@@ -1642,28 +1782,33 @@ export function LogicEditor() {
 
           {/* File Selector Dropdown */}
           {showFileSelector && (
-            <div className="absolute z-10 mt-14 ml-20 bg-white dark:bg-gray-800 border border-neutral-300 dark:border-gray-600 rounded-md shadow-lg max-h-64 overflow-y-auto">
+            <div className="absolute z-10 mt-14 ml-20 bg-white dark:bg-gray-800 border border-neutral-300 dark:border-gray-600 rounded-md shadow-lg max-h-64 overflow-hidden">
               {files.length > 0 ? (
-                files.map((file) => (
-                  <button
-                    key={file.id}
-                    onClick={() => {
-                      console.log(`🖱️ File clicked:`, {
-                        id: file.id,
-                        name: file.name,
-                        hasContent: !!file.content,
-                        contentLength: file.content?.length || 0
-                      })
-                      loadFile(file.id)
-                      setShowFileSelector(false)
-                    }}
-                    className={`w-full text-left px-4 py-2 text-sm text-gray-800 dark:text-white hover:bg-neutral-100 dark:hover:bg-gray-700 ${
-                      currentFile?.id === file.id ? 'bg-neutral-50 dark:bg-gray-600 font-medium' : ''
-                    }`}
-                  >
-                    {file.name}
-                  </button>
-                ))
+                <VirtualizedList
+                  items={files}
+                  itemHeight={36}
+                  bufferSize={3}
+                  renderItem={(file) => (
+                    <button
+                      key={file.id}
+                      onClick={() => {
+                        console.log(`🖱️ File clicked:`, {
+                          id: file.id,
+                          name: file.name,
+                          hasContent: !!file.content,
+                          contentLength: file.content?.length || 0
+                        })
+                        loadFile(file.id)
+                        setShowFileSelector(false)
+                      }}
+                      className={`w-full text-left px-4 py-2 text-sm text-gray-800 dark:text-white hover:bg-neutral-100 dark:hover:bg-gray-700 ${
+                        currentFile?.id === file.id ? 'bg-neutral-50 dark:bg-gray-600 font-medium' : ''
+                      }`}
+                    >
+                      {file.name}
+                    </button>
+                  )}
+                />
               ) : (
                 <div className="px-4 py-2 text-sm text-neutral-500">
                   No files available. Create a new file to get started.
@@ -1682,81 +1827,85 @@ export function LogicEditor() {
             )}
           </div>
 
-          {/* Monaco Editor */}
-          <div className="flex-1 min-h-0">
-            {(() => {
-              console.log(`🖊️ Monaco render check:`, {
-                hasCurrentFile: !!currentFile,
-                currentFileKeys: currentFile ? Object.keys(currentFile) : [],
-                currentFileId: currentFile?.id,
-                currentFileName: currentFile?.name,
-                currentFileContent: currentFile?.content?.substring(0, 50),
-                currentFileContentLength: currentFile?.content?.length,
-                filesCount: files.length,
-                fullCurrentFile: JSON.stringify(currentFile)
-              })
-              return null
-            })()}
-            {currentFile ? (
-              <>
-                {currentFile.readOnly && (
-                  <div className="bg-amber-50 dark:bg-amber-900/20 border-b border-amber-200 dark:border-amber-800 px-4 py-2 flex items-center gap-2 text-sm text-amber-800 dark:text-amber-200">
-                    <Shield className="w-4 h-4" />
-                    <span className="font-medium">Read-Only:</span>
-                    <span>This file was extracted from a PLC runtime and cannot be edited in Pandaura.</span>
-                  </div>
-                )}
-                <MonacoEditor
-                  value={(() => {
-                    if (!currentFile) {
-                      console.error(`❌ currentFile is null/undefined in Monaco value!`)
-                      return ''
-                    }
-                    const editorValue = unsavedChanges[currentFile.id] || currentFile.content
-                    console.log(`🖊️ Monaco editor receiving value:`, {
-                      fileId: currentFile.id,
-                      fileName: currentFile.name,
-                      hasUnsaved: unsavedChanges.hasOwnProperty(currentFile.id),
-                      unsavedValue: unsavedChanges[currentFile.id]?.substring(0, 30),
-                      currentFileContent: currentFile.content?.substring(0, 30),
-                      finalValue: editorValue?.substring(0, 30),
-                      finalLength: editorValue?.length || 0
-                    })
-                    return editorValue || ''
-                  })()}
-                  onChange={(content) => {
-                    if (!currentFile.readOnly) {
+          {/* Monaco Editor and Problems Panel Container */}
+          <div className="flex-1 min-h-0 flex flex-col">
+            
+            {/* Editor Area */}
+            <div className={showProblemsPanel ? 'flex-1' : 'flex-1'} style={{ minHeight: showProblemsPanel ? '60%' : '100%' }}>
+              {currentFile ? (
+                <>
+                  <MonacoEditor
+                    value={(() => {
+                      if (!currentFile) {
+                        console.error(`❌ currentFile is null/undefined in Monaco value!`)
+                        return ''
+                      }
+                      const editorValue = unsavedChanges[currentFile.id] || currentFile.content
+                      console.log(`🖊️ Monaco editor receiving value:`, {
+                        fileId: currentFile.id,
+                        fileName: currentFile.name,
+                        hasUnsaved: unsavedChanges.hasOwnProperty(currentFile.id),
+                        unsavedValue: unsavedChanges[currentFile.id]?.substring(0, 30),
+                        currentFileContent: currentFile.content?.substring(0, 30),
+                        finalValue: editorValue?.substring(0, 30),
+                        finalLength: editorValue?.length || 0
+                      })
+                      return editorValue || ''
+                    })()}
+                    onChange={(content) => {
                       updateContent(content)
-                    }
-                  }}
-                  readOnly={(() => {
-                    console.log(`🔒 Passing readOnly to Monaco:`, currentFile.readOnly)
-                    return currentFile.readOnly || false
-                  })()}
-                  markers={validationResult ? validationResult.errors.map(error => ({
-                    startLineNumber: error.line,
-                    endLineNumber: error.line,
-                    startColumn: error.column,
-                    endColumn: error.column + 1,
-                    message: error.message,
-                    severity: error.severity === 'error' ? 8 : error.severity === 'warning' ? 4 : 1,
-                    owner: 'st-validation',
-                    resource: null as any
-                  })) : []}
-                  tags={tagDatabaseTags}
-                  breakpoints={breakpoints}
-                  theme={document.documentElement.classList.contains('dark') ? 'dark' : 'light'}
-                  onBreakpointToggle={toggleBreakpoint}
-                  currentLine={currentLine}
-                  onCodeLensAction={handleCodeLensAction}
-                  onRenameSymbol={handleRenameSymbol}
-                  onExtractFunction={handleExtractFunction}
-                />
-              </>
-            ) : (
-              <div className="flex items-center justify-center h-full text-neutral-500">
-                No file open. Click "Open" or "New" to get started.
-              </div>
+                    }}
+                    readOnly={false}
+                    markers={validationResult ? validationResult.errors.map(error => ({
+                      startLineNumber: error.line,
+                      endLineNumber: error.line,
+                      startColumn: error.column,
+                      endColumn: error.column + 1,
+                      message: error.message,
+                      severity: error.severity === 'error' ? 8 : error.severity === 'warning' ? 4 : 1,
+                      owner: 'st-validation',
+                      resource: null as any
+                    })) : []}
+                    tags={tagDatabaseTags}
+                    breakpoints={breakpoints}
+                    theme={document.documentElement.classList.contains('dark') ? 'dark' : 'light'}
+                    onBreakpointToggle={toggleBreakpoint}
+                    currentLine={currentLine}
+                    onCodeLensAction={handleCodeLensAction}
+                    onRenameSymbol={handleRenameSymbol}
+                    onExtractFunction={handleExtractFunction}
+                    externalTools={externalTools}
+                    onExternalToolExecute={handleExternalToolExecute}
+                    externalToolDiagnostics={externalToolDiagnostics}
+                    fileUri={currentFile.id}
+                    language="structured-text"
+                  />
+                </>
+              ) : (
+                <div className="flex items-center justify-center h-full text-neutral-500">
+                  No file open. Click "Open" or "New" to get started.
+                </div>
+              )}
+            </div>
+            
+            {/* Problems Panel */}
+            {showProblemsPanel && (
+              <ProblemsPanel
+                diagnostics={(() => {
+                  console.log('🔍 Problems Panel Diagnostics:', externalToolDiagnostics)
+                  return externalToolDiagnostics.map(d => ({
+                    ...d,
+                    severity: d.severity?.toLowerCase()
+                  }))
+                })()}
+                onDiagnosticClick={(diagnostic) => {
+                  // Jump to line in editor when diagnostic is clicked
+                  if (diagnostic.line) {
+                    console.log('Jump to line:', diagnostic.line)
+                  }
+                }}
+                height="200px"
+              />
             )}
           </div>
         </div>
@@ -1768,10 +1917,14 @@ export function LogicEditor() {
             <div className="flex items-center justify-between mb-3">
               <h3 className="font-semibold text-sm text-gray-800 dark:text-white">Change Preview</h3>
               <button
-                onClick={() => setShowChangePreview(!showChangePreview)}
-                className="text-xs text-[#FF6A00] hover:underline"
+                onClick={() => {
+                  if (isLargeFileForDiff) return
+                  setShowChangePreview(!showChangePreview)
+                }}
+                disabled={isLargeFileForDiff}
+                className={`text-xs ${isLargeFileForDiff ? 'text-neutral-400 cursor-not-allowed' : 'text-[#FF6A00] hover:underline'}`}
               >
-                {showChangePreview ? 'Hide' : 'Show'}
+                {isLargeFileForDiff ? 'Disabled for large file' : showChangePreview ? 'Hide' : 'Show'}
               </button>
             </div>
             
@@ -1782,30 +1935,28 @@ export function LogicEditor() {
                     <div className="w-2 h-2 bg-amber-500 rounded-full"></div>
                     <span className="font-medium">File has unsaved changes</span>
                   </div>
-                  {unsavedChanges[currentFile.id] && (
+                  {!isLargeFileForDiff && unsavedChanges[currentFile.id] && (
                     <div className="mt-1 text-neutral-500">
                       Current: {unsavedChanges[currentFile.id]!.split('\n').length} lines | 
                       Original: {currentFile.content.split('\n').length} lines
                     </div>
                   )}
+                  {isLargeFileForDiff && (
+                    <div className="mt-1 text-neutral-500">
+                      Large file detected – detailed change stats are disabled to keep the editor responsive.
+                    </div>
+                  )}
                 </div>
-                {showChangePreview ? (
+                {isLargeFileForDiff ? (
+                  <div className="text-xs text-neutral-600">
+                    This file has unsaved changes. Change preview is disabled for large files to keep the editor responsive.
+                  </div>
+                ) : showChangePreview ? (
                   <div className="max-h-64 overflow-y-auto border border-neutral-200 rounded text-xs">
                     {(() => {
                       // Get the current unsaved content and original saved content
                       const originalContent = currentFile.content  // Saved version
                       const currentContent = unsavedChanges[currentFile.id]  // Unsaved version
-                      
-                      // Debug logging
-                      // console.log('Change Preview Debug:', {
-                      //   hasUnsavedChanges: !!currentContent,
-                      //   isModified,
-                      //   originalLength: originalContent?.length || 0,
-                      //   currentLength: currentContent?.length || 0,
-                      //   contentsEqual: currentContent === originalContent,
-                      //   originalPreview: originalContent?.substring(0, 100) + '...',
-                      //   currentPreview: currentContent?.substring(0, 100) + '...'
-                      // })
                       
                       // If no unsaved changes, show no diff
                       if (!currentContent || currentContent === originalContent) {
@@ -1821,9 +1972,6 @@ export function LogicEditor() {
                       
                       const diff = generateDiff(originalContent, currentContent)
                       const changesOnly = diff.filter(change => change.type !== 'unchanged')
-                      
-                      // console.log('Generated diff:', diff)
-                      // console.log('Changes only:', changesOnly)
                       
                       if (changesOnly.length === 0) {
                         return (
@@ -1853,7 +2001,6 @@ export function LogicEditor() {
                                   <button
                                     onClick={() => {
                                       // Accept this change (it's already applied)
-                                      // console.log('Change accepted:', change.changeId)
                                     }}
                                     className="p-1 text-green-600 hover:bg-green-100 rounded"
                                     title="Accept"
@@ -1892,7 +2039,6 @@ export function LogicEditor() {
                                   <button
                                     onClick={() => {
                                       // Accept this removal (it's already applied)
-                                      // console.log('Removal accepted:', change.changeId)
                                     }}
                                     className="p-1 text-green-600 hover:bg-green-100 rounded"
                                     title="Accept"
@@ -1937,7 +2083,6 @@ export function LogicEditor() {
                                   <button
                                     onClick={() => {
                                       // Accept this modification (it's already applied)
-                                      // console.log('Modification accepted:', change.changeId)
                                     }}
                                     className="p-1 text-green-600 hover:bg-green-100 rounded"
                                     title="Accept"
@@ -1962,8 +2107,7 @@ export function LogicEditor() {
                           )}
                         </div>
                       ))
-                    })()
-                    }
+                    })()}
                   </div>
                 ) : (
                   <div className="text-xs text-neutral-600">
@@ -2083,7 +2227,7 @@ export function LogicEditor() {
                 disabled={!activeProject || files.length === 0}
                 className={`w-full px-3 py-2 text-sm rounded-md transition-colors ${
                   activeProject && files.length > 0
-                    ? 'bg-green-500 text-white hover:bg-green-600'
+                    ? 'bg-[var(--accent-color)] text-white hover:bg-[var(--accent-hover)]'
                     : 'bg-neutral-200 text-neutral-500 cursor-not-allowed'
                 }`}
               >
@@ -2665,7 +2809,7 @@ export function LogicEditor() {
                 <button
                   onClick={handleCreateVersion}
                   disabled={!versionMessage.trim() || isCreatingVersion}
-                  className="px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 disabled:bg-neutral-300 dark:disabled:bg-gray-600 disabled:cursor-not-allowed transition-colors flex items-center gap-2"
+                  className="px-4 py-2 bg-[var(--accent-color)] text-white rounded-lg hover:bg-[var(--accent-hover)] disabled:bg-neutral-300 dark:disabled:bg-gray-600 disabled:cursor-not-allowed transition-colors flex items-center gap-2"
                 >
                   {isCreatingVersion ? (
                     <>
@@ -3483,42 +3627,13 @@ export function LogicEditor() {
             return
           }
 
-          try {
-            const code = unsavedChanges[currentFile.id] || currentFile.content
-            const result = await executeTool(toolId, {
-              uri: currentFile.id,
-              code,
-              language: 'structured-text',
-              versionId: activeProject?.id,
-              projectId: activeProject?.id
-            })
-
-            // Show results
-            if (result.diagnostics && result.diagnostics.length > 0) {
-              setDialog({
-                isOpen: true,
-                title: 'External Tool Results',
-                message: `Found ${result.diagnostics.length} issue(s):\n\n${result.diagnostics.map((d: any) => 
-                  `Line ${d.line}: ${d.message}`
-                ).join('\n')}`,
-                type: result.diagnostics.some((d: any) => d.severity === 'error') ? 'error' : 'info'
-              })
-            } else {
-              setDialog({
-                isOpen: true,
-                title: 'External Tool Results',
-                message: result.message || 'Tool executed successfully.',
-                type: 'success'
-              })
-            }
-          } catch (error) {
-            setDialog({
-              isOpen: true,
-              title: 'Tool Execution Failed',
-              message: error instanceof Error ? error.message : 'Failed to execute tool',
-              type: 'error'
-            })
-          }
+          // Use the main handler that properly sets diagnostics and shows Problems Panel
+          const code = unsavedChanges[currentFile.id] || currentFile.content
+          await handleExternalToolExecute(toolId, {
+            uri: currentFile.id,
+            code,
+            language: 'structured-text'
+          })
         }}
         position={externalToolsMenuPosition}
         onClose={() => {

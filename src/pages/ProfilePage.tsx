@@ -47,6 +47,7 @@ interface DeviceProfile {
     userId: number
     username: string
     displayName: string
+    user_email: string | null
     role: string
     isPrimary: boolean
     is_active: number
@@ -193,6 +194,7 @@ export const ProfilePage = () => {
             userId: deviceData.users[0].id,
             username: deviceData.users[0].os_username,
             displayName: deviceData.users[0].display_name,
+            user_email: deviceData.users[0].user_email || null,
             role: deviceData.users[0].user_role,
             isPrimary: deviceData.users[0].is_primary,
             is_active: deviceData.users[0].is_active,
@@ -318,41 +320,6 @@ export const ProfilePage = () => {
     })
   }
 
-  const calculateProfileCompletion = (): number => {
-    if (!profile) return 0
-    
-    let completedFields = 0
-    let totalFields = 0
-    
-    // Check device info completion
-    totalFields += 6
-    if (profile.device.deviceId) completedFields++
-    if (profile.device.deviceName) completedFields++
-    if (profile.device.deviceType) completedFields++
-    if (profile.device.osType) completedFields++
-    if (profile.device.osVersion) completedFields++
-    if (profile.device.hardwareInfo) completedFields++
-    
-    // Check user info completion (if user exists)
-    if (profile.user) {
-      totalFields += 5
-      if (profile.user.username) completedFields++
-      if (profile.user.displayName) completedFields++
-      if (profile.user.role) completedFields++
-      if (profile.user.is_active) completedFields++
-      if (profile.user.created_at) completedFields++
-    }
-    
-    // Check workspace presets completion
-    totalFields += 4
-    if (profile.workspacePresets.defaultProject) completedFields++
-    if (profile.workspacePresets.theme) completedFields++
-    if (profile.workspacePresets.autoSave !== undefined) completedFields++
-    if (profile.workspacePresets.notifications !== undefined) completedFields++
-    
-    return Math.round((completedFields / totalFields) * 100)
-  }
-
   if (isLoading) {
     return (
       <div className="w-full flex items-center justify-center py-20">
@@ -393,18 +360,18 @@ export const ProfilePage = () => {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Profile Settings</h1>
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Settings</h1>
           <p className="text-gray-600 dark:text-gray-300 mt-1">Manage your account and workspace preferences</p>
         </div>
         {!isEditing ? (
           <button
             onClick={handleEdit}
-            className="flex items-center gap-2 px-4 py-2 bg-[#FF6A00] text-white rounded-lg hover:bg-[#E55A00] transition-colors"
+            className="flex items-center gap-2 px-4 py-2 bg-[var(--accent-color)] text-white rounded-lg hover:bg-[var(--accent-hover)] transition-colors"
           >
             <Edit2 size={16} />
             Edit Profile
           </button>
-        ) : (
+        ) : isEditing ? (
           <div className="flex gap-2">
             <button
               onClick={handleCancel}
@@ -416,20 +383,21 @@ export const ProfilePage = () => {
             <button
               onClick={handleSave}
               disabled={isSaving}
-              className="flex items-center gap-2 px-4 py-2 bg-[#FF6A00] text-white rounded-lg hover:bg-[#E55A00] transition-colors disabled:opacity-50"
+              className="flex items-center gap-2 px-4 py-2 bg-[var(--accent-color)] text-white rounded-lg hover:bg-[var(--accent-hover)] transition-colors disabled:opacity-50"
             >
               <Check size={16} />
               {isSaving ? 'Saving...' : 'Save Changes'}
             </button>
           </div>
-        )}
+        ) : null}
       </div>
+
 
       {/* Main Profile Card */}
       <Card>
         <div className="p-6">
           <div className="flex items-center gap-4 mb-6">
-            <div className="w-16 h-16 bg-gradient-to-r from-[#FF6A00] to-[#E55A00] rounded-full flex items-center justify-center">
+            <div className="w-16 h-16 bg-gradient-to-r from-[var(--accent-color)] to-[var(--accent-dark)] rounded-full flex items-center justify-center">
               <User size={24} className="text-white" />
             </div>
             <div>
@@ -752,7 +720,7 @@ export const ProfilePage = () => {
                   className="w-4 h-4 text-[#FF6A00] border-gray-300 rounded focus:ring-[#FF6A00]"
                 />
                 <div>
-                  <div className="text-sm font-medium text-gray-700">Notifications</div>
+                  <div className="text-sm font-medium text-gthese tags iray-700">Notifications</div>
                   <div className="text-xs text-gray-500">Enable workspace notifications</div>
                 </div>
               </label>
@@ -763,19 +731,23 @@ export const ProfilePage = () => {
       )}
 
       {/* Account Status Card */}
-      <Card>
+      {/* <Card>
         <div className="p-6">
           <div className="flex items-center justify-between mb-4">
             <div>
               <h3 className="font-medium text-gray-900 dark:text-white">Account Status</h3>
-              <p className="text-sm text-gray-600 dark:text-gray-300 mt-1">Your account is active and in good standing</p>
+              <p className="text-sm text-gray-600 dark:text-gray-300 mt-1">
+                {profile.user?.is_active 
+                  ? 'Your account is active and in good standing' 
+                  : 'Your account is currently inactive'}
+              </p>
             </div>
             <div className="flex items-center gap-2">
               <div className={`w-2 h-2 rounded-full ${
                 profile.user?.is_active ? 'bg-green-500' : 'bg-red-500'
               }`}></div>
               <span className={`text-sm font-medium ${
-                profile.user?.is_active ? 'text-green-600' : 'text-red-600'
+                profile.user?.is_active ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'
               }`}>
                 {profile.user?.is_active ? 'Active' : 'Inactive'}
               </span>
@@ -839,7 +811,7 @@ export const ProfilePage = () => {
             </div>
           </div>
         </div>
-      </Card>
+      </Card> */}
 
       {/* 🧭 Enterprise Onboarding Wizard Modal */}
       {showTeamOnboarding && (

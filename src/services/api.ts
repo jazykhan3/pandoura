@@ -1,4 +1,4 @@
-import type { LogicFile, Tag, ValidationResult, SimulatorLog } from '../types'
+import type { LogicFile, Tag, ValidationResult, SimulatorLog, TagLifecyclePolicy, Project, TagCleanupCandidate } from '../types'
 import { deviceAuth } from '../utils/deviceAuth'
 import { mockTags } from '../data/mockData'
 
@@ -69,6 +69,10 @@ export const logicApi = {
     const headers = await getAuthHeaders()
     console.log(`📡 Fetching logic file by ID: ${id}`)
     const res = await fetch(`${API_BASE}/logic/${id}`, { headers })
+    if (!res.ok) {
+      const error = await res.json().catch(() => ({ error: 'Failed to fetch logic file' }))
+      throw new Error(error.error || `HTTP ${res.status}: ${res.statusText}`)
+    }
     const file = await res.json()
     console.log(`📡 Received file from API:`, {
       id: file.id,
@@ -109,11 +113,16 @@ export const logicApi = {
         author: 'Engineer',
       })
     }
+    const headers = await getAuthHeaders()
     const res = await fetch(`${API_BASE}/logic/${id}`, {
       method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { ...headers, 'Content-Type': 'application/json' },
       body: JSON.stringify(logic),
     })
+    if (!res.ok) {
+      const error = await res.json().catch(() => ({ error: 'Failed to update logic file' }))
+      throw new Error(error.error || `HTTP ${res.status}: ${res.statusText}`)
+    }
     return res.json()
   },
 
@@ -311,9 +320,13 @@ export const syncApi = {
         message: 'Logic pushed to shadow runtime successfully',
       }, 800)
     }
+    const authHeaders = await getAuthHeaders()
     const res = await fetch(`${API_BASE}/logic/${logicId}/push-to-shadow`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 
+        'Content-Type': 'application/json',
+        ...authHeaders
+      },
     })
     return res.json()
   },
@@ -326,9 +339,13 @@ export const syncApi = {
         warnings: ['Some tags were auto-mapped'],
       }, 1200)
     }
+    const authHeaders = await getAuthHeaders()
     const res = await fetch(`${API_BASE}/sync/push`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 
+        'Content-Type': 'application/json',
+        ...authHeaders
+      },
       body: JSON.stringify({ logicId, target: 'live' }),
     })
     return res.json()
@@ -341,8 +358,10 @@ export const syncApi = {
         synced: 10,
       }, 600)
     }
+    const authHeaders = await getAuthHeaders()
     const res = await fetch(`${API_BASE}/sync/tags`, {
       method: 'POST',
+      headers: authHeaders
     })
     return res.json()
   },
@@ -354,9 +373,13 @@ export const syncApi = {
         conflicts: [],
       }, 400)
     }
+    const authHeaders = await getAuthHeaders()
     const res = await fetch(`${API_BASE}/sync/generate-conflicts`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 
+        'Content-Type': 'application/json',
+        ...authHeaders
+      },
     })
     return res.json()
   },
@@ -368,9 +391,13 @@ export const syncApi = {
         message: 'Conflict resolved',
       }, 300)
     }
+    const authHeaders = await getAuthHeaders()
     const res = await fetch(`${API_BASE}/sync/resolve-conflict`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 
+        'Content-Type': 'application/json',
+        ...authHeaders
+      },
       body: JSON.stringify({ conflictId, resolution }),
     })
     return res.json()
@@ -402,9 +429,13 @@ export const simulatorApi = {
         ioValues: {}
       }, 400)
     }
+    const authHeaders = await getAuthHeaders()
     const res = await fetch(`${API_BASE}/simulate/run`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 
+        'Content-Type': 'application/json',
+        ...authHeaders
+      },
       body: JSON.stringify({ 
         logic: logicContent,
         ...options
@@ -434,8 +465,10 @@ export const simulatorApi = {
         executionMode: 'interpreter'
       }, 100)
     }
+    const authHeaders = await getAuthHeaders()
     const res = await fetch(`${API_BASE}/simulate/step`, {
       method: 'POST',
+      headers: authHeaders
     })
     return res.json()
   },
@@ -444,8 +477,10 @@ export const simulatorApi = {
     if (DUMMY_MODE) {
       return dummyFetch({ success: true }, 200)
     }
+    const authHeaders = await getAuthHeaders()
     const res = await fetch(`${API_BASE}/simulate/stop`, {
       method: 'POST',
+      headers: authHeaders
     })
     return res.json()
   },
@@ -468,7 +503,8 @@ export const simulatorApi = {
         },
       ])
     }
-    const res = await fetch(`${API_BASE}/simulate/logs`)
+    const authHeaders = await getAuthHeaders()
+    const res = await fetch(`${API_BASE}/simulate/logs`, { headers: authHeaders })
     return res.json()
   },
 
@@ -484,8 +520,10 @@ export const simulatorApi = {
         message: 'Simulator paused' 
       }, 100)
     }
+    const authHeaders = await getAuthHeaders()
     const res = await fetch(`${API_BASE}/simulate/pause`, {
       method: 'POST',
+      headers: authHeaders
     })
     return res.json()
   },
@@ -522,8 +560,10 @@ export const simulatorApi = {
     if (DUMMY_MODE) {
       return dummyFetch({ success: true, message: 'Runtime reset' }, 100)
     }
+    const authHeaders = await getAuthHeaders()
     const res = await fetch(`${API_BASE}/simulate/reset`, {
       method: 'POST',
+      headers: authHeaders
     })
     return res.json()
   },
@@ -535,7 +575,8 @@ export const simulatorApi = {
         variables: {}  // Empty for completely dynamic behavior
       }, 100)
     }
-    const res = await fetch(`${API_BASE}/simulate/variables`)
+    const authHeaders = await getAuthHeaders()
+    const res = await fetch(`${API_BASE}/simulate/variables`, { headers: authHeaders })
     return res.json()
   },
 
@@ -547,7 +588,8 @@ export const simulatorApi = {
         value: 72.5
       }, 100)
     }
-    const res = await fetch(`${API_BASE}/simulate/variables/${name}`)
+    const authHeaders = await getAuthHeaders()
+    const res = await fetch(`${API_BASE}/simulate/variables/${name}`, { headers: authHeaders })
     return res.json()
   },
 
@@ -559,9 +601,13 @@ export const simulatorApi = {
         value
       }, 100)
     }
+    const authHeaders = await getAuthHeaders()
     const res = await fetch(`${API_BASE}/simulate/variables/${name}`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 
+        'Content-Type': 'application/json',
+        ...authHeaders
+      },
       body: JSON.stringify({ value }),
     })
     return res.json()
@@ -577,9 +623,13 @@ export const simulatorApi = {
         breakpoints 
       }, 100)
     }
+    const authHeaders = await getAuthHeaders()
     const res = await fetch(`${API_BASE}/simulate/breakpoint`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 
+        'Content-Type': 'application/json',
+        ...authHeaders
+      },
       body: JSON.stringify({ breakpoints }),
     })
     return res.json()
@@ -589,9 +639,13 @@ export const simulatorApi = {
     if (DUMMY_MODE) {
       return dummyFetch({ success: true }, 100)
     }
+    const authHeaders = await getAuthHeaders()
     const res = await fetch(`${API_BASE}/simulate/io`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 
+        'Content-Type': 'application/json',
+        ...authHeaders
+      },
       body: JSON.stringify({ name, value }),
     })
     return res.json()
@@ -617,6 +671,15 @@ export const tagApi = {
     return tags
   },
 
+  async getArchived(projectId?: string): Promise<Tag[]> {
+    const headers = await getAuthHeaders()
+    const url = projectId ? `${API_BASE}/tags/archive?project_id=${projectId}` : `${API_BASE}/tags/archive`
+    console.log(`📊 Fetching archived tags from: ${url}`)
+    const res = await fetch(url, { headers })
+    const tags = await res.json()
+    return tags
+  },
+
   async create(tag: Partial<Tag>): Promise<Tag> {
     if (DUMMY_MODE) {
       return dummyFetch({
@@ -629,9 +692,10 @@ export const tagApi = {
         source: 'shadow' as const,
       })
     }
+    const authHeaders = await getAuthHeaders()
     const res = await fetch(`${API_BASE}/tags`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', ...authHeaders },
       body: JSON.stringify(tag),
     })
     return res.json()
@@ -649,9 +713,10 @@ export const tagApi = {
         source: tag.source || 'shadow',
       })
     }
+    const authHeaders = await getAuthHeaders()
     const res = await fetch(`${API_BASE}/tags/${id}`, {
       method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', ...authHeaders },
       body: JSON.stringify(tag),
     })
     return res.json()
@@ -669,11 +734,29 @@ export const tagApi = {
       method: 'DELETE',
       headers,
     })
-    return res.json()
+    const data = await res.json()
+    if (!res.ok) {
+      throw new Error(data.error || 'Failed to delete tag')
+    }
+    return data
+  },
+
+  async restore(id: string): Promise<{ success: boolean; restored: boolean; tag?: Tag }> {
+    const headers = await getAuthHeaders()
+    const res = await fetch(`${API_BASE}/tags/${id}/restore`, {
+      method: 'POST',
+      headers,
+    })
+    const data = await res.json()
+    if (!res.ok) {
+      throw new Error(data.error || 'Failed to restore tag')
+    }
+    return data
   },
 
   async exportTags(): Promise<Blob> {
-    const res = await fetch(`${API_BASE}/tags/export`)
+    const authHeaders = await getAuthHeaders()
+    const res = await fetch(`${API_BASE}/tags/export`, { headers: authHeaders })
     return res.blob()
   },
 
@@ -687,13 +770,30 @@ export const tagApi = {
     const text = await file.text()
     const data = JSON.parse(text)
     
+    const authHeaders = await getAuthHeaders()
     const res = await fetch(`${API_BASE}/tags/import`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', ...authHeaders },
       body: JSON.stringify({
         tags: data.tags,
         replaceExisting
       }),
+    })
+    return res.json()
+  },
+
+  async importTagsFromData(tags: any[], replaceExisting: boolean = false): Promise<{
+    success: boolean
+    created: number
+    updated: number
+    skipped: number
+    errors?: Array<{ tag: string; error: string }>
+  }> {
+    const authHeaders = await getAuthHeaders()
+    const res = await fetch(`${API_BASE}/tags/import`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...authHeaders },
+      body: JSON.stringify({ tags, replaceExisting })
     })
     return res.json()
   },
@@ -703,9 +803,10 @@ export const tagApi = {
     created: number
     updated: number
   }> {
+    const authHeaders = await getAuthHeaders()
     const res = await fetch(`${API_BASE}/tags/sync-from-simulator`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', ...authHeaders },
       body: JSON.stringify({}),
     })
     return res.json()
@@ -714,14 +815,16 @@ export const tagApi = {
   // Enhanced Tag Database Features
   async getUDTs(projectId?: string): Promise<any[]> {
     const params = projectId ? `?projectId=${projectId}` : ''
-    const res = await fetch(`${API_BASE}/tags/udts${params}`)
+    const authHeaders = await getAuthHeaders()
+    const res = await fetch(`${API_BASE}/tags/udts${params}`, { headers: authHeaders })
     return res.json()
   },
 
   async createUDT(udtData: any, projectId?: string): Promise<any> {
+    const authHeaders = await getAuthHeaders()
     const res = await fetch(`${API_BASE}/tags/udts`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', ...authHeaders },
       body: JSON.stringify({ ...udtData, projectId }),
     })
     return res.json()
@@ -729,7 +832,8 @@ export const tagApi = {
 
   async getHierarchy(projectId?: string): Promise<any[]> {
     const params = projectId ? `?projectId=${projectId}` : ''
-    const res = await fetch(`${API_BASE}/tags/hierarchy${params}`)
+    const authHeaders = await getAuthHeaders()
+    const res = await fetch(`${API_BASE}/tags/hierarchy${params}`, { headers: authHeaders })
     return res.json()
   },
 
@@ -740,9 +844,10 @@ export const tagApi = {
     dryRun: boolean
     projectId?: string
   }): Promise<any> {
+    const authHeaders = await getAuthHeaders()
     const res = await fetch(`${API_BASE}/tags/bulk`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', ...authHeaders },
       body: JSON.stringify(operation),
     })
     return res.json()
@@ -751,14 +856,16 @@ export const tagApi = {
   async getRefactoringPreview(tagId: string, newName: string, projectId?: string): Promise<any> {
     const params = new URLSearchParams({ newName })
     if (projectId) params.append('projectId', projectId)
-    const res = await fetch(`${API_BASE}/tags/${tagId}/refactor-preview?${params}`)
+    const authHeaders = await getAuthHeaders()
+    const res = await fetch(`${API_BASE}/tags/${tagId}/refactor-preview?${params}`, { headers: authHeaders })
     return res.json()
   },
 
   async applyRefactoring(preview: any, projectId?: string): Promise<any> {
+    const authHeaders = await getAuthHeaders()
     const res = await fetch(`${API_BASE}/tags/refactor-apply`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', ...authHeaders },
       body: JSON.stringify({ ...preview, projectId }),
     })
     return res.json()
@@ -770,8 +877,10 @@ export const tagApi = {
     formData.append('vendor', vendor)
     if (projectId) formData.append('projectId', projectId)
     
+    const authHeaders = await getAuthHeaders()
     const res = await fetch(`${API_BASE}/tags/import-preview`, {
       method: 'POST',
+      headers: authHeaders,
       body: formData,
     })
     return res.json()
@@ -800,9 +909,10 @@ export const tagApi = {
   },
 
   async saveTagAliases(tagId: string, aliases: any[], projectId?: string): Promise<any> {
+    const authHeaders = await getAuthHeaders()
     const res = await fetch(`${API_BASE}/tags/${tagId}/aliases`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', ...authHeaders },
       body: JSON.stringify({ aliases, projectId }),
     })
     return res.json()
@@ -810,14 +920,16 @@ export const tagApi = {
 
   async getTagAliases(tagId: string, projectId?: string): Promise<any[]> {
     const params = projectId ? `?projectId=${projectId}` : ''
-    const res = await fetch(`${API_BASE}/tags/${tagId}/aliases${params}`)
+    const authHeaders = await getAuthHeaders()
+    const res = await fetch(`${API_BASE}/tags/${tagId}/aliases${params}`, { headers: authHeaders })
     return res.json()
   },
 
   async saveTagValidationRules(tagId: string, rules: any[], projectId?: string): Promise<any> {
+    const authHeaders = await getAuthHeaders()
     const res = await fetch(`${API_BASE}/tags/${tagId}/validation-rules`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', ...authHeaders },
       body: JSON.stringify({ rules, projectId }),
     })
     return res.json()
@@ -825,7 +937,8 @@ export const tagApi = {
 
   async getTagValidationRules(tagId: string, projectId?: string): Promise<any[]> {
     const params = projectId ? `?projectId=${projectId}` : ''
-    const res = await fetch(`${API_BASE}/tags/${tagId}/validation-rules${params}`)
+    const authHeaders = await getAuthHeaders()
+    const res = await fetch(`${API_BASE}/tags/${tagId}/validation-rules${params}`, { headers: authHeaders })
     return res.json()
   },
 
@@ -863,6 +976,85 @@ export const tagApi = {
       body: JSON.stringify({ scope, locked }),
     })
     return res.json()
+  },
+}
+
+// Tag lifecycle policy APIs
+export const tagLifecycleApi = {
+  async getPolicies(): Promise<TagLifecyclePolicy[]> {
+    if (DUMMY_MODE) {
+      return dummyFetch([])
+    }
+    const headers = await getAuthHeaders()
+    const res = await fetch(`${API_BASE}/tag-lifecycle/policies`, { headers })
+    const data = await res.json()
+    if (!res.ok || !data.success) {
+      throw new Error(data.error || 'Failed to load tag lifecycle policies')
+    }
+    return data.policies as TagLifecyclePolicy[]
+  },
+
+  async createPolicy(input: {
+    id?: string
+    name: string
+    description?: string
+    states: TagLifecyclePolicy['states']
+  }): Promise<TagLifecyclePolicy> {
+    const headers = await getAuthHeaders()
+    const res = await fetch(`${API_BASE}/tag-lifecycle/policies`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...headers },
+      body: JSON.stringify(input),
+    })
+    const data = await res.json()
+    if (!res.ok || !data.success) {
+      throw new Error(data.error || 'Failed to create lifecycle policy')
+    }
+    return data.policy as TagLifecyclePolicy
+  },
+
+  async deletePolicy(id: string): Promise<void> {
+    const headers = await getAuthHeaders()
+    const res = await fetch(`${API_BASE}/tag-lifecycle/policies/${id}`, {
+      method: 'DELETE',
+      headers,
+    })
+    const data = await res.json().catch(() => ({ success: res.ok }))
+    if (!res.ok || !data.success) {
+      throw new Error(data.error || 'Failed to delete lifecycle policy')
+    }
+  },
+}
+
+// Tag cleanup / lifecycle audit APIs
+export const tagCleanupApi = {
+  async getCandidates(projectId?: string): Promise<TagCleanupCandidate[]> {
+    const headers = await getAuthHeaders()
+    const qs = projectId ? `?projectId=${encodeURIComponent(projectId)}` : ''
+    const res = await fetch(`${API_BASE}/tags/cleanup${qs}`, { headers })
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({ error: 'Failed to load cleanup tags' }))
+      throw new Error(data.error || 'Failed to load cleanup tags')
+    }
+    const data = await res.json()
+    return data as TagCleanupCandidate[]
+  },
+}
+
+// Project APIs
+export const projectApi = {
+  async update(id: string, updates: Partial<Project>): Promise<Project> {
+    const headers = await getAuthHeaders()
+    const res = await fetch(`${API_BASE}/projects/${id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json', ...headers },
+      body: JSON.stringify(updates),
+    })
+    const data = await res.json()
+    if (!res.ok || !data.success) {
+      throw new Error(data.error || 'Failed to update project')
+    }
+    return data.project as Project
   },
 }
 
@@ -1163,17 +1355,20 @@ export const versionApi = {
     if (filters?.limit) params.append('limit', filters.limit.toString());
 
     const url = `${API_BASE}/versions/projects/${projectId}/versions${params.toString() ? '?' + params.toString() : ''}`;
-    const res = await fetch(url);
+    const headers = await getAuthHeaders()
+    const res = await fetch(url, { headers });
     return res.json();
   },
 
   async getVersionById(versionId: string) {
-    const res = await fetch(`${API_BASE}/versions/${versionId}`);
+    const headers = await getAuthHeaders()
+    const res = await fetch(`${API_BASE}/versions/${versionId}`, { headers });
     return res.json();
   },
 
   async getVersionFiles(versionId: string) {
-    const res = await fetch(`${API_BASE}/versions/${versionId}/files`);
+    const headers = await getAuthHeaders()
+    const res = await fetch(`${API_BASE}/versions/${versionId}/files`, { headers });
     return res.json();
   },
 
@@ -1184,54 +1379,69 @@ export const versionApi = {
     tags?: string[];
     files: Array<{ path: string; content: string; type?: string }>;
   }) {
+    const headers = await getAuthHeaders()
     const res = await fetch(`${API_BASE}/versions/projects/${projectId}/versions`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { ...headers, 'Content-Type': 'application/json' },
       body: JSON.stringify(data),
     });
     return res.json();
   },
 
   async updateVersionStatus(versionId: string, status: string, actor: string) {
+    const headers = await getAuthHeaders()
     const res = await fetch(`${API_BASE}/versions/${versionId}/status`, {
       method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { ...headers, 'Content-Type': 'application/json' },
       body: JSON.stringify({ status, actor }),
     });
     return res.json();
   },
 
   async signVersion(versionId: string, signedBy: string) {
+    const headers = await getAuthHeaders()
     const res = await fetch(`${API_BASE}/versions/${versionId}/sign`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { ...headers, 'Content-Type': 'application/json' },
       body: JSON.stringify({ signedBy }),
     });
     return res.json();
   },
 
   async approveVersion(versionId: string, approver: string) {
+    const headers = await getAuthHeaders()
     const res = await fetch(`${API_BASE}/versions/${versionId}/approve`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { ...headers, 'Content-Type': 'application/json' },
       body: JSON.stringify({ approver }),
     });
     return res.json();
   },
 
   async compareVersions(versionId1: string, versionId2: string) {
-    const res = await fetch(`${API_BASE}/versions/compare/${versionId1}/${versionId2}`);
+    const headers = await getAuthHeaders()
+    const res = await fetch(`${API_BASE}/versions/compare/${versionId1}/${versionId2}`, { headers });
     return res.json();
   },
 
   // Snapshots
   async getSnapshots(projectId: string) {
-    const res = await fetch(`${API_BASE}/versions/projects/${projectId}/snapshots`);
+    const headers = await getAuthHeaders()
+    const res = await fetch(`${API_BASE}/versions/projects/${projectId}/snapshots`, { headers });
+    if (!res.ok) {
+      const error = await res.json().catch(() => ({ error: 'Failed to fetch snapshots' }))
+      throw new Error(error.error || `HTTP ${res.status}: ${res.statusText}`)
+    }
     return res.json();
   },
 
   async getSnapshotById(snapshotId: string) {
-    const res = await fetch(`${API_BASE}/versions/snapshots/${snapshotId}`);
+    const headers = await getAuthHeaders()
+    const res = await fetch(`${API_BASE}/versions/snapshots/${snapshotId}`, { headers });
+    if (!res.ok) {
+      const error = await res.json().catch(() => ({ error: 'Failed to fetch snapshot' }))
+      throw new Error(error.error || `HTTP ${res.status}: ${res.statusText}`)
+    }
     return res.json();
   },
 
@@ -1242,11 +1452,16 @@ export const versionApi = {
     createdBy: string;
     tags?: string[];
   }) {
+    const headers = await getAuthHeaders()
     const res = await fetch(`${API_BASE}/versions/projects/${projectId}/snapshots`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { ...headers, 'Content-Type': 'application/json' },
       body: JSON.stringify(data),
     });
+    if (!res.ok) {
+      const error = await res.json().catch(() => ({ error: 'Failed to create snapshot' }))
+      throw new Error(error.error || `HTTP ${res.status}: ${res.statusText}`)
+    }
     return res.json();
   },
 
@@ -1263,31 +1478,37 @@ export const versionApi = {
   },
 
   async getReleaseById(releaseId: string) {
-    const res = await fetch(`${API_BASE}/versions/releases/${releaseId}`);
+    const headers = await getAuthHeaders()
+    const res = await fetch(`${API_BASE}/versions/releases/${releaseId}`, { headers });
     return res.json();
   },
 
   async getRelease(projectId: string, releaseId: string) {
-    const res = await fetch(`${API_BASE}/versions/projects/${projectId}/releases/${releaseId}`);
+    const headers = await getAuthHeaders()
+    const res = await fetch(`${API_BASE}/versions/projects/${projectId}/releases/${releaseId}`, { headers });
     return res.json();
   },
 
   async getReleaseSafetyChecks(releaseId: string) {
-    const res = await fetch(`${API_BASE}/versions/releases/${releaseId}/safety-checks`);
+    const headers = await getAuthHeaders()
+    const res = await fetch(`${API_BASE}/versions/releases/${releaseId}/safety-checks`, { headers });
     return res.json();
   },
 
   async runSafetyChecks(releaseId: string) {
+    const headers = await getAuthHeaders()
     const res = await fetch(`${API_BASE}/versions/releases/${releaseId}/run-safety-checks`, {
-      method: 'POST'
+      method: 'POST',
+      headers
     });
     return res.json();
   },
 
   async initiateDeploy(releaseId: string, environment: string, strategy: string = 'atomic') {
+    const headers = await getAuthHeaders()
     const res = await fetch(`${API_BASE}/deploy/initiate`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { ...headers, 'Content-Type': 'application/json' },
       body: JSON.stringify({ 
         releaseId, 
         environment, 
@@ -1309,27 +1530,30 @@ export const versionApi = {
     tags?: string[];
     metadata?: Record<string, unknown>;
   }) {
+    const headers = await getAuthHeaders()
     const res = await fetch(`${API_BASE}/versions/projects/${projectId}/releases`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { ...headers, 'Content-Type': 'application/json' },
       body: JSON.stringify(data),
     });
     return res.json();
   },
 
   async promoteRelease(releaseId: string, targetEnvironment: string, promotedBy: string) {
+    const headers = await getAuthHeaders()
     const res = await fetch(`${API_BASE}/versions/releases/${releaseId}/promote`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { ...headers, 'Content-Type': 'application/json' },
       body: JSON.stringify({ targetEnvironment, promotedBy }),
     });
     return res.json();
   },
 
   async signRelease(releaseId: string, signedBy: string) {
+    const headers = await getAuthHeaders()
     const res = await fetch(`${API_BASE}/versions/releases/${releaseId}/sign`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { ...headers, 'Content-Type': 'application/json' },
       body: JSON.stringify({ signedBy }),
     });
     return res.json();
@@ -1341,12 +1565,14 @@ export const versionApi = {
     if (limit) params.append('limit', limit.toString());
 
     const url = `${API_BASE}/versions/projects/${projectId}/history${params.toString() ? '?' + params.toString() : ''}`;
-    const res = await fetch(url);
+    const headers = await getAuthHeaders()
+    const res = await fetch(url, { headers });
     return res.json();
   },
 
   async getStats(projectId: string) {
-    const res = await fetch(`${API_BASE}/versions/projects/${projectId}/stats`);
+    const headers = await getAuthHeaders()
+    const res = await fetch(`${API_BASE}/versions/projects/${projectId}/stats`, { headers });
     return res.json();
   },
 }

@@ -1,0 +1,152 @@
+.problems-panel {
+  display: flex;
+  flex-direction: column;
+  background: #ffffff;
+  border-top: 1px solid #e5e5e5;
+  color: #333333;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  overflow: hidden;
+}
+
+.problems-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 12px;
+  background: #f3f3f3;
+  border-bottom: 1px solid #e5e5e5;
+  min-height: 35px;
+}
+
+.problems-header h3 {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 600;
+  color: #333333;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.problems-stats {
+  display: flex;
+  gap: 12px;
+  font-size: 12px;
+}
+
+.stat-errors {
+  color: #f48771;
+  font-weight: 500;
+}
+
+.stat-warnings {
+  color: #cca700;
+  font-weight: 500;
+}
+
+.stat-infos {
+  color: #75beff;
+  font-weight: 500;
+}
+
+.stat-none {
+  color: #89d185;
+  font-weight: 500;
+}
+
+.problems-list {
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+
+.problems-empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  color: #999999;
+  font-size: 13px;
+}
+
+.problem-item {
+  display: flex;
+  align-items: flex-start;
+  padding: 6px 12px;
+  border-bottom: 1px solid #f0f0f0;
+  cursor: pointer;
+  transition: background-color 0.15s ease;
+}
+
+.problem-item:hover {
+  background: #f5f5f5;
+}
+
+.problem-item:active {
+  background: #ebebeb;
+}
+
+.problem-icon {
+  font-size: 14px;
+  margin-right: 8px;
+  margin-top: 2px;
+  flex-shrink: 0;
+}
+
+.problem-content {
+  flex: 1;
+  min-width: 0;
+}
+
+.problem-message {
+  font-size: 13px;
+  color: #333333;
+  margin-bottom: 2px;
+  word-wrap: break-word;
+}
+
+.problem-location {
+  display: flex;
+  gap: 8px;
+  font-size: 11px;
+  color: #666666;
+}
+
+.problem-line {
+  color: #FF6A00;
+  font-weight: 500;
+}
+
+.problem-source {
+  color: #FF6A00;
+}
+
+/* Severity-specific styles */
+.problem-error .problem-message {
+  color: #f48771;
+}
+
+.problem-warning .problem-message {
+  color: #cca700;
+}
+
+.problem-info .problem-message {
+  color: #75beff;
+}
+
+/* Scrollbar styling */
+.problems-list::-webkit-scrollbar {
+  width: 10px;
+}
+
+.problems-list::-webkit-scrollbar-track {
+  background: #f5f5f5;
+}
+
+.problems-list::-webkit-scrollbar-thumb {
+  background: #cccccc;
+  border-radius: 5px;
+}
+
+.problems-list::-webkit-scrollbar-thumb:hover {
+  background: #b3b3b3;
+}

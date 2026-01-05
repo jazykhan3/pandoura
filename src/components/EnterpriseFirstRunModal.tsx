@@ -29,12 +29,12 @@ export function EnterpriseFirstRunModal({
         className="bg-white dark:bg-gray-800 rounded-lg shadow-xl w-full max-w-3xl"
       >
         {/* Header */}
-        <div className="bg-gradient-to-r from-purple-600 to-purple-700 text-white p-8 rounded-t-lg">
+        <div className="bg-[var(--accent-color)] text-white p-8 rounded-t-lg">
           <div className="flex items-center space-x-4">
             <Shield size={32} />
             <div>
               <h2 className="text-2xl font-bold">Enterprise License Setup</h2>
-              <p className="text-purple-100 text-sm mt-1">First-time device registration</p>
+              <p className="text-white/80 text-sm mt-1">First-time device registration</p>
             </div>
           </div>
         </div>
@@ -46,7 +46,7 @@ export function EnterpriseFirstRunModal({
             <label className="block cursor-pointer">
               <div className={`border-2 rounded-lg p-5 transition-all ${
                 selectedOption === 'register' 
-                  ? 'border-purple-600 bg-purple-50 dark:bg-purple-900/20 shadow-lg' 
+                  ? 'border-[var(--accent-color)] bg-[var(--accent-color)]/5 dark:bg-[var(--accent-color)]/10 shadow-lg' 
                   : 'border-gray-200 dark:border-gray-600 hover:border-gray-300 dark:hover:border-gray-500'
               }`}>
                 <div className="flex items-start gap-4">
@@ -60,7 +60,7 @@ export function EnterpriseFirstRunModal({
                   />
                   <div className="flex-1">
                     <div className="flex items-center gap-2 mb-2">
-                      <UserCheck size={20} className="text-green-600 dark:text-green-400" />
+                      <UserCheck size={20} className="[var(--accent-color)] dark:[var(--accent-light)]" />
                       <span className="text-lg font-semibold text-gray-900 dark:text-gray-100">
                         Register This Device to Enterprise License
                       </span>
@@ -78,7 +78,7 @@ export function EnterpriseFirstRunModal({
               <label className="block cursor-pointer">
                 <div className={`border-2 rounded-lg p-5 transition-all ${
                   selectedOption === 'provision-admin' 
-                    ? 'border-purple-600 bg-purple-50 dark:bg-purple-900/20 shadow-lg' 
+                    ? 'border-[var(--accent-color)] bg-[var(--accent-color)]/5 dark:bg-[var(--accent-color)]/10 shadow-lg' 
                     : 'border-gray-200 dark:border-gray-600 hover:border-gray-300 dark:hover:border-gray-500'
                 }`}>
                   <div className="flex items-start gap-4">
@@ -92,11 +92,11 @@ export function EnterpriseFirstRunModal({
                     />
                     <div className="flex-1">
                       <div className="flex items-center gap-2 mb-2">
-                        <UserCog size={20} className="text-orange-600 dark:text-orange-400" />
+                        <UserCog size={20} className="[var(--accent-color)] dark:[var(--accent-light)]" />
                         <span className="text-lg font-semibold text-gray-900 dark:text-gray-100">
                           Provision Admin Device
                         </span>
-                        <span className="text-xs font-semibold bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-400 px-2 py-1 rounded">
+                        <span className="text-xs font-semibold bg-[var(--accent-color)]/10 dark:bg-[var(--accent-color)]/15 [var(--accent-dark)] dark:[var(--accent-light)] px-2 py-1 rounded">
                           FIRST DEVICE ONLY
                         </span>
                       </div>
@@ -113,7 +113,7 @@ export function EnterpriseFirstRunModal({
             <label className="block cursor-pointer">
               <div className={`border-2 rounded-lg p-5 transition-all ${
                 selectedOption === 'team-member' 
-                  ? 'border-purple-600 bg-purple-50 dark:bg-purple-900/20 shadow-lg' 
+                  ? 'border-[var(--accent-color)] bg-[var(--accent-color)]/5 dark:bg-[var(--accent-color)]/10 shadow-lg' 
                   : 'border-gray-200 dark:border-gray-600 hover:border-gray-300 dark:hover:border-gray-500'
               }`}>
                 <div className="flex items-start gap-4">
@@ -145,7 +145,7 @@ export function EnterpriseFirstRunModal({
           <div className="flex justify-end pt-2">
             <button
               onClick={handleContinue}
-              className="px-8 py-3 bg-gradient-to-r from-purple-600 to-purple-700 text-white rounded-lg text-base font-medium hover:from-purple-700 hover:to-purple-800 transition-all shadow-lg flex items-center gap-2"
+              className="px-8 py-3 bg-[var(--accent-color)] text-white rounded-lg text-base font-medium hover:from-purple-700 hover:to-purple-800 transition-all shadow-lg flex items-center gap-2"
             >
               Continue
               <ArrowRight size={18} />

@@ -651,6 +651,7 @@ export function RuntimeSettings() {
   const currentUser = {
     userId: 'user-123',
     username: 'john.doe',
+    email: 'john.doe@example.com',
     role: 'engineer' as const
   }
 
@@ -785,16 +786,19 @@ export function RuntimeSettings() {
       
       if (response.ok) {
         const data = await response.json()
-        // Remove runtime from list
-        setRuntimes(prev => prev.filter(r => r.id !== runtimeToDelete.id))
         
         // Show success message
         setDeleteResult({
           type: 'success',
-          message: `Runtime "${runtimeToDelete.name}" deleted successfully`
+          message: data.alreadyDeleted 
+            ? `Runtime "${runtimeToDelete.name}" was already deleted`
+            : `Runtime "${runtimeToDelete.name}" deleted successfully`
         })
         
         console.log('✅ Runtime deleted:', data)
+        
+        // Reload the runtimes list from server to ensure consistency
+        await loadRuntimes()
       } else {
         const errorData = await response.json().catch(() => ({ error: 'Unknown error' }))
         
@@ -805,6 +809,9 @@ export function RuntimeSettings() {
         })
         
         console.error('❌ Delete failed:', errorData)
+        
+        // Still reload the list to check current state
+        await loadRuntimes()
       }
     } catch (error) {
       console.error('❌ Delete runtime error:', error)

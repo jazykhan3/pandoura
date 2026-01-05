@@ -335,12 +335,12 @@ export function EnterpriseLicenseModal({ isOpen, onClose, onBack, onAdminSetupCo
             className="bg-white dark:bg-gray-800 rounded-lg shadow-xl w-full max-w-4xl max-h-[90vh] overflow-y-auto"
           >
             {/* Header */}
-            <div className="bg-gradient-to-r from-purple-600 to-indigo-600 text-white p-8 rounded-t-lg">
+            <div className="bg-[var(--accent-color)] text-white p-8 rounded-t-lg">
               <div className="flex items-center space-x-4">
                 <Shield size={28} />
                 <div>
                   <h2 className="text-2xl font-bold">Enterprise License</h2>
-                  <p className="text-purple-100 text-sm mt-1">
+                  <p className="text-white/80 text-sm mt-1">
                     {deviceRole === 'provision-admin' && 'Provision Admin Device'}
                     {deviceRole === 'register' && 'Register This Device'}
                     {deviceRole === 'team-member' && 'Add as Team Member'}
@@ -354,7 +354,7 @@ export function EnterpriseLicenseModal({ isOpen, onClose, onBack, onAdminSetupCo
             <div className="p-8">
               {mode === 'checking' && (
                 <div className="text-center py-12">
-                  <Loader2 className="animate-spin mx-auto mb-4 text-purple-600" size={48} />
+                  <Loader2 className="animate-spin mx-auto mb-4 [var(--accent-color)]" size={48} />
                   <p className="text-gray-600 dark:text-gray-400">Checking Enterprise license status...</p>
                 </div>
               )}
@@ -366,10 +366,10 @@ export function EnterpriseLicenseModal({ isOpen, onClose, onBack, onAdminSetupCo
                   animate={{ opacity: 1, x: 0 }}
                   className="space-y-6"
                 >
-                  <div className="bg-purple-50 dark:bg-purple-900/20 border border-purple-200 dark:border-purple-700 rounded-lg p-5">
+                  <div className="bg-[var(--accent-color)]/5 dark:bg-[var(--accent-color)]/10 border border-[var(--accent-color)]/20 dark:border-[var(--accent-color)]/30 rounded-lg p-5">
                     <div className="flex items-start space-x-3">
-                      <Info className="text-purple-600 dark:text-purple-400 mt-0.5" size={18} />
-                      <div className="text-sm text-purple-800 dark:text-purple-200">
+                      <Info className="[var(--accent-color)] dark:[var(--accent-light)] mt-0.5" size={18} />
+                      <div className="text-sm [var(--accent-dark)] dark:[var(--accent-light)]">
                         <p className="font-semibold mb-2">
                           {deviceRole === 'provision-admin' && 'Provision Admin Device'}
                           {deviceRole === 'register' && 'Register This Device'}
@@ -394,7 +394,7 @@ export function EnterpriseLicenseModal({ isOpen, onClose, onBack, onAdminSetupCo
                   {/* License Key */}
                   <div>
                     <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                      <Key size={16} className="inline mr-2 text-purple-600" />
+                      <Key size={16} className="inline mr-2 [var(--accent-color)]" />
                       Enterprise License Key
                     </label>
                     <input
@@ -402,7 +402,7 @@ export function EnterpriseLicenseModal({ isOpen, onClose, onBack, onAdminSetupCo
                       value={licenseKey}
                       onChange={handleLicenseKeyChange}
                       placeholder="1111-1111-1111-1111"
-                      className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 font-mono focus:ring-2 focus:ring-purple-500"
+                      className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 font-mono focus:ring-2 focus:ring-[var(--accent-color)]"
                       disabled={isValidating}
                     />
                   </div>
@@ -410,7 +410,7 @@ export function EnterpriseLicenseModal({ isOpen, onClose, onBack, onAdminSetupCo
                   {/* User Email */}
                   <div>
                     <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                      <Mail size={16} className="inline mr-2 text-purple-600" />
+                      <Mail size={16} className="inline mr-2 [var(--accent-color)]" />
                       Your Email
                     </label>
                     <input
@@ -418,7 +418,7 @@ export function EnterpriseLicenseModal({ isOpen, onClose, onBack, onAdminSetupCo
                       value={userEmail}
                       onChange={(e) => setUserEmail(e.target.value)}
                       placeholder="your.email@company.com"
-                      className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-purple-500"
+                      className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-[var(--accent-color)]"
                       disabled={isValidating}
                     />
                   </div>
@@ -444,7 +444,7 @@ export function EnterpriseLicenseModal({ isOpen, onClose, onBack, onAdminSetupCo
                         }
                       }}
                       disabled={isValidating || !licenseKey || !userEmail}
-                      className="px-6 py-2 bg-gradient-to-r from-purple-600 to-purple-700 text-white rounded-lg font-medium hover:from-purple-700 hover:to-purple-800 transition-all shadow-lg disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                      className="px-6 py-2 bg-[var(--accent-color)] hover:bg-[var(--accent-hover)] text-white rounded-lg font-medium transition-all shadow-lg disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
                     >
                       {isValidating && <Loader2 className="animate-spin" size={16} />}
                       {isValidating ? 'Activating...' : 'Activate License'}
@@ -460,10 +460,10 @@ export function EnterpriseLicenseModal({ isOpen, onClose, onBack, onAdminSetupCo
               animate={{ opacity: 1, x: 0 }}
               className="space-y-6"
             >
-              <div className="bg-purple-50 dark:bg-purple-900/20 border border-purple-200 dark:border-purple-700 rounded-lg p-5">
+              <div className="bg-[var(--accent-color)]/5 dark:bg-[var(--accent-color)]/10 border border-[var(--accent-color)]/20 dark:border-[var(--accent-color)]/30 rounded-lg p-5">
                 <div className="flex items-start space-x-3">
-                  <Settings className="text-purple-600 dark:text-purple-400 mt-0.5" size={18} />
-                  <div className="text-sm text-purple-800 dark:text-purple-200">
+                  <Settings className="[var(--accent-color)] dark:[var(--accent-light)] mt-0.5" size={18} />
+                  <div className="text-sm [var(--accent-dark)] dark:[var(--accent-light)]">
                     <p className="font-semibold mb-2">Organization Details</p>
                     <p>Provide your organization information to complete the admin device provisioning.</p>
                   </div>
@@ -491,7 +491,7 @@ export function EnterpriseLicenseModal({ isOpen, onClose, onBack, onAdminSetupCo
                   value={orgName}
                   onChange={(e) => setOrgName(e.target.value)}
                   placeholder="Your Company Name"
-                  className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-purple-500"
+                  className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-[var(--accent-color)]"
                   disabled={isValidating}
                 />
               </div>
@@ -499,7 +499,7 @@ export function EnterpriseLicenseModal({ isOpen, onClose, onBack, onAdminSetupCo
               {/* Admin Email */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  <Mail size={16} className="inline mr-2 text-purple-600" />
+                  <Mail size={16} className="inline mr-2 [var(--accent-color)]" />
                   Admin Email
                 </label>
                 <input
@@ -507,7 +507,7 @@ export function EnterpriseLicenseModal({ isOpen, onClose, onBack, onAdminSetupCo
                   value={adminEmail}
                   onChange={(e) => setAdminEmail(e.target.value)}
                   placeholder="admin@company.com"
-                  className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-purple-500"
+                  className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-[var(--accent-color)]"
                   disabled={isValidating}
                 />
               </div>
@@ -522,7 +522,7 @@ export function EnterpriseLicenseModal({ isOpen, onClose, onBack, onAdminSetupCo
                   value={deviceName}
                   onChange={(e) => setDeviceName(e.target.value)}
                   placeholder="Admin Workstation"
-                  className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-purple-500"
+                  className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-[var(--accent-color)]"
                   disabled={isValidating}
                 />
               </div>
@@ -539,7 +539,7 @@ export function EnterpriseLicenseModal({ isOpen, onClose, onBack, onAdminSetupCo
                 <button
                   onClick={setupEnterpriseLicense}
                   disabled={isValidating || !licenseKey || !userEmail || !orgName || !adminEmail}
-                  className="px-6 py-2 bg-gradient-to-r from-purple-600 to-purple-700 text-white rounded-lg font-medium hover:from-purple-700 hover:to-purple-800 transition-all shadow-lg disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                  className="px-6 py-2 bg-[var(--accent-color)] hover:bg-[var(--accent-hover)] text-white rounded-lg font-medium transition-all shadow-lg disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
                 >
                   {isValidating && <Loader2 className="animate-spin" size={16} />}
                   {isValidating ? 'Provisioning...' : 'Complete Setup'}
@@ -666,7 +666,7 @@ export function EnterpriseLicenseModal({ isOpen, onClose, onBack, onAdminSetupCo
                         ...prev,
                         enforceDeviceEncryption: e.target.checked
                       }))}
-                      className="w-4 h-4 text-purple-600 focus:ring-purple-500"
+                      className="w-4 h-4 [var(--accent-color)] focus:ring-[var(--accent-color)]"
                     />
                     <span className="text-gray-700 dark:text-gray-300">Enforce device encryption</span>
                   </label>
@@ -679,7 +679,7 @@ export function EnterpriseLicenseModal({ isOpen, onClose, onBack, onAdminSetupCo
                         ...prev,
                         deviceCompliance: e.target.checked
                       }))}
-                      className="w-4 h-4 text-purple-600 focus:ring-purple-500"
+                      className="w-4 h-4 [var(--accent-color)] focus:ring-[var(--accent-color)]"
                     />
                     <span className="text-gray-700 dark:text-gray-300">Enforce device compliance</span>
                   </label>
@@ -690,7 +690,7 @@ export function EnterpriseLicenseModal({ isOpen, onClose, onBack, onAdminSetupCo
               <div className="flex justify-end pt-4">
                 <button
                   onClick={() => setStep('admin-approvers')}
-                  className="px-8 py-3 bg-gradient-to-r from-purple-600 to-purple-700 text-white rounded-lg font-semibold hover:from-purple-700 hover:to-purple-800 transition-all shadow-lg"
+                  className="px-8 py-3 bg-[var(--accent-color)] hover:bg-[var(--accent-hover)] text-white rounded-lg font-semibold transition-all shadow-lg"
                 >
                   Next: Configure Approvers
                 </button>
@@ -727,7 +727,7 @@ export function EnterpriseLicenseModal({ isOpen, onClose, onBack, onAdminSetupCo
                           onChange={(e) => setApproverGroups(prev => prev.map(g => 
                             g.id === group.id ? { ...g, isActive: e.target.checked } : g
                           ))}
-                          className="w-4 h-4 text-purple-600 focus:ring-purple-500"
+                          className="w-4 h-4 [var(--accent-color)] focus:ring-[var(--accent-color)]"
                         />
                         <span className="text-sm text-gray-700 dark:text-gray-300">Active</span>
                       </label>
@@ -770,7 +770,7 @@ export function EnterpriseLicenseModal({ isOpen, onClose, onBack, onAdminSetupCo
                                     } : g
                                   ))
                                 }}
-                                className="w-3 h-3 text-purple-600 focus:ring-purple-500"
+                                className="w-3 h-3 [var(--accent-color)] focus:ring-[var(--accent-color)]"
                               />
                               <span className="text-xs text-gray-600 dark:text-gray-400 capitalize">
                                 {action.replace('_', ' ')}
@@ -794,7 +794,7 @@ export function EnterpriseLicenseModal({ isOpen, onClose, onBack, onAdminSetupCo
                 </button>
                 <button
                   onClick={() => setStep('admin-governance')}
-                  className="px-8 py-3 bg-gradient-to-r from-purple-600 to-purple-700 text-white rounded-lg font-semibold hover:from-purple-700 hover:to-purple-800 transition-all shadow-lg"
+                  className="px-8 py-3 bg-[var(--accent-color)] hover:bg-[var(--accent-hover)] text-white rounded-lg font-semibold transition-all shadow-lg"
                 >
                   Next: Deploy Governance
                 </button>
@@ -830,7 +830,7 @@ export function EnterpriseLicenseModal({ isOpen, onClose, onBack, onAdminSetupCo
                           ...prev,
                           requireTestingEnvironment: e.target.checked
                         }))}
-                        className="w-4 h-4 text-purple-600 focus:ring-purple-500"
+                        className="w-4 h-4 [var(--accent-color)] focus:ring-[var(--accent-color)]"
                       />
                       <span className="text-gray-700 dark:text-gray-300">Require testing environment</span>
                     </label>
@@ -843,7 +843,7 @@ export function EnterpriseLicenseModal({ isOpen, onClose, onBack, onAdminSetupCo
                           ...prev,
                           restrictProductionDeploys: e.target.checked
                         }))}
-                        className="w-4 h-4 text-purple-600 focus:ring-purple-500"
+                        className="w-4 h-4 [var(--accent-color)] focus:ring-[var(--accent-color)]"
                       />
                       <span className="text-gray-700 dark:text-gray-300">Restrict production deployments</span>
                     </label>
@@ -856,7 +856,7 @@ export function EnterpriseLicenseModal({ isOpen, onClose, onBack, onAdminSetupCo
                           ...prev,
                           requireRollbackPlan: e.target.checked
                         }))}
-                        className="w-4 h-4 text-purple-600 focus:ring-purple-500"
+                        className="w-4 h-4 [var(--accent-color)] focus:ring-[var(--accent-color)]"
                       />
                       <span className="text-gray-700 dark:text-gray-300">Require rollback plan</span>
                     </label>
@@ -871,7 +871,7 @@ export function EnterpriseLicenseModal({ isOpen, onClose, onBack, onAdminSetupCo
                           ...prev,
                           allowEmergencyDeploys: e.target.checked
                         }))}
-                        className="w-4 h-4 text-purple-600 focus:ring-purple-500"
+                        className="w-4 h-4 [var(--accent-color)] focus:ring-[var(--accent-color)]"
                       />
                       <span className="text-gray-700 dark:text-gray-300">Allow emergency deployments</span>
                     </label>
@@ -884,7 +884,7 @@ export function EnterpriseLicenseModal({ isOpen, onClose, onBack, onAdminSetupCo
                           ...prev,
                           autoRevertOnFailure: e.target.checked
                         }))}
-                        className="w-4 h-4 text-purple-600 focus:ring-purple-500"
+                        className="w-4 h-4 [var(--accent-color)] focus:ring-[var(--accent-color)]"
                       />
                       <span className="text-gray-700 dark:text-gray-300">Auto-revert on failure</span>
                     </label>
@@ -996,7 +996,7 @@ export function EnterpriseLicenseModal({ isOpen, onClose, onBack, onAdminSetupCo
                     }
                   }}
                   disabled={isValidating}
-                  className="px-8 py-3 bg-gradient-to-r from-purple-600 to-purple-700 text-white rounded-lg font-semibold hover:from-purple-700 hover:to-purple-800 transition-all shadow-lg disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                  className="px-8 py-3 bg-[var(--accent-color)] hover:bg-[var(--accent-hover)] text-white rounded-lg font-semibold transition-all shadow-lg disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
                 >
                   {isValidating && <Loader2 className="animate-spin" size={16} />}
                   {isValidating ? 'Saving...' : 'Complete Setup'}
@@ -1026,7 +1026,7 @@ export function EnterpriseLicenseModal({ isOpen, onClose, onBack, onAdminSetupCo
                   await refreshLicenseStatus()
                   if (onClose) onClose()
                 }}
-                className="px-8 py-3 bg-gradient-to-r from-purple-600 to-purple-700 text-white rounded-lg font-semibold hover:from-purple-700 hover:to-purple-800 transition-all shadow-lg"
+                className="px-8 py-3 bg-[var(--accent-color)] hover:bg-[var(--accent-hover)] text-white rounded-lg font-semibold transition-all shadow-lg"
               >
                 Continue to Project Hub
                   </button>

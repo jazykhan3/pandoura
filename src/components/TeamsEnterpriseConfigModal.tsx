@@ -129,12 +129,12 @@ export function TeamsEnterpriseConfigModal({ isOpen, onComplete }: TeamsEnterpri
         className="bg-white dark:bg-gray-800 rounded-lg shadow-xl w-full max-w-3xl"
       >
         {/* Header */}
-        <div className="bg-gradient-to-r from-green-600 to-emerald-600 text-white p-8 rounded-t-lg">
+        <div className="bg-[var(--accent-color)] text-white p-8 rounded-t-lg">
           <div className="flex items-center space-x-4">
             <Users size={32} />
             <div>
               <h2 className="text-2xl font-bold">Activate Teams License</h2>
-              <p className="text-green-100 text-sm mt-1">Enter your license key and email to activate</p>
+              <p className="text-white/80 text-sm mt-1">Enter your license key and email to activate</p>
             </div>
           </div>
         </div>
@@ -147,8 +147,8 @@ export function TeamsEnterpriseConfigModal({ isOpen, onComplete }: TeamsEnterpri
               animate={{ scale: 1, opacity: 1 }}
               className="text-center py-12"
             >
-              <div className="w-20 h-20 bg-green-100 dark:bg-green-900/30 rounded-full flex items-center justify-center mx-auto mb-6">
-                <CheckCircle size={48} className="text-green-600 dark:text-green-400" />
+              <div className="w-20 h-20 bg-[var(--accent-color)]/10 dark:bg-[var(--accent-color)]/10 rounded-full flex items-center justify-center mx-auto mb-6">
+                <CheckCircle size={48} className="[var(--accent-color)] dark:[var(--accent-light)]" />
               </div>
               <h3 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
                 Teams License Activated Successfully!
@@ -167,7 +167,7 @@ export function TeamsEnterpriseConfigModal({ isOpen, onComplete }: TeamsEnterpri
             >
               <div className="mb-6">
                 <div className="flex items-center gap-2 mb-2">
-                  <Shield size={20} className="text-green-600" />
+                  <Shield size={20} className="[var(--accent-color)]" />
                   <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
                     Activate Teams License
                   </h3>
@@ -178,8 +178,8 @@ export function TeamsEnterpriseConfigModal({ isOpen, onComplete }: TeamsEnterpri
               </div>
 
               {isCheckingLicense && licenseKey.length >= 19 && (
-                <div className="bg-blue-50 dark:bg-blue-900/30 border border-blue-200 dark:border-blue-700 rounded-lg p-4">
-                  <p className="text-sm text-blue-800 dark:text-blue-200">Checking license status...</p>
+                <div className="bg-[var(--accent-color)]/5 dark:bg-[var(--accent-color)]/10 border border-[var(--accent-color)]/20 dark:border-[var(--accent-color)]/30 rounded-lg p-4">
+                  <p className="text-sm [var(--accent-dark)] dark:[var(--accent-light)]">Checking license status...</p>
                 </div>
               )}
 
@@ -192,8 +192,8 @@ export function TeamsEnterpriseConfigModal({ isOpen, onComplete }: TeamsEnterpri
               )}
 
               {isFirstDevice && licenseKey.length >= 19 && !isCheckingLicense && (
-                <div className="bg-green-50 dark:bg-green-900/30 border border-green-200 dark:border-green-700 rounded-lg p-4">
-                  <p className="text-sm text-green-800 dark:text-green-200">
+                <div className="bg-[var(--accent-color)]/5 dark:bg-[var(--accent-color)]/10 border border-[var(--accent-color)]/20 dark:border-[var(--accent-color)]/30 rounded-lg p-4">
+                  <p className="text-sm [var(--accent-dark)] dark:[var(--accent-light)]">
                     ✓ First device - After activation, use "Manage License" to configure organization settings.
                   </p>
                 </div>
@@ -214,7 +214,7 @@ export function TeamsEnterpriseConfigModal({ isOpen, onComplete }: TeamsEnterpri
                   value={licenseKey}
                   onChange={handleLicenseKeyChange}
                   placeholder="1111-1111-1111-1111"
-                  className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-green-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white font-mono text-lg"
+                  className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-[var(--accent-color)] bg-white dark:bg-gray-700 text-gray-900 dark:text-white font-mono text-lg"
                   disabled={isSaving}
                 />
               </div>
@@ -231,7 +231,7 @@ export function TeamsEnterpriseConfigModal({ isOpen, onComplete }: TeamsEnterpri
                     setError(null)
                   }}
                   placeholder="admin@company.com"
-                  className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-green-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                  className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-[var(--accent-color)] bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                   disabled={isSaving}
                 />
                 <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
@@ -243,7 +243,7 @@ export function TeamsEnterpriseConfigModal({ isOpen, onComplete }: TeamsEnterpri
                 <button
                   onClick={handleActivateLicense}
                   disabled={!licenseKey || licenseKey.length < 19 || !adminEmail || isSaving || isCheckingLicense}
-                  className="px-6 py-3 bg-gradient-to-r from-green-600 to-emerald-600 text-white rounded-lg font-medium hover:from-green-700 hover:to-emerald-700 transition-all shadow-lg disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                  className="px-6 py-3 bg-[var(--accent-color)] text-white rounded-lg font-medium hover:from-green-700 hover:to-emerald-700 transition-all shadow-lg disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
                 >
                   {isSaving ? (
                     <>

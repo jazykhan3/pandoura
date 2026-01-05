@@ -111,8 +111,12 @@ export const ROLE_PERMISSIONS: Record<UserRole, PLCPullPermissions> = {
 /**
  * Get permissions for a specific user role
  */
-export function getPermissionsForRole(role: UserRole): PLCPullPermissions {
-  return ROLE_PERMISSIONS[role]
+export function getPermissionsForRole(role: UserRole | string): PLCPullPermissions {
+  // Normalize role to lowercase to handle case variations
+  const normalizedRole = role.toLowerCase() as UserRole
+  
+  // Return permissions if role exists, otherwise default to viewer
+  return ROLE_PERMISSIONS[normalizedRole] || ROLE_PERMISSIONS.viewer
 }
 
 /**

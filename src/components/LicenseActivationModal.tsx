@@ -106,12 +106,12 @@ export function LicenseActivationModal({ isOpen, onClose }: LicenseActivationMod
         )}
 
         {/* Header */}
-        <div className="bg-gradient-to-r from-[#FF6A00] to-orange-600 text-white p-8 rounded-t-lg">
+        <div className="bg-[var(--accent-color)] text-white p-8 rounded-t-lg">
           <div className="flex items-center space-x-4">
             <Shield size={32} />
             <div>
               <h2 className="text-3xl font-bold">Activate Pandaura AS License</h2>
-              <p className="text-orange-100 text-base mt-2">License activation required to continue</p>
+              <p className="text-white/80 text-base mt-2">License activation required to continue</p>
             </div>
           </div>
         </div>
@@ -221,7 +221,7 @@ export function LicenseActivationModal({ isOpen, onClose }: LicenseActivationMod
             <button
               onClick={handleActivate}
               disabled={!isFormValid || isActivatingLicense}
-              className="px-8 py-3 bg-gradient-to-r from-[#FF6A00] to-orange-600 hover:from-orange-600 hover:to-orange-700 disabled:bg-gray-400 disabled:from-gray-400 disabled:to-gray-400 text-white rounded-lg transition-all duration-200 flex items-center space-x-2 disabled:cursor-not-allowed font-semibold shadow-lg hover:shadow-xl transform hover:scale-105 disabled:transform-none"
+              className="px-8 py-3 bg-[var(--accent-color)] hover:bg-[var(--accent-hover)] disabled:bg-gray-400 text-white rounded-lg transition-all duration-200 flex items-center space-x-2 disabled:cursor-not-allowed font-semibold shadow-lg hover:shadow-xl transform hover:scale-105 disabled:transform-none"
             >
               {isActivatingLicense && <Loader2 className="animate-spin" size={18} />}
               <span>{isActivatingLicense ? 'Activating...' : 'Activate'}</span>

@@ -14,6 +14,7 @@
   --accent-dark: hsl(25, 100%, 35%);
   --accent-subtle: hsla(25, 100%, 50%, 0.1);
   --accent-muted: hsla(25, 100%, 50%, 0.2);
+  --accent-gradient: linear-gradient(135deg, var(--accent-color), var(--accent-dark));
 }
 
 /* App base styles */

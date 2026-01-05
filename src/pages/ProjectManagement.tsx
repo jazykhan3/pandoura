@@ -20,6 +20,7 @@ import type { Project } from '../types'
 import { Dialog } from '../components/Dialog'
 import { useProjectStore } from '../store/projectStore'
 import { PullFromPLCDialog } from '../components/PullFromPLCDialog'
+import deviceAuth from '../utils/deviceAuth'
 
 export function ProjectManagement() {
   const {
@@ -49,9 +50,29 @@ export function ProjectManagement() {
   const [pullEntryPoint, setPullEntryPoint] = useState<'project-wizard' | 'empty-project-cta' | 'topbar-menu'>('project-wizard')
   const [pullProjectId, setPullProjectId] = useState<string | undefined>()
   const [pullProjectName, setPullProjectName] = useState<string | undefined>()
+  const [currentUser, setCurrentUser] = useState<{ userId: string; username: string; email: string; role: 'admin' | 'engineer' | 'operator' | 'viewer' }>({ userId: '1', username: 'user', email: 'user@local.device', role: 'viewer' })
 
   useEffect(() => {
     loadProjects()
+    
+    // Load current user data
+    const loadUser = async () => {
+      try {
+        const deviceData = await deviceAuth.getDeviceInfo()
+        if (deviceData && deviceData.users && deviceData.users[0]) {
+          const user = deviceData.users[0]
+          setCurrentUser({
+            userId: user.id?.toString() || '1',
+            username: user.os_username,
+            email: user.user_email || `${user.os_username}@local.device`,
+            role: ((user.user_role || 'viewer').toLowerCase()) as 'admin' | 'engineer' | 'operator' | 'viewer'
+          })
+        }
+      } catch (error) {
+        console.error('Failed to load user data:', error)
+      }
+    }
+    loadUser()
   }, [loadProjects])
 
   const filteredProjects = projects.filter((project) =>
@@ -553,11 +574,7 @@ export function ProjectManagement() {
       <PullFromPLCDialog
         isOpen={showPullDialog}
         onClose={() => setShowPullDialog(false)}
-        currentUser={{
-          userId: '1',
-          username: 'developer',
-          role: 'engineer'
-        }}
+        currentUser={currentUser}
         projectId={pullProjectId}
         projectName={pullProjectName}
         entryPoint={pullEntryPoint}

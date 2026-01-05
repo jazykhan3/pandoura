@@ -358,15 +358,21 @@ export async function logDraftCreated(params: {
  */
 async function sendAuditEntry(entry: AuditEntry): Promise<void> {
   try {
-    // Get session token for authentication
+    // Get session token for authentication - wait for it to be available
+    console.log('🔐 [Audit Logger] Getting session token...')
     const sessionToken = await deviceAuth.getSessionToken()
     
-    const headers: Record<string, string> = {
-      'Content-Type': 'application/json'
+    if (!sessionToken) {
+      console.warn('⚠️ [Audit Logger] No session token available, storing audit entry locally')
+      storeAuditLocally(entry)
+      return
     }
     
-    if (sessionToken) {
-      headers['Authorization'] = `Bearer ${sessionToken}`
+    console.log('✅ [Audit Logger] Session token obtained, sending audit entry')
+    
+    const headers: Record<string, string> = {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${sessionToken}`
     }
     
     const response = await fetch(`${API_BASE}/audit/plc-pull`, {
@@ -376,10 +382,13 @@ async function sendAuditEntry(entry: AuditEntry): Promise<void> {
     })
     
     if (!response.ok) {
-      console.error('Failed to send audit entry:', response.statusText)
+      console.error('❌ [Audit Logger] Failed to send audit entry:', response.statusText)
+      storeAuditLocally(entry)
+    } else {
+      console.log('✅ [Audit Logger] Audit entry sent successfully')
     }
   } catch (error) {
-    console.error('Failed to send audit entry:', error)
+    console.error('❌ [Audit Logger] Failed to send audit entry:', error)
     // Store locally as fallback
     storeAuditLocally(entry)
   }

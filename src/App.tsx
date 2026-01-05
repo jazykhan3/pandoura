@@ -1,22 +1,36 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, lazy, Suspense } from 'react'
 import { Layout } from './components/Layout'
 import { useUiStore } from './store/uiStore'
 import { useLicenseStore } from './store/licenseStore'
 import { Dashboard } from './pages/Dashboard'
-import { ShadowRuntime } from './pages/ShadowRuntime'
-import { TagDatabase } from './pages/TagDatabase'
-import { LogicEditor } from './pages/LogicEditor'
-import { Deploy } from './pages/Deploy'
-import { VersioningCenter } from './pages/VersioningCenter'
-import { ProjectManagement } from './pages/ProjectManagement'
-import { SettingsPage } from './pages/SettingsPage'
-import { ProfilePage } from './pages/ProfilePage'
 import { ThemeProvider } from './context/ThemeContext'
 import { LicenseTypeSelectionModal } from './components/LicenseTypeSelectionModal'
 import { LicenseActivationModal } from './components/LicenseActivationModal'
 import { TeamsLicenseModal } from './components/TeamsLicenseModal'
 import { EnterpriseLicenseModal } from './components/EnterpriseLicenseModal'
+import { PerformanceMonitorWidget } from './components/PerformanceMonitorWidget'
+import { usePrefetch, prefetchDeploy, prefetchLogicEditor } from './hooks/usePrefetch'
 import deviceAuth from './utils/deviceAuth'
+
+// Code-split heavy pages for better initial load performance
+const ShadowRuntime = lazy(() => import('./pages/ShadowRuntime').then(m => ({ default: m.ShadowRuntime })))
+const TagDatabase = lazy(() => import('./pages/TagDatabase').then(m => ({ default: m.TagDatabase })))
+const LogicEditor = lazy(() => import('./pages/LogicEditor').then(m => ({ default: m.LogicEditor })))
+const Deploy = lazy(() => import('./pages/Deploy').then(m => ({ default: m.Deploy })))
+const VersioningCenter = lazy(() => import('./pages/VersioningCenter').then(m => ({ default: m.VersioningCenter })))
+const ProjectManagement = lazy(() => import('./pages/ProjectManagement').then(m => ({ default: m.ProjectManagement })))
+const SettingsPage = lazy(() => import('./pages/SettingsPage').then(m => ({ default: m.SettingsPage })))
+const ProfilePage = lazy(() => import('./pages/ProfilePage').then(m => ({ default: m.ProfilePage })))
+
+// Loading fallback component
+const PageLoader = () => (
+  <div className="h-full flex items-center justify-center">
+    <div className="text-center">
+      <div className="w-12 h-12 border-4 border-t-transparent rounded-full animate-spin mx-auto mb-4" style={{ borderColor: 'var(--accent-color)', borderTopColor: 'transparent' }}></div>
+      <p className="text-gray-600 dark:text-gray-400">Loading...</p>
+    </div>
+  </div>
+)
 
 function App() {
   const active = useUiStore((s) => s.activeRoute)
@@ -28,6 +42,12 @@ function App() {
 
   const [currentModal, setCurrentModal] = useState<'type-selection' | 'solo' | 'teams' | 'enterprise' | null>(null)
   const [isInitializing, setIsInitializing] = useState(true)
+
+  // Prefetch commonly accessed pages in the background
+  usePrefetch([prefetchDeploy, prefetchLogicEditor], {
+    enabled: hasValidLicense && !isInitializing,
+    delay: 2000, // Wait 2 seconds after app loads
+  })
 
   // Initialize device and check license status on app startup
   useEffect(() => {
@@ -97,7 +117,7 @@ function App() {
         {/* Main Application Content */}
         {hasValidLicense ? (
           /* Full access with valid license */
-          <>
+          <Suspense fallback={<PageLoader />}>
             {active === 'dashboard' && <Dashboard />}
             {active === 'projects' && <ProjectManagement />}
             {active === 'shadow' && <ShadowRuntime />}
@@ -107,10 +127,10 @@ function App() {
             {active === 'versioning' && <VersioningCenter />}
             {active === 'settings' && <SettingsPage />}
             {active === 'profile' && <ProfilePage />}
-          </>
+          </Suspense>
         ) : (
           /* Limited access without license - Allow Profile page for license activation */
-          <>
+          <Suspense fallback={<PageLoader />}>
             {active === 'dashboard' && (
               <div className="flex items-center justify-center h-full bg-gray-50 dark:bg-gray-900">
                 <div className="text-center p-8">
@@ -154,7 +174,7 @@ function App() {
             {active === 'settings' && <SettingsPage />}
             {/* Profile page is accessible WITHOUT license for license activation */}
             {active === 'profile' && <ProfilePage />}
-          </>
+          </Suspense>
         )}
       </Layout>
 
@@ -178,6 +198,9 @@ function App() {
         isOpen={currentModal === 'enterprise'}
         onBack={handleBackToTypeSelection}
       />
+
+      {/* Performance Monitor (Development Only - Toggle with Ctrl+Shift+P) */}
+      {import.meta.env.DEV && <PerformanceMonitorWidget />}
     </ThemeProvider>
   )
 }

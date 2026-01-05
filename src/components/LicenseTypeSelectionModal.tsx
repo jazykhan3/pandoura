@@ -56,12 +56,12 @@ export function LicenseTypeSelectionModal({ isOpen, onSelectType, onClose }: Lic
           )}
 
           {/* Header */}
-          <div className="bg-gradient-to-r from-[#FF6A00] to-orange-600 text-white p-8 rounded-t-lg">
+          <div className="bg-[var(--accent-color)] text-white p-8 rounded-t-lg">
             <div className="flex items-center space-x-4">
               <Shield size={32} />
               <div>
                 <h2 className="text-2xl font-bold">Choose Your License Type</h2>
-                <p className="text-orange-100 text-sm mt-1">Select the license that fits your needs</p>
+                <p className="text-white/80 text-sm mt-1">Select the license that fits your needs</p>
               </div>
             </div>
           </div>
@@ -79,7 +79,7 @@ export function LicenseTypeSelectionModal({ isOpen, onSelectType, onClose }: Lic
               <label className="block cursor-pointer">
                 <div className={`border-2 rounded-lg p-4 transition-all ${
                   selectedType === 'solo' 
-                    ? 'border-[#FF6A00] bg-orange-50 dark:bg-orange-900/20' 
+                    ? 'border-[var(--accent-color)] bg-[var(--accent-color)]/5 dark:bg-[var(--accent-color)]/10' 
                     : 'border-gray-200 dark:border-gray-600 hover:border-gray-300 dark:hover:border-gray-500'
                 }`}>
                   <div className="flex items-start gap-3">
@@ -93,7 +93,7 @@ export function LicenseTypeSelectionModal({ isOpen, onSelectType, onClose }: Lic
                     />
                     <div className="flex-1">
                       <div className="flex items-center gap-2 mb-1">
-                        <User size={18} className="text-blue-600 dark:text-blue-400" />
+                        <User size={18} className="text-[var(--accent-color)] dark:text-[var(--accent-light)]" />
                         <span className="text-base font-semibold text-gray-900 dark:text-gray-100">Solo License</span>
                       </div>
                       <p className="text-sm text-gray-600 dark:text-gray-400">
@@ -108,7 +108,7 @@ export function LicenseTypeSelectionModal({ isOpen, onSelectType, onClose }: Lic
               <label className="block cursor-pointer">
                 <div className={`border-2 rounded-lg p-4 transition-all ${
                   selectedType === 'teams' 
-                    ? 'border-[#FF6A00] bg-orange-50 dark:bg-orange-900/20' 
+                    ? 'border-[var(--accent-color)] bg-[var(--accent-color)]/5 dark:bg-[var(--accent-color)]/10' 
                     : 'border-gray-200 dark:border-gray-600 hover:border-gray-300 dark:hover:border-gray-500'
                 }`}>
                   <div className="flex items-start gap-3">
@@ -122,7 +122,7 @@ export function LicenseTypeSelectionModal({ isOpen, onSelectType, onClose }: Lic
                     />
                     <div className="flex-1">
                       <div className="flex items-center gap-2 mb-1">
-                        <Users size={18} className="text-green-600 dark:text-green-400" />
+                        <Users size={18} className="text-[var(--accent-color)] dark:text-[var(--accent-light)]" />
                         <span className="text-base font-semibold text-gray-900 dark:text-gray-100">Teams License</span>
                       </div>
                       <p className="text-sm text-gray-600 dark:text-gray-400">
@@ -137,7 +137,7 @@ export function LicenseTypeSelectionModal({ isOpen, onSelectType, onClose }: Lic
               <label className="block cursor-pointer">
                 <div className={`border-2 rounded-lg p-4 transition-all ${
                   selectedType === 'enterprise' 
-                    ? 'border-[#FF6A00] bg-orange-50 dark:bg-orange-900/20' 
+                    ? 'border-[var(--accent-color)] bg-[var(--accent-color)]/5 dark:bg-[var(--accent-color)]/10' 
                     : 'border-gray-200 dark:border-gray-600 hover:border-gray-300 dark:hover:border-gray-500'
                 }`}>
                   <div className="flex items-start gap-3">
@@ -151,7 +151,7 @@ export function LicenseTypeSelectionModal({ isOpen, onSelectType, onClose }: Lic
                     />
                     <div className="flex-1">
                       <div className="flex items-center gap-2 mb-1">
-                        <Shield size={18} className="text-purple-600 dark:text-purple-400" />
+                        <Shield size={18} className="text-[var(--accent-color)] dark:text-[var(--accent-light)]" />
                         <span className="text-base font-semibold text-gray-900 dark:text-gray-100">Enterprise License</span>
                       </div>
                       <p className="text-sm text-gray-600 dark:text-gray-400">
@@ -175,7 +175,7 @@ export function LicenseTypeSelectionModal({ isOpen, onSelectType, onClose }: Lic
               )}
               <button
                 onClick={handleContinue}
-                className="px-6 py-2 bg-gradient-to-r from-[#FF6A00] to-orange-600 text-white rounded-lg text-sm font-medium hover:from-[#E55F00] hover:to-orange-700 transition-all shadow-lg"
+                className="px-6 py-2 bg-[var(--accent-color)] hover:bg-[var(--accent-hover)] text-white rounded-lg text-sm font-medium transition-all shadow-lg"
               >
                 Continue
               </button>

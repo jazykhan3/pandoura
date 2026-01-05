@@ -92,6 +92,15 @@ export type Tag = {
   scope?: TagScope
   scopeLocked?: boolean
   lifecycle?: TagLifecycle
+  deprecationStateId?: string
+  deprecationStateChangedAt?: Date | string | null
+  lastModifiedAt?: Date | string | null
+  lastReferencedAt?: Date | string | null
+  hasActiveReferences?: boolean
+  isDeleted?: boolean
+  deletedAt?: Date | string | null
+  deletedByUserId?: string | null
+  deletedReason?: string | null
   hierarchyPath?: string // e.g., "Area1/Equipment2/Routine3"
   area?: string
   equipment?: string
@@ -125,6 +134,37 @@ export type Tag = {
   
   // Project reference
   projectId?: string
+}
+
+// CSV mapping presets for tag import/export
+export type TagCsvFieldKey =
+  | 'name'
+  | 'type'
+  | 'address'
+  | 'value'
+  | 'area'
+  | 'equipment'
+  | 'routine'
+  | 'description'
+
+export type TagCsvFieldMapping = {
+  id: string
+  columnName: string
+  field: TagCsvFieldKey
+  required?: boolean
+}
+
+export type TagCsvMappingPreset = {
+  id: string
+  name: string
+  description?: string
+  vendor?: 'rockwell' | 'siemens' | 'beckhoff' | 'neutral'
+  fieldMappings: TagCsvFieldMapping[]
+  version: number
+  createdAt: string
+  updatedAt: string
+  orgKey: string
+  workspaceKey: string
 }
 
 export type TagImportMapping = {
@@ -350,6 +390,7 @@ export type Snapshot = {
   description?: string
   tags?: string[]
   checksum: string // Checksum of project state for integrity
+  metadata?: Record<string, any> // Additional metadata including auto-generation info
 }
 
 export type Release = {
@@ -484,11 +525,48 @@ export type Project = {
   last_opened: string
   file_path: string
   connection_profile?: ConnectionProfile
+  tag_lifecycle_policy_id?: string
   stats?: {
     logicFiles: number
     tags: number
     versions: number
   }
+}
+
+export type TagLifecycleStateConfig = {
+  id: string
+  label: string
+  icon?: string
+  colorToken?: string
+  thresholdDays: number
+  showInCleanup?: boolean
+  requiresConfirmation?: boolean
+  allowRemoval?: boolean
+}
+
+export type TagLifecyclePolicy = {
+  id: string
+  name: string
+  description?: string
+  states: TagLifecycleStateConfig[]
+  createdAt: string
+  updatedAt: string
+}
+
+export type TagCleanupCandidate = {
+  tagId: string
+  tagName: string
+  projectId: string | null
+  deprecationStateId?: string
+  stateLabel?: string
+  stateIcon?: string | null
+  inactivityDays: number
+  lastReferencedAt: string | null
+  hasActiveReferences: boolean
+  logicUsageCount: number
+  ioBindingsCount: number
+  hmiBindingsCount: number
+  alarmBindingsCount: number
 }
 
 export type CreateProjectRequest = {

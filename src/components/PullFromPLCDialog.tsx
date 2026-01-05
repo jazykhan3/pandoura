@@ -15,6 +15,7 @@ interface PullFromPLCDialogProps {
   currentUser: {
     userId: string
     username: string
+    email?: string
     role: 'admin' | 'engineer' | 'operator' | 'viewer'
   }
   projectId?: string
@@ -238,6 +239,8 @@ export function PullFromPLCDialog({
         },
         body: JSON.stringify({
           project_id: projectId,
+          user_id: currentUser.userId,
+          username: currentUser.email || currentUser.username,
           snapshot_scope: {
             include_programs: selectedScope.programs,
             include_tags: selectedScope.tags,

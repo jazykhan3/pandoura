@@ -1,14 +1,17 @@
 import { useState, useEffect } from 'react'
 import { Card, CardHeader } from '../components/Card'
-import { Wifi, FileText, MessageCircle, Settings, Cpu, Palette, AlertTriangle, CheckCircle2, ChevronDown, ChevronRight, Plug, Trash2, Plus, Edit2, Shield, TestTube } from 'lucide-react'
+import { Wifi, FileText, MessageCircle, Settings, Cpu, Palette, AlertTriangle, CheckCircle2, ChevronDown, ChevronRight, Plug, Trash2, Plus, Edit2, Shield, TestTube, User, FolderOpen, Key, AlertCircle } from 'lucide-react'
 import { useTheme } from '../context/ThemeContext'
 import { RuntimeSettings } from './RuntimeSettings'
 import { ExternalToolModal } from '../components/ExternalToolModal'
 import * as externalToolsApi from '../services/externalToolsApi'
 import * as settingsApi from '../services/settingsApi'
+import * as rbacApi from '../services/rbacApi'
 import type { ExternalTool } from '../services/externalToolsApi'
+import type { RBACConfig } from '../services/rbacApi'
+import { deviceAuth } from '../utils/deviceAuth'
 
-type SettingsTab = 'general' | 'runtimes' | 'data-bridge' | 'integrations' | 'deploy'
+type SettingsTab = 'profile' | 'runtimes' | 'data-bridge' | 'integrations' | 'deploy' | 'appearance' | 'security' | 'licensing'
 
 export function SettingsPage() {
   const { 
@@ -20,7 +23,7 @@ export function SettingsPage() {
     checkContrast,
   } = useTheme()
 
-  const [activeTab, setActiveTab] = useState<SettingsTab>('general')
+  const [activeTab, setActiveTab] = useState<SettingsTab>('profile')
   const [accentPickerExpanded, setAccentPickerExpanded] = useState(false)
   const [mode, setMode] = useState<'simulation' | 'live'>('simulation')
   const [storagePath, setStoragePath] = useState('~/Pandaura/Projects')
@@ -78,6 +81,286 @@ export function SettingsPage() {
   const [testConnectionResult, setTestConnectionResult] = useState<{ success: boolean; message: string } | null>(null)
   const [isSavingSettings, setIsSavingSettings] = useState(false)
   const [saveSettingsResult, setSaveSettingsResult] = useState<{ success: boolean; message: string } | null>(null)
+
+  // RBAC Settings
+  const [rbacEnabled, setRbacEnabled] = useState(true)
+  const [selectedRole, setSelectedRole] = useState<'Viewer' | 'Editor' | 'Approver' | 'Admin'>('Editor')
+  const [approvalEnabled, setApprovalEnabled] = useState(true)
+  const [minApprovers, setMinApprovers] = useState(2)
+  const [requireDeployApproval, setRequireDeployApproval] = useState(true)
+  const [requireRollbackApproval, setRequireRollbackApproval] = useState(true)
+  const [requireCriticalTagApproval, setRequireCriticalTagApproval] = useState(true)
+  const [approverRoles, setApproverRoles] = useState<string[]>(['Approver', 'Admin'])
+  const [isLoadingRBAC, setIsLoadingRBAC] = useState(false)
+  const [isSavingRBAC, setIsSavingRBAC] = useState(false)
+  const [rbacSaveSuccess, setRbacSaveSuccess] = useState(false)
+
+  // License and Seat Management State
+  const [licenseInfo, setLicenseInfo] = useState<any>(null)
+  const [licenseSeats, setLicenseSeats] = useState<any[]>([])
+  const [loadingLicense, setLoadingLicense] = useState(false)
+  const [loadingSeats, setLoadingSeats] = useState(false)
+  const [isAdmin, setIsAdmin] = useState(false)
+  const [editingRoleForSeat, setEditingRoleForSeat] = useState<string | null>(null)
+  const [updatingRoleForSeat, setUpdatingRoleForSeat] = useState<string | null>(null)
+  const [roleUpdateModal, setRoleUpdateModal] = useState<{ isOpen: boolean; seat: any; newRole: string } | null>(null)
+  const [roleUpdateSuccess, setRoleUpdateSuccess] = useState<{ isOpen: boolean; oldRole: string; newRole: string; email: string } | null>(null)
+  const [removeSeatModal, setRemoveSeatModal] = useState<{ isOpen: boolean; seat: any } | null>(null)
+  const [removeSeatSuccess, setRemoveSeatSuccess] = useState<{ isOpen: boolean; email: string } | null>(null)
+
+  // Load RBAC configuration on mount
+  useEffect(() => {
+    loadRBACConfig();
+  }, []);
+
+  // Load license information when licensing tab is active
+  useEffect(() => {
+    if (activeTab === 'licensing') {
+      loadLicenseInfo();
+    }
+  }, [activeTab]);
+
+  const loadLicenseInfo = async () => {
+    setLoadingLicense(true);
+    try {
+      const response = await fetch('/api/device/license-status', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      });
+      if (response.ok) {
+        const data = await response.json();
+        console.log('License status data:', data);
+        console.log('License object:', data.license);
+        console.log('Role from license:', data.license?.role);
+        
+        // Extract license info from the response
+        if (data.license) {
+          setLicenseInfo(data.license);
+          setIsAdmin(data.license.role === 'Admin' || data.license.role === 'admin');
+          console.log('Is Admin:', data.license.role === 'Admin' || data.license.role === 'admin');
+          
+          // If it's a Teams/Enterprise license, load seats (case-insensitive check)
+          const licenseType = data.license.licenseType?.toLowerCase();
+          if (licenseType === 'teams' || licenseType === 'enterprise') {
+            await loadSeats();
+          }
+        } else {
+          setLicenseInfo(null);
+        }
+      }
+    } catch (error) {
+      console.error('Failed to load license info:', error);
+    } finally {
+      setLoadingLicense(false);
+    }
+  };
+
+  const loadSeats = async () => {
+    setLoadingSeats(true);
+    try {
+      // Always show test data for demo purposes
+      setLicenseSeats([
+        {
+          bindingId: 'test-binding-1',
+          deviceId: 'device-1',
+          deviceName: 'John\'s Workstation',
+          ownerEmail: 'john.doe@company.com',
+          role: 'Editor',
+          bindingStatus: 'active',
+          boundAt: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString(),
+          lastActivity: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString()
+        },
+        {
+          bindingId: 'test-binding-2',
+          deviceId: 'device-2',
+          deviceName: 'Sarah\'s Laptop',
+          ownerEmail: 'sarah.smith@company.com',
+          role: 'Viewer',
+          bindingStatus: 'active',
+          boundAt: new Date(Date.now() - 14 * 24 * 60 * 60 * 1000).toISOString(),
+          lastActivity: new Date(Date.now() - 5 * 60 * 60 * 1000).toISOString()
+        }
+      ]);
+      
+      // Optionally try to fetch real data in the background
+      // const response = await fetch('/api/device/license/teams/seats');
+      // if (response.ok) {
+      //   const data = await response.json();
+      //   if (data.seats && data.seats.length > 0) {
+      //     setLicenseSeats(data.seats);
+      //   }
+      // }
+    } catch (error) {
+      console.error('Failed to load seats:', error);
+    } finally {
+      setLoadingSeats(false);
+    }
+  };
+
+  const updateSeatRole = async (bindingId: string, newRole: string) => {
+    setUpdatingRoleForSeat(bindingId);
+    try {
+      // For demo purposes, since we're using test data, just update the local state
+      // In production, this would call the API
+      
+      // Simulate API delay
+      await new Promise(resolve => setTimeout(resolve, 500));
+      
+      // Update local state
+      const seat = licenseSeats.find(s => s.bindingId === bindingId);
+      const oldRole = seat?.role || 'Unknown';
+      const email = seat?.ownerEmail || '';
+      
+      setLicenseSeats(prev => prev.map(s => 
+        s.bindingId === bindingId 
+          ? { ...s, role: newRole }
+          : s
+      ));
+      
+      setEditingRoleForSeat(null);
+      
+      // Show success modal
+      setRoleUpdateSuccess({ 
+        isOpen: true, 
+        oldRole,
+        newRole,
+        email
+      });
+      
+      // In production, you would call the API:
+      /*
+      const sessionToken = await deviceAuth.getSessionToken();
+      
+      const response = await fetch('/api/device/license/teams/update-seat-role', {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${sessionToken}`
+        },
+        body: JSON.stringify({ bindingId, newRole })
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        console.log('Role updated:', data);
+        
+        setLicenseSeats(prev => prev.map(seat => 
+          seat.bindingId === bindingId 
+            ? { ...seat, role: newRole }
+            : seat
+        ));
+        
+        setEditingRoleForSeat(null);
+        setRoleUpdateSuccess({ isOpen: true, oldRole: data.oldRole, newRole: data.newRole, email: seat.ownerEmail });
+      } else {
+        const error = await response.json();
+        alert(`Failed to update role: ${error.error || 'Unknown error'}`);
+      }
+      */
+    } catch (error) {
+      console.error('Failed to update seat role:', error);
+      alert('Failed to update seat role. Please try again.');
+    } finally {
+      setUpdatingRoleForSeat(null);
+    }
+  };
+
+  const removeSeat = async (bindingId: string) => {
+    try {
+      // For demo purposes, since we're using test data, just update the local state
+      // In production, this would call the API
+      
+      // Simulate API delay
+      await new Promise(resolve => setTimeout(resolve, 500));
+      
+      const seat = licenseSeats.find(s => s.bindingId === bindingId);
+      const email = seat?.ownerEmail || '';
+      
+      // Remove the seat from local state
+      setLicenseSeats(prev => prev.filter(s => s.bindingId !== bindingId));
+      
+      // Show success modal
+      setRemoveSeatSuccess({ 
+        isOpen: true, 
+        email
+      });
+      
+      // In production, you would call the API:
+      /*
+      const sessionToken = await deviceAuth.getSessionToken();
+      
+      const response = await fetch('/api/device/license/teams/remove-seat', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${sessionToken}`
+        },
+        body: JSON.stringify({ bindingId })
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        console.log('Seat removed:', data);
+        
+        setLicenseSeats(prev => prev.filter(s => s.bindingId !== bindingId));
+        setRemoveSeatSuccess({ isOpen: true, email: seat.ownerEmail });
+      } else {
+        const error = await response.json();
+        alert(`Failed to remove seat: ${error.error || 'Unknown error'}`);
+      }
+      */
+    } catch (error) {
+      console.error('Failed to remove seat:', error);
+      alert('Failed to remove seat. Please try again.');
+    }
+  };
+
+  const loadRBACConfig = async () => {
+    try {
+      setIsLoadingRBAC(true);
+      const config = await rbacApi.getRBACConfig();
+      
+      setRbacEnabled(config.rbacEnabled);
+      setApprovalEnabled(config.approvalEnabled);
+      setMinApprovers(config.minApprovers);
+      setRequireDeployApproval(config.requireDeployApproval);
+      setRequireRollbackApproval(config.requireRollbackApproval);
+      setRequireCriticalTagApproval(config.requireCriticalTagApproval);
+      setApproverRoles(config.approverRoles);
+    } catch (error) {
+      console.error('Failed to load RBAC config:', error);
+    } finally {
+      setIsLoadingRBAC(false);
+    }
+  };
+
+  const saveRBACConfig = async () => {
+    try {
+      setIsSavingRBAC(true);
+      
+      const config: Partial<RBACConfig> = {
+        rbacEnabled,
+        approvalEnabled,
+        minApprovers,
+        requireDeployApproval,
+        requireRollbackApproval,
+        requireCriticalTagApproval,
+        approverRoles
+      };
+
+      console.log('Saving RBAC config:', config);
+      await rbacApi.updateRBACConfig(config);
+      setRbacSaveSuccess(true);
+    } catch (error) {
+      console.error('Failed to save RBAC config:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      alert(`Failed to save RBAC settings: ${errorMessage}`);
+    } finally {
+      setIsSavingRBAC(false);
+    }
+  };
 
   // Load external tools from backend
   useEffect(() => {
@@ -258,10 +541,13 @@ export function SettingsPage() {
 
   const tabs: Array<{ id: SettingsTab; label: string; icon: React.ReactNode }> =
     [
-      { id: "general", label: "General", icon: <Settings size={18} /> },
+      { id: "profile", label: "Profile", icon: <User size={18} /> },
+      { id: "appearance", label: "Appearance", icon: <Palette size={18} /> },
       { id: "runtimes", label: "PLC / Runtimes", icon: <Cpu size={18} /> },
       { id: "deploy", label: "Deployment", icon: <Shield size={18} /> },
       { id: "integrations", label: "Integrations", icon: <Plug size={18} /> },
+      { id: "security", label: "Security & RBAC", icon: <AlertCircle size={18} /> },
+      { id: "licensing", label: "Licensing & Seats", icon: <Key size={18} /> },
       // { id: 'data-bridge', label: 'Data Bridge', icon: <Wifi size={18} /> },
     ];
 
@@ -493,7 +779,7 @@ export function SettingsPage() {
               </div>
 
               {/* API Documentation */}
-              <div className="mt-4 p-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg">
+              {/* <div className="mt-4 p-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg">
                 <div className="text-sm font-medium text-blue-900 dark:text-blue-100 mb-2">
                   📖 External Service API Contract
                 </div>
@@ -507,7 +793,7 @@ export function SettingsPage() {
                     {`{\n  "status": "approved" | "rejected" | "warning",\n  "severity": "critical" | "high" | "medium" | "low" | "info",\n  "message": "Human-readable message",\n  "details": { ... },\n  "annotations": [...]\n}`}
                   </div>
                 </div>
-              </div>
+              </div> */}
             </div>
           </Card>
         </div>
@@ -705,453 +991,66 @@ export function SettingsPage() {
         </div>
       )}
       
-      {activeTab === 'general' && (
+      {/* Profile Tab */}
+      {activeTab === 'profile' && (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          {/* Theme Selection */}
-          <Card className="p-4">
-            <CardHeader>Theme</CardHeader>
-            <div className="space-y-3">
-              <div className="text-sm text-neutral-600 dark:text-gray-400">
-                Current: {theme} {theme === 'system' && `(${actualTheme})`}
-              </div>
-              <select
-                value={theme}
-                onChange={(e) => setTheme(e.target.value as 'light' | 'dark' | 'system')}
-                className="w-full px-3 py-2 text-sm border border-neutral-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-[var(--accent-color)]"
-              >
-                <option value="light">Light</option>
-                <option value="dark">Dark</option>
-                <option value="system">System</option>
-              </select>
-              <div className="text-xs text-neutral-500 dark:text-gray-400">
-                {theme === 'system' 
-                  ? 'Theme follows your system preference'
-                  : `Using ${theme} theme`}
-              </div>
-            </div>
-          </Card>
-
-          {/* Accent Color Picker - Collapsible */}
-          <Card className="p-4">
-            {/* Collapsed Header - Always visible */}
-            <button
-              onClick={() => setAccentPickerExpanded(!accentPickerExpanded)}
-              className="w-full flex items-center justify-between group"
-            >
-              <div className="flex items-center gap-3">
-                <div 
-                  className="w-8 h-8 rounded-md border-2 border-gray-200 dark:border-gray-600 shadow-sm"
-                  style={{ backgroundColor: accentColor }}
-                />
-                <div className="text-left">
-                  <div className="text-sm font-medium text-gray-900 dark:text-gray-100 flex items-center gap-2">
-                    <Palette className="w-4 h-4" />
-                    Accent Color
-                  </div>
-                  <div className="text-xs text-neutral-500 dark:text-gray-400">
-                    <span className="font-mono">{accentColor.toUpperCase()}</span>
-                    {needsWarning && (
-                      <span className={`ml-2 ${isTooLight ? 'text-red-600 dark:text-red-400' : 'text-amber-600 dark:text-amber-400'}`}>
-                        ⚠️ {isTooLight ? 'Too Light' : 'Light Color'}
-                      </span>
-                    )}
-                    {!accentPickerExpanded && (
-                      <span className="ml-2 text-[var(--accent-color)] group-hover:underline">
-                        — Click to customize
-                      </span>
-                    )}
-                  </div>
-                </div>
-              </div>
-              <div className="flex items-center gap-2">
-                {accentPickerExpanded ? (
-                  <ChevronDown className="w-5 h-5 text-gray-400 group-hover:text-gray-600 dark:group-hover:text-gray-300 transition-colors" />
-                ) : (
-                  <ChevronRight className="w-5 h-5 text-gray-400 group-hover:text-gray-600 dark:group-hover:text-gray-300 transition-colors" />
-                )}
-              </div>
-            </button>
-
-            {/* Expanded Content - Minimalistic */}
-            {accentPickerExpanded && (
-              <div className="mt-3 pt-3 border-t border-gray-200 dark:border-gray-700 space-y-3">
-                {/* Color Picker Row */}
-                <div className="flex items-center gap-3">
-                  <input
-                    type="color"
-                    value={accentColor}
-                    onChange={(e) => setAccentColor(e.target.value)}
-                    className="w-10 h-10 p-0 border border-gray-300 dark:border-gray-600 rounded cursor-pointer"
-                    aria-label="Accent Color Picker"
-                  />
-                  <input
-                    type="text"
-                    value={accentColor.toUpperCase()}
-                    onChange={(e) => {
-                      const val = e.target.value
-                      if (/^#[0-9A-Fa-f]{0,6}$/.test(val)) {
-                        setAccentColor(val)
-                      }
-                    }}
-                    className="w-20 px-2 py-1 text-xs font-mono border border-neutral-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-1 focus:ring-[var(--accent-color)]"
-                    placeholder="#FF6A00"
-                  />
-                  {/* Inline Preview */}
-                  <button
-                    className="px-3 py-1 rounded text-sm font-medium"
-                    style={{ 
-                      backgroundColor: accentColor,
-                      color: suggestDarkText ? '#000000' : '#FFFFFF'
-                    }}
-                  >
-                    Preview
-                  </button>
-                </div>
-
-                {/* Contrast Check Results - Only show for very light colors */}
-                <div className="space-y-2">
-                  <div className="flex items-center justify-between text-xs">
-                    <span className="text-neutral-500 dark:text-gray-400">White text contrast:</span>
-                    <div className="flex items-center gap-2">
-                      <span className="font-mono">{whiteTextContrast.ratio.toFixed(2)}:1</span>
-                      {!needsWarning ? (
-                        <span className="flex items-center gap-1 px-1.5 py-0.5 rounded text-xs font-medium bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400">
-                          <CheckCircle2 className="w-3 h-3" />
-                          Good
-                        </span>
-                      ) : isTooLight ? (
-                        <span className="flex items-center gap-1 px-1.5 py-0.5 rounded text-xs font-medium bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400">
-                          <AlertTriangle className="w-3 h-3" />
-                          Too Light!
-                        </span>
-                      ) : (
-                        <span className="flex items-center gap-1 px-1.5 py-0.5 rounded text-xs font-medium bg-amber-100 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400">
-                          <AlertTriangle className="w-3 h-3" />
-                          Light
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                  
-                  {/* Critical Warning - Color is TOO LIGHT (ratio < 2) */}
-                  {isTooLight && (
-                    <div className="p-3 bg-red-50 dark:bg-red-900/20 border-2 border-red-300 dark:border-red-700 rounded-lg">
-                      <div className="flex items-start gap-2">
-                        <AlertTriangle className="w-5 h-5 text-red-600 dark:text-red-400 flex-shrink-0 mt-0.5" />
-                        <div className="flex-1">
-                          <p className="text-sm font-bold text-red-800 dark:text-red-200">
-                            ⚠️ Color is Too Light!
-                          </p>
-                          <p className="text-xs text-red-700 dark:text-red-300 mt-1">
-                            This color is too light for the sidebar and buttons. White text will be unreadable. 
-                            Please choose a slightly darker shade.
-                          </p>
-                          
-                          {/* Suggested slightly darker color (3 shades max) */}
-                          {whiteTextContrast.suggestedColor && (
-                            <div className="flex items-center gap-3 mt-3 pt-3 border-t border-red-200 dark:border-red-700">
-                              <div className="flex items-center gap-2">
-                                <div 
-                                  className="w-10 h-10 rounded border-2 border-red-300 dark:border-red-600"
-                                  style={{ backgroundColor: whiteTextContrast.suggestedColor }}
-                                />
-                                <div className="text-xs">
-                                  <div className="font-bold text-red-800 dark:text-red-200">Slightly Darker</div>
-                                  <div className="font-mono text-red-600 dark:text-red-400">
-                                    {whiteTextContrast.suggestedColor.toUpperCase()}
-                                  </div>
-                                </div>
-                              </div>
-                              <button
-                                onClick={() => setAccentColor(whiteTextContrast.suggestedColor!)}
-                                className="px-4 py-2 text-sm font-medium bg-red-600 text-white rounded-md hover:bg-red-700 transition-colors"
-                              >
-                                Use This
-                              </button>
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Light Color Warning (ratio 2-3) - not critical */}
-                  {isLightColor && (
-                    <div className="p-3 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700 rounded-lg">
-                      <div className="flex items-start gap-2">
-                        <AlertTriangle className="w-5 h-5 text-amber-600 dark:text-amber-400 flex-shrink-0 mt-0.5" />
-                        <div className="flex-1">
-                          <p className="text-sm font-medium text-amber-800 dark:text-amber-200">
-                            Light Color Notice
-                          </p>
-                          <p className="text-xs text-amber-700 dark:text-amber-300 mt-1">
-                            This is a light color. White text may be slightly hard to read. Consider a slightly darker shade.
-                          </p>
-                          
-                          {/* Suggested slightly darker color (3 shades max) */}
-                          {whiteTextContrast.suggestedColor && (
-                            <div className="flex items-center gap-3 mt-3 pt-3 border-t border-amber-200 dark:border-amber-700">
-                              <div className="flex items-center gap-2">
-                                <div 
-                                  className="w-8 h-8 rounded border border-gray-300 dark:border-gray-600"
-                                  style={{ backgroundColor: whiteTextContrast.suggestedColor }}
-                                />
-                                <div className="text-xs">
-                                  <div className="font-medium text-amber-800 dark:text-amber-200">Suggested</div>
-                                  <div className="font-mono text-amber-600 dark:text-amber-400">
-                                    {whiteTextContrast.suggestedColor.toUpperCase()}
-                                  </div>
-                                </div>
-                              </div>
-                              <button
-                                onClick={() => setAccentColor(whiteTextContrast.suggestedColor!)}
-                                className="px-3 py-1.5 text-xs font-medium bg-amber-600 text-white rounded-md hover:bg-amber-700 transition-colors"
-                              >
-                                Use This Color
-                              </button>
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Success message when contrast is good */}
-                  {!needsWarning && (
-                    <div className="flex items-center gap-2 p-2 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-700 rounded text-xs">
-                      <CheckCircle2 className="w-4 h-4 text-green-600 dark:text-green-400" />
-                      <span className="text-green-700 dark:text-green-300">
-                        Good contrast! White text is readable on this color.
-                      </span>
-                    </div>
-                  )}
-                </div>
-
-                <div className="text-xs text-neutral-500 dark:text-gray-400">
-                  The accent color is applied to sidebar, primary buttons, links, toggles, selected items, and focus states.
-                </div>
-              </div>
-            )}
-          </Card>
-
-          {/* Runtime Mode */}
-          <Card className="p-4">
-            <CardHeader>Runtime Mode</CardHeader>
-            <div className="space-y-3">
-              <div className="flex items-center gap-4">
-                <label className="flex items-center gap-2 cursor-pointer">
-                  <input
-                    type="radio"
-                    name="mode"
-                    value="simulation"
-                    checked={mode === 'simulation'}
-                    onChange={(e) => setMode(e.target.value as 'simulation' | 'live')}
-                    className="w-4 h-4 text-[var(--accent-color)] focus:ring-[var(--accent-color)]"
-                  />
-                  <span className="text-sm text-gray-900 dark:text-gray-100">Simulation</span>
-                </label>
-                <label className="flex items-center gap-2 cursor-pointer">
-                  <input
-                    type="radio"
-                    name="mode"
-                    value="live"
-                    checked={mode === 'live'}
-                    onChange={(e) => setMode(e.target.value as 'simulation' | 'live')}
-                    className="w-4 h-4 text-[var(--accent-color)] focus:ring-[var(--accent-color)]"
-                  />
-                  <span className="text-sm text-gray-900 dark:text-gray-100">Live</span>
-                </label>
-              </div>
-              <div className="text-xs text-neutral-500 dark:text-gray-400">
-                {mode === 'simulation' ? 'Using simulated PLC data' : 'Connected to live PLC'}
-              </div>
-            </div>
-          </Card>
-
-          {/* Data Bridge Configuration */}
+          {/* Account Information */}
           <Card className="md:col-span-2 p-4">
-            <CardHeader>
-              <div className="flex items-center gap-2">
-                <Settings className="w-4 h-4" />
-                Data Bridge Configuration
-              </div>
-            </CardHeader>
-            <div className="space-y-4">
-              <div className="flex items-center gap-3">
-                <label className="flex items-center gap-2 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={dataBridgeEnabled}
-                    onChange={(e) => setDataBridgeEnabled(e.target.checked)}
-                    className="w-4 h-4 text-[var(--accent-color)] rounded focus:ring-[var(--accent-color)]"
-                  />
-                  <span className="text-sm font-medium">Enable Data Bridge Service</span>
-                </label>
-              </div>
-
-              {dataBridgeEnabled && (
-                <div className="space-y-4 pt-2 border-t border-neutral-200 dark:border-gray-700">
+            <CardHeader>Account Information</CardHeader>
+            <div className="space-y-6">
+              {/* Device Information */}
+              <div>
+                <h3 className="text-sm font-semibold text-gray-900 dark:text-white mb-3">Device Information</h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 text-sm">
                   <div>
-                    <label className="block text-sm font-medium text-neutral-700 dark:text-gray-300 mb-1">
-                      Data Bridge Host
-                    </label>
-                    <input
-                      type="text"
-                      value={dataBridgeHost}
-                      onChange={(e) => setDataBridgeHost(e.target.value)}
-                      className="w-full px-3 py-2 text-sm border border-neutral-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-[var(--accent-color)]"
-                      placeholder="localhost:3001"
-                    />
+                    <div className="text-gray-600 dark:text-gray-400 mb-1">Device Name</div>
+                    <div className="font-medium text-gray-900 dark:text-white">DESKTOP-ABC123</div>
                   </div>
-
                   <div>
-                    <div className="text-sm font-medium text-neutral-700 dark:text-gray-300 mb-2">Enabled Adapters</div>
-                    <div className="space-y-2">
-                      <label className="flex items-center gap-2 cursor-pointer">
-                        <input
-                          type="checkbox"
-                          checked={enabledAdapters.websocket}
-                          onChange={(e) => setEnabledAdapters(prev => ({ ...prev, websocket: e.target.checked }))}
-                          className="w-4 h-4 text-[var(--accent-color)] rounded focus:ring-[var(--accent-color)]"
-                        />
-                        <Wifi className="w-4 h-4 text-blue-600" />
-                        <span className="text-sm">WebSocket (Real-time)</span>
-                      </label>
-
-                      <label className="flex items-center gap-2 cursor-pointer">
-                        <input
-                          type="checkbox"
-                          checked={enabledAdapters.mqtt}
-                          onChange={(e) => setEnabledAdapters(prev => ({ ...prev, mqtt: e.target.checked }))}
-                          className="w-4 h-4 text-[var(--accent-color)] rounded focus:ring-[var(--accent-color)]"
-                        />
-                        <MessageCircle className="w-4 h-4 text-green-600" />
-                        <span className="text-sm">MQTT Broker</span>
-                      </label>
-
-                      <label className="flex items-center gap-2 cursor-pointer">
-                        <input
-                          type="checkbox"
-                          checked={enabledAdapters.csv}
-                          onChange={(e) => setEnabledAdapters(prev => ({ ...prev, csv: e.target.checked }))}
-                          className="w-4 h-4 text-[var(--accent-color)] rounded focus:ring-[var(--accent-color)]"
-                        />
-                        <FileText className="w-4 h-4 text-purple-600" />
-                        <span className="text-sm">CSV Export</span>
-                      </label>
-                    </div>
+                    <div className="text-gray-600 dark:text-gray-400 mb-1">Operating System</div>
+                    <div className="font-medium text-gray-900 dark:text-white">Windows 11 Pro</div>
                   </div>
-
-                  {enabledAdapters.mqtt && (
-                    <div className="bg-neutral-50 dark:bg-gray-800 p-3 rounded-md">
-                      <div className="text-sm font-medium text-neutral-700 dark:text-gray-300 mb-2">MQTT Configuration</div>
-                      <div className="grid grid-cols-2 gap-3">
-                        <div>
-                          <label className="block text-xs text-neutral-600 dark:text-gray-400 mb-1">Broker URL</label>
-                          <input
-                            type="text"
-                            value={mqttSettings.broker}
-                            onChange={(e) => setMqttSettings(prev => ({ ...prev, broker: e.target.value }))}
-                            className="w-full px-2 py-1 text-sm border border-neutral-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-[var(--accent-color)]"
-                            placeholder="mqtt://localhost:1883"
-                          />
-                        </div>
-                        <div>
-                          <label className="block text-xs text-neutral-600 dark:text-gray-400 mb-1">Client ID</label>
-                          <input
-                            type="text"
-                            value={mqttSettings.clientId}
-                            onChange={(e) => setMqttSettings(prev => ({ ...prev, clientId: e.target.value }))}
-                            className="w-full px-2 py-1 text-sm border border-neutral-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-[var(--accent-color)]"
-                            placeholder="pandaura-bridge"
-                          />
-                        </div>
-                        <div>
-                          <label className="block text-xs text-neutral-600 dark:text-gray-400 mb-1">Username (Optional)</label>
-                          <input
-                            type="text"
-                            value={mqttSettings.username}
-                            onChange={(e) => setMqttSettings(prev => ({ ...prev, username: e.target.value }))}
-                            className="w-full px-2 py-1 text-sm border border-neutral-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-1 focus:ring-[var(--accent-color)]"
-                          />
-                        </div>
-                        <div>
-                          <label className="block text-xs text-neutral-600 dark:text-gray-400 mb-1">Password (Optional)</label>
-                          <input
-                            type="password"
-                            value={mqttSettings.password}
-                            onChange={(e) => setMqttSettings(prev => ({ ...prev, password: e.target.value }))}
-                            className="w-full px-2 py-1 text-sm border border-neutral-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-1 focus:ring-[var(--accent-color)]"
-                          />
-                        </div>
-                      </div>
-                    </div>
-                  )}
-
-                  {enabledAdapters.csv && (
-                    <div className="bg-neutral-50 dark:bg-gray-800 p-3 rounded-md">
-                      <div className="text-sm font-medium text-neutral-700 dark:text-gray-300 mb-2">CSV Export Configuration</div>
-                      <div className="space-y-2">
-                        <div>
-                          <label className="block text-xs text-neutral-600 dark:text-gray-400 mb-1">Output Directory</label>
-                          <input
-                            type="text"
-                            value={csvSettings.outputDir}
-                            onChange={(e) => setCsvSettings(prev => ({ ...prev, outputDir: e.target.value }))}
-                            className="w-full px-2 py-1 text-sm border border-neutral-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-[var(--accent-color)]"
-                            placeholder="./data/exports"
-                          />
-                        </div>
-                        <div className="grid grid-cols-2 gap-2">
-                          <div>
-                            <label className="block text-xs text-neutral-600 dark:text-gray-400 mb-1">Export Interval (ms)</label>
-                            <input
-                              type="number"
-                              min="100"
-                              max="60000"
-                              value={csvSettings.interval}
-                              onChange={(e) => setCsvSettings(prev => ({ ...prev, interval: Number(e.target.value) }))}
-                              className="w-full px-2 py-1 text-sm border border-neutral-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-1 focus:ring-[var(--accent-color)]"
-                            />
-                          </div>
-                          <div className="flex items-center pt-4">
-                            <label className="flex items-center gap-2 cursor-pointer">
-                              <input
-                                type="checkbox"
-                                checked={csvSettings.includeTimestamp}
-                                onChange={(e) => setCsvSettings(prev => ({ ...prev, includeTimestamp: e.target.checked }))}
-                                className="w-3 h-3 text-[var(--accent-color)] rounded focus:ring-[var(--accent-color)]"
-                              />
-                              <span className="text-xs">Include Timestamps</span>
-                            </label>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  )}
-
-                  <div className="flex gap-2 pt-2">
-                    <button 
-                      onClick={() => {
-                        console.log('Testing Data Bridge connection...', { dataBridgeHost, enabledAdapters });
-                        alert('Connection test started - check logs for results');
-                      }}
-                      className="px-3 py-1 text-sm bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors"
-                    >
-                      Test Connection
-                    </button>
-                    <button 
-                      onClick={() => {
-                        console.log('Saving Data Bridge settings...', { dataBridgeHost, enabledAdapters, mqttSettings, csvSettings });
-                        alert('Data Bridge settings saved successfully');
-                      }}
-                      className="px-3 py-1 text-sm text-white rounded transition-colors bg-[#FF6A00] hover:bg-[#E55A00]"
-                    >
-                      Save Settings
-                    </button>
+                  <div>
+                    <div className="text-gray-600 dark:text-gray-400 mb-1">Architecture</div>
+                    <div className="font-medium text-gray-900 dark:text-white">x64</div>
+                  </div>
+                  <div>
+                    <div className="text-gray-600 dark:text-gray-400 mb-1">CPU Cores</div>
+                    <div className="font-medium text-gray-900 dark:text-white">8</div>
+                  </div>
+                  <div>
+                    <div className="text-gray-600 dark:text-gray-400 mb-1">Memory</div>
+                    <div className="font-medium text-gray-900 dark:text-white">16GB</div>
+                  </div>
+                  <div>
+                    <div className="text-gray-600 dark:text-gray-400 mb-1">Device Type</div>
+                    <div className="font-medium text-gray-900 dark:text-white">Desktop</div>
                   </div>
                 </div>
-              )}
+              </div>
+
+              {/* User Information */}
+              <div className="pt-4 border-t border-gray-200 dark:border-gray-700">
+                <h3 className="text-sm font-semibold text-gray-900 dark:text-white mb-3">User Information</h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+                  <div>
+                    <div className="text-gray-600 dark:text-gray-400 mb-1">OS Username</div>
+                    <div className="font-medium text-gray-900 dark:text-white">admin</div>
+                  </div>
+                  <div>
+                    <div className="text-gray-600 dark:text-gray-400 mb-1">Role</div>
+                    <div className="font-medium">
+                      <span className="px-2 py-1 rounded-full text-xs font-medium bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-300">
+                        admin
+                      </span>
+                    </div>
+                  </div>
+                  <div>
+                    <div className="text-gray-600 dark:text-gray-400 mb-1">Account Type</div>
+                    <div className="font-medium text-gray-900 dark:text-white">Primary User</div>
+                  </div>
+                </div>
+              </div>
             </div>
           </Card>
 
@@ -1200,7 +1099,7 @@ export function SettingsPage() {
           </Card>
 
           {/* About */}
-          <Card className="p-4">
+          <Card className="md:col-span-2 p-4">
             <CardHeader>About</CardHeader>
             <div className="space-y-2 text-sm text-neutral-600 dark:text-gray-400">
               <div className="flex justify-between">
@@ -1217,24 +1116,1046 @@ export function SettingsPage() {
               </div>
             </div>
           </Card>
-          <div/>
         </div>
       )}
-      
-      {/* {activeTab === 'data-bridge' && (
-        <div className="space-y-6">
-          <Card className="md:col-span-2 p-4">
-            <CardHeader>Data Bridge Configuration</CardHeader>
-            <div className="space-y-4 text-sm">
-              <div className="p-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-md">
-                <p className="text-blue-900 dark:text-blue-100">
-                  The Data Bridge has been moved to its own tab. All existing settings have been preserved.
-                </p>
+
+      {/* Appearance Tab */}
+      {activeTab === 'appearance' && (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          {/* Theme Selection */}
+          <Card className="p-4">
+            <CardHeader>Theme</CardHeader>
+            <div className="space-y-3">
+              <div className="text-sm text-neutral-600 dark:text-gray-400">
+                Current: {theme} {theme === 'system' && `(${actualTheme})`}
+              </div>
+              <select
+                value={theme}
+                onChange={(e) => setTheme(e.target.value as 'light' | 'dark' | 'system')}
+                className="w-full px-3 py-2 text-sm border border-neutral-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-[var(--accent-color)]"
+              >
+                <option value="light">Light</option>
+                <option value="dark">Dark</option>
+                <option value="system">System</option>
+              </select>
+              <div className="text-xs text-neutral-500 dark:text-gray-400">
+                {theme === 'system' 
+                  ? 'Theme follows your system preference'
+                  : `Using ${theme} theme`}
               </div>
             </div>
           </Card>
+
+          {/* Accent Color Picker - Collapsible */}
+          <Card className="p-4">
+            {/* Collapsed Header - Always visible */}
+            <button
+              onClick={() => setAccentPickerExpanded(!accentPickerExpanded)}
+              className="w-full flex items-center justify-between group"
+            >
+              <div className="flex items-center gap-3">
+                <div 
+                  className="w-8 h-8 rounded-md border-2 border-gray-200 dark:border-gray-600 shadow-sm"
+                  style={{ backgroundColor: accentColor }}
+                />
+                <div className="text-left">
+                  <div className="text-sm font-medium text-gray-900 dark:text-gray-100 flex items-center gap-2">
+                    <Palette className="w-4 h-4" />
+                    Accent Color
+                  </div>
+                  <div className="text-xs text-neutral-500 dark:text-gray-400">
+                    {accentColor.toUpperCase()}
+                  </div>
+                </div>
+              </div>
+              {accentPickerExpanded ? (
+                <ChevronDown className="w-5 h-5 text-gray-400 group-hover:text-gray-600 dark:group-hover:text-gray-300 transition-colors" />
+              ) : (
+                <ChevronRight className="w-5 h-5 text-gray-400 group-hover:text-gray-600 dark:group-hover:text-gray-300 transition-colors" />
+              )}
+            </button>
+
+            {/* Expanded Content */}
+            {accentPickerExpanded && (
+              <div className="mt-4 space-y-4 border-t border-gray-200 dark:border-gray-700 pt-4">
+                <div>
+                  <div className="flex items-center justify-between mb-3">
+                    <div className="text-xs font-medium text-gray-700 dark:text-gray-300">Color Palette</div>
+                    <div className="text-xs text-neutral-500 dark:text-gray-400">
+                      {Object.keys({
+                        '#FF6A00': 'Panda Orange',
+                        '#3B82F6': 'Electric Blue',
+                        '#10B981': 'Emerald Green',
+                        '#8B5CF6': 'Royal Purple',
+                        '#F43F5E': 'Rose Pink',
+                        '#F59E0B': 'Amber Gold',
+                        '#14B8A6': 'Teal Cyan',
+                        '#6366F1': 'Indigo'
+                      }).length} presets
+                    </div>
+                  </div>
+                  
+                  <div className="grid grid-cols-8 gap-2">
+                    {[
+                      { color: '#FF6A00', name: 'Panda Orange' },
+                      { color: '#3B82F6', name: 'Electric Blue' },
+                      { color: '#10B981', name: 'Emerald Green' },
+                      { color: '#8B5CF6', name: 'Royal Purple' },
+                      { color: '#F43F5E', name: 'Rose Pink' },
+                      { color: '#F59E0B', name: 'Amber Gold' },
+                      { color: '#14B8A6', name: 'Teal Cyan' },
+                      { color: '#6366F1', name: 'Indigo' },
+                    ].map((preset) => (
+                      <button
+                        key={preset.color}
+                        onClick={() => setAccentColor(preset.color)}
+                        className={`w-10 h-10 rounded-md border-2 transition-all hover:scale-110 ${
+                          accentColor === preset.color 
+                            ? 'border-gray-900 dark:border-white shadow-lg scale-105' 
+                            : 'border-gray-200 dark:border-gray-600 hover:border-gray-400 dark:hover:border-gray-500'
+                        }`}
+                        style={{ backgroundColor: preset.color }}
+                        title={preset.name}
+                      />
+                    ))}
+                  </div>
+                </div>
+
+                <div>
+                  <div className="text-xs font-medium text-gray-700 dark:text-gray-300 mb-2">Custom Color</div>
+                  <div className="flex gap-2">
+                    <input
+                      type="color"
+                      value={accentColor}
+                      onChange={(e) => setAccentColor(e.target.value)}
+                      className="w-12 h-10 rounded border border-gray-200 dark:border-gray-600 cursor-pointer"
+                    />
+                    <input
+                      type="text"
+                      value={accentColor}
+                      onChange={(e) => {
+                        const value = e.target.value
+                        if (value.match(/^#[0-9A-Fa-f]{0,6}$/)) {
+                          setAccentColor(value)
+                        }
+                      }}
+                      className="flex-1 px-3 py-2 text-sm border border-gray-200 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 font-mono uppercase focus:outline-none focus:ring-2 focus:ring-[var(--accent-color)]"
+                      placeholder="#FF6A00"
+                      maxLength={7}
+                    />
+                  </div>
+                </div>
+
+                {/* Contrast Warning/Info - Only show for problematic colors */}
+                <div className="space-y-2">
+                  {needsWarning && (
+                    <div className="space-y-2">
+                      <div className={`flex items-start gap-2 p-3 rounded-md border ${
+                        isTooLight 
+                          ? 'bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-700'
+                          : 'bg-amber-50 dark:bg-amber-900/20 border-amber-200 dark:border-amber-700'
+                      }`}>
+                        <AlertTriangle className={`w-4 h-4 mt-0.5 flex-shrink-0 ${
+                          isTooLight 
+                            ? 'text-red-600 dark:text-red-400'
+                            : 'text-amber-600 dark:text-amber-400'
+                        }`} />
+                        <div className="text-xs space-y-1">
+                          <div className={`font-medium ${
+                            isTooLight 
+                              ? 'text-red-800 dark:text-red-200'
+                              : 'text-amber-800 dark:text-amber-200'
+                          }`}>
+                            {isTooLight ? 'Very Light Color' : 'Light Color Detected'}
+                          </div>
+                          <div className={isTooLight 
+                            ? 'text-red-700 dark:text-red-300'
+                            : 'text-amber-700 dark:text-amber-300'
+                          }>
+                            {isTooLight 
+                              ? `White text may be difficult to read (contrast: ${whiteTextContrast.ratio.toFixed(1)}:1). Dark text is ${suggestDarkText ? 'recommended' : 'also low contrast'}.`
+                              : `White text contrast is ${whiteTextContrast.ratio.toFixed(1)}:1. Consider a darker shade for better readability.`
+                            }
+                          </div>
+                          
+                          {/* Show suggested color if available */}
+                          {whiteTextContrast.suggestedColor && (
+                            <div className="flex items-center gap-2 mt-2 p-2 bg-white dark:bg-gray-800 rounded border border-amber-200 dark:border-amber-800">
+                              <div
+                                className="w-6 h-6 rounded border border-gray-200 dark:border-gray-600"
+                                style={{ backgroundColor: whiteTextContrast.suggestedColor }}
+                              />
+                              <div className="text-xs">
+                                <div className="font-medium text-amber-800 dark:text-amber-200">Suggested</div>
+                                <div className="font-mono text-amber-600 dark:text-amber-400">
+                                  {whiteTextContrast.suggestedColor.toUpperCase()}
+                                </div>
+                              </div>
+                              <button
+                                onClick={() => setAccentColor(whiteTextContrast.suggestedColor!)}
+                                className="px-3 py-1.5 text-xs font-medium bg-amber-600 text-white rounded-md hover:bg-amber-700 transition-colors"
+                              >
+                                Use This Color
+                              </button>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Success message when contrast is good */}
+                  {!needsWarning && (
+                    <div className="flex items-center gap-2 p-2 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-700 rounded text-xs">
+                      <CheckCircle2 className="w-4 h-4 text-green-600 dark:text-green-400" />
+                      <span className="text-green-700 dark:text-green-300">
+                        Good contrast! White text is readable on this color.
+                      </span>
+                    </div>
+                  )}
+                </div>
+
+                <div className="text-xs text-neutral-500 dark:text-gray-400">
+                  The accent color is applied to sidebar, primary buttons, links, toggles, selected items, and focus states.
+                </div>
+              </div>
+            )}
+          </Card>
         </div>
-      )} */}
+      )}
+
+      {/* Security & RBAC Tab */}
+      {activeTab === 'security' && (
+        <div className="space-y-6">
+          {isLoadingRBAC ? (
+            <Card className="p-6">
+              <div className="flex items-center justify-center py-12">
+                <div className="text-center">
+                  <div className="w-12 h-12 border-4 border-[var(--accent-color)] border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+                  <p className="text-gray-600 dark:text-gray-400">Loading RBAC configuration...</p>
+                </div>
+              </div>
+            </Card>
+          ) : (
+            <>
+          {/* RBAC Enable/Disable */}
+          <Card className="p-6">
+            <CardHeader>Role-Based Access Control (RBAC)</CardHeader>
+            <div className="space-y-4">
+              <label className="flex items-center gap-3 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={rbacEnabled}
+                  onChange={(e) => setRbacEnabled(e.target.checked)}
+                  className="w-4 h-4 text-[var(--accent-color)] rounded focus:ring-[var(--accent-color)]"
+                />
+                <div>
+                  <span className="text-sm font-medium text-gray-900 dark:text-gray-100">Enable RBAC</span>
+                  <p className="text-xs text-gray-500 dark:text-gray-400">Enforce role-based permissions for all operations</p>
+                </div>
+              </label>
+            </div>
+          </Card>
+
+          {/* Role Definitions */}
+          {rbacEnabled && (
+            <Card className="p-6">
+              <CardHeader>Role Definitions</CardHeader>
+              <div className="space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {/* Viewer Role */}
+                  <div className={`p-4 border-2 rounded-lg cursor-pointer transition-all ${
+                    selectedRole === 'Viewer' 
+                      ? 'border-[var(--accent-color)] bg-[var(--accent-color)]/5' 
+                      : 'border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600'
+                  }`} onClick={() => setSelectedRole('Viewer')}>
+                    <div className="flex items-start gap-3">
+                      <div className="w-10 h-10 rounded-lg bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center flex-shrink-0">
+                        <User size={20} className="text-blue-600 dark:text-blue-400" />
+                      </div>
+                      <div className="flex-1">
+                        <h3 className="font-semibold text-gray-900 dark:text-white">Viewer</h3>
+                        <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">Read-only access</p>
+                        <ul className="text-xs text-gray-500 dark:text-gray-500 mt-2 space-y-1">
+                          <li>• View projects and logic</li>
+                          <li>• View dashboard metrics</li>
+                          <li>• No edit or deploy permissions</li>
+                        </ul>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Editor Role */}
+                  <div className={`p-4 border-2 rounded-lg cursor-pointer transition-all ${
+                    selectedRole === 'Editor' 
+                      ? 'border-[var(--accent-color)] bg-[var(--accent-color)]/5' 
+                      : 'border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600'
+                  }`} onClick={() => setSelectedRole('Editor')}>
+                    <div className="flex items-start gap-3">
+                      <div className="w-10 h-10 rounded-lg bg-green-100 dark:bg-green-900/30 flex items-center justify-center flex-shrink-0">
+                        <Edit2 size={20} className="text-green-600 dark:text-green-400" />
+                      </div>
+                      <div className="flex-1">
+                        <h3 className="font-semibold text-gray-900 dark:text-white">Editor</h3>
+                        <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">Edit and create</p>
+                        <ul className="text-xs text-gray-500 dark:text-gray-500 mt-2 space-y-1">
+                          <li>• All Viewer permissions</li>
+                          <li>• Edit logic and projects</li>
+                          <li>• Cannot deploy or approve</li>
+                        </ul>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Approver Role */}
+                  <div className={`p-4 border-2 rounded-lg cursor-pointer transition-all ${
+                    selectedRole === 'Approver' 
+                      ? 'border-[var(--accent-color)] bg-[var(--accent-color)]/5' 
+                      : 'border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600'
+                  }`} onClick={() => setSelectedRole('Approver')}>
+                    <div className="flex items-start gap-3">
+                      <div className="w-10 h-10 rounded-lg bg-purple-100 dark:bg-purple-900/30 flex items-center justify-center flex-shrink-0">
+                        <CheckCircle2 size={20} className="text-purple-600 dark:text-purple-400" />
+                      </div>
+                      <div className="flex-1">
+                        <h3 className="font-semibold text-gray-900 dark:text-white">Approver</h3>
+                        <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">Review and approve</p>
+                        <ul className="text-xs text-gray-500 dark:text-gray-500 mt-2 space-y-1">
+                          <li>• All Editor permissions</li>
+                          <li>• Approve deployments</li>
+                          <li>• Approve rollbacks</li>
+                        </ul>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Admin Role */}
+                  <div className={`p-4 border-2 rounded-lg cursor-pointer transition-all ${
+                    selectedRole === 'Admin' 
+                      ? 'border-[var(--accent-color)] bg-[var(--accent-color)]/5' 
+                      : 'border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600'
+                  }`} onClick={() => setSelectedRole('Admin')}>
+                    <div className="flex items-start gap-3">
+                      <div className="w-10 h-10 rounded-lg bg-red-100 dark:bg-red-900/30 flex items-center justify-center flex-shrink-0">
+                        <Shield size={20} className="text-red-600 dark:text-red-400" />
+                      </div>
+                      <div className="flex-1">
+                        <h3 className="font-semibold text-gray-900 dark:text-white">Admin</h3>
+                        <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">Full control</p>
+                        <ul className="text-xs text-gray-500 dark:text-gray-500 mt-2 space-y-1">
+                          <li>• All Approver permissions</li>
+                          <li>• Manage users and roles</li>
+                          <li>• Configure RBAC policies</li>
+                        </ul>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </Card>
+          )}
+
+          {/* Approval Workflow */}
+          {rbacEnabled && (
+            <Card className="p-6">
+              <CardHeader>Approval Workflow</CardHeader>
+              <div className="space-y-6">
+                {/* Enable Approval */}
+                <label className="flex items-center gap-3 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={approvalEnabled}
+                    onChange={(e) => setApprovalEnabled(e.target.checked)}
+                    className="w-4 h-4 text-[var(--accent-color)] rounded focus:ring-[var(--accent-color)]"
+                  />
+                  <div>
+                    <span className="text-sm font-medium text-gray-900 dark:text-gray-100">Enable Approval Workflow</span>
+                    <p className="text-xs text-gray-500 dark:text-gray-400">Require approvals for critical operations</p>
+                  </div>
+                </label>
+
+                {approvalEnabled && (
+                  <>
+                    {/* Two-Person Approval */}
+                    <div className="pl-7 space-y-4 border-l-2 border-gray-200 dark:border-gray-700">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                          Minimum Approvers Required
+                        </label>
+                        <div className="flex items-center gap-4">
+                          <input
+                            type="number"
+                            min="1"
+                            max="5"
+                            value={minApprovers}
+                            onChange={(e) => setMinApprovers(parseInt(e.target.value) || 1)}
+                            className="w-24 px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-[var(--accent-color)]"
+                          />
+                          <span className="text-sm text-gray-600 dark:text-gray-400">
+                            {minApprovers === 1 ? 'Single approver' : minApprovers === 2 ? 'Two-person approval' : `${minApprovers} approvers required`}
+                          </span>
+                        </div>
+                        {minApprovers >= 2 && (
+                          <p className="text-xs text-amber-600 dark:text-amber-400 mt-2 flex items-start gap-1">
+                            <AlertTriangle size={14} className="flex-shrink-0 mt-0.5" />
+                            <span>Two-person approval enforced: Operations require {minApprovers} independent approvals</span>
+                          </p>
+                        )}
+                      </div>
+
+                      {/* Operations Requiring Approval */}
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">
+                          Operations Requiring Approval
+                        </label>
+                        <div className="space-y-3">
+                          <label className="flex items-center gap-3 cursor-pointer p-3 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">
+                            <input
+                              type="checkbox"
+                              checked={requireDeployApproval}
+                              onChange={(e) => setRequireDeployApproval(e.target.checked)}
+                              className="w-4 h-4 text-[var(--accent-color)] rounded focus:ring-[var(--accent-color)]"
+                            />
+                            <div className="flex-1">
+                              <span className="text-sm font-medium text-gray-900 dark:text-gray-100">Deployments</span>
+                              <p className="text-xs text-gray-500 dark:text-gray-400">All PLC deployments require approval</p>
+                            </div>
+                          </label>
+
+                          <label className="flex items-center gap-3 cursor-pointer p-3 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">
+                            <input
+                              type="checkbox"
+                              checked={requireRollbackApproval}
+                              onChange={(e) => setRequireRollbackApproval(e.target.checked)}
+                              className="w-4 h-4 text-[var(--accent-color)] rounded focus:ring-[var(--accent-color)]"
+                            />
+                            <div className="flex-1">
+                              <span className="text-sm font-medium text-gray-900 dark:text-gray-100">Rollbacks</span>
+                              <p className="text-xs text-gray-500 dark:text-gray-400">Rolling back to previous versions requires approval</p>
+                            </div>
+                          </label>
+
+                          <label className="flex items-center gap-3 cursor-pointer p-3 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">
+                            <input
+                              type="checkbox"
+                              checked={requireCriticalTagApproval}
+                              onChange={(e) => setRequireCriticalTagApproval(e.target.checked)}
+                              className="w-4 h-4 text-[var(--accent-color)] rounded focus:ring-[var(--accent-color)]"
+                            />
+                            <div className="flex-1">
+                              <span className="text-sm font-medium text-gray-900 dark:text-gray-100">Critical Tag Modifications</span>
+                              <p className="text-xs text-gray-500 dark:text-gray-400">Editing tags marked as critical requires approval</p>
+                            </div>
+                          </label>
+                        </div>
+                      </div>
+
+                      {/* Approver Roles */}
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">
+                          Who Can Approve
+                        </label>
+                        <div className="space-y-2">
+                          {['Viewer', 'Editor', 'Approver', 'Admin'].map((role) => (
+                            <label key={role} className="flex items-center gap-3 cursor-pointer p-2 rounded hover:bg-gray-50 dark:hover:bg-gray-800">
+                              <input
+                                type="checkbox"
+                                checked={approverRoles.includes(role)}
+                                onChange={(e) => {
+                                  if (e.target.checked) {
+                                    setApproverRoles([...approverRoles, role])
+                                  } else {
+                                    setApproverRoles(approverRoles.filter(r => r !== role))
+                                  }
+                                }}
+                                disabled={role === 'Viewer' || role === 'Editor'}
+                                className="w-4 h-4 text-[var(--accent-color)] rounded focus:ring-[var(--accent-color)] disabled:opacity-50"
+                              />
+                              <span className="text-sm text-gray-900 dark:text-gray-100">{role}</span>
+                              {(role === 'Viewer' || role === 'Editor') && (
+                                <span className="text-xs text-gray-400">(Cannot approve)</span>
+                              )}
+                            </label>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+                  </>
+                )}
+              </div>
+            </Card>
+          )}
+
+          {/* Enforcement Summary */}
+          {rbacEnabled && (
+            <Card className="p-6">
+              <CardHeader>Enforcement Summary</CardHeader>
+              <div className="space-y-4">
+                <div className="p-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg">
+                  <h4 className="text-sm font-semibold text-blue-900 dark:text-blue-100 mb-3">Current Configuration</h4>
+                  <div className="space-y-2 text-sm">
+                    <div className="flex items-center justify-between">
+                      <span className="text-blue-800 dark:text-blue-200">RBAC Status:</span>
+                      <span className="font-medium text-blue-900 dark:text-blue-100">
+                        {rbacEnabled ? '✓ Enabled' : '✗ Disabled'}
+                      </span>
+                    </div>
+                    {rbacEnabled && approvalEnabled && (
+                      <>
+                        <div className="flex items-center justify-between">
+                          <span className="text-blue-800 dark:text-blue-200">Approval Workflow:</span>
+                          <span className="font-medium text-blue-900 dark:text-blue-100">✓ Active</span>
+                        </div>
+                        <div className="flex items-center justify-between">
+                          <span className="text-blue-800 dark:text-blue-200">Required Approvers:</span>
+                          <span className="font-medium text-blue-900 dark:text-blue-100">{minApprovers}</span>
+                        </div>
+                        <div className="flex items-center justify-between">
+                          <span className="text-blue-800 dark:text-blue-200">Protected Operations:</span>
+                          <span className="font-medium text-blue-900 dark:text-blue-100">
+                            {[requireDeployApproval && 'Deploy', requireRollbackApproval && 'Rollback', requireCriticalTagApproval && 'Critical Tags'].filter(Boolean).join(', ') || 'None'}
+                          </span>
+                        </div>
+                      </>
+                    )}
+                  </div>
+                </div>
+
+                <button 
+                  onClick={saveRBACConfig}
+                  disabled={isSavingRBAC}
+                  className="w-full px-4 py-2 bg-[var(--accent-color)] text-white rounded-lg hover:bg-[var(--accent-hover)] transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {isSavingRBAC ? 'Saving...' : 'Save RBAC Configuration'}
+                </button>
+              </div>
+            </Card>
+          )}
+            </>
+          )}
+        </div>
+      )}
+
+      {/* Licensing & Seats Tab */}
+      {activeTab === 'licensing' && (
+        <div className="space-y-6">
+          {/* Current License Information */}
+          <Card className="p-6">
+            <CardHeader>License Information</CardHeader>
+            {loadingLicense ? (
+              <div className="flex items-center justify-center py-8">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[var(--accent-color)]"></div>
+              </div>
+            ) : licenseInfo ? (
+              <div className="space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <div className="text-sm text-gray-600 dark:text-gray-400 mb-1">License Type</div>
+                    <div className="flex items-center gap-2">
+                      <span className={`px-3 py-1 rounded-full text-sm font-medium ${
+                        licenseInfo.licenseType === 'Solo' 
+                          ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300'
+                          : licenseInfo.licenseType === 'Teams'
+                          ? 'bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300'
+                          : 'bg-purple-100 dark:bg-purple-900/30 text-purple-800 dark:text-purple-300'
+                      }`}>
+                        {licenseInfo.licenseType}
+                      </span>
+                    </div>
+                  </div>
+                  <div>
+                    <div className="text-sm text-gray-600 dark:text-gray-400 mb-1">Your Role</div>
+                    <div className="flex items-center gap-2">
+                      <span className={`px-3 py-1 rounded-full text-sm font-medium ${
+                        licenseInfo.role === 'Admin'
+                          ? 'bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-300'
+                          : licenseInfo.role === 'Approver'
+                          ? 'bg-orange-100 dark:bg-orange-900/30 text-orange-800 dark:text-orange-300'
+                          : licenseInfo.role === 'Editor'
+                          ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300'
+                          : 'bg-gray-100 dark:bg-gray-900/30 text-gray-800 dark:text-gray-300'
+                      }`}>
+                        {licenseInfo.role}
+                      </span>
+                    </div>
+                  </div>
+                  <div>
+                    <div className="text-sm text-gray-600 dark:text-gray-400 mb-1">License ID</div>
+                    <div className="font-mono text-sm text-gray-900 dark:text-gray-100">{licenseInfo.licenseId?.substring(0, 16)}...</div>
+                  </div>
+                  <div>
+                    <div className="text-sm text-gray-600 dark:text-gray-400 mb-1">Owner Email</div>
+                    <div className="text-sm text-gray-900 dark:text-gray-100">{licenseInfo.ownerEmail}</div>
+                  </div>
+                  {licenseInfo.lastValidated && (
+                    <div>
+                      <div className="text-sm text-gray-600 dark:text-gray-400 mb-1">Last Validated</div>
+                      <div className="text-sm text-gray-900 dark:text-gray-100">
+                        {new Date(licenseInfo.lastValidated).toLocaleString()}
+                      </div>
+                    </div>
+                  )}
+                  {licenseInfo.boundAt && (
+                    <div>
+                      <div className="text-sm text-gray-600 dark:text-gray-400 mb-1">Activated</div>
+                      <div className="text-sm text-gray-900 dark:text-gray-100">
+                        {new Date(licenseInfo.boundAt).toLocaleString()}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            ) : (
+              <div className="p-4 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-md">
+                <div className="flex items-center gap-2 text-yellow-900 dark:text-yellow-100">
+                  <AlertCircle size={20} />
+                  <p>No active license found. Please activate a license to access all features.</p>
+                </div>
+              </div>
+            )}
+          </Card>
+
+          {/* Seat Management (Admin Only) */}
+          {isAdmin && (licenseInfo?.licenseType?.toLowerCase() === 'teams' || licenseInfo?.licenseType?.toLowerCase() === 'enterprise') && (
+            <Card className="p-6">
+              <div className="flex items-center justify-between mb-4">
+                <CardHeader>Seat Management</CardHeader>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={loadSeats}
+                    disabled={loadingSeats}
+                    className="flex items-center gap-2 px-3 py-1.5 text-sm bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors disabled:opacity-50"
+                  >
+                    {loadingSeats ? 'Refreshing...' : 'Refresh'}
+                  </button>
+                </div>
+              </div>
+
+              {loadingSeats ? (
+                <div className="flex items-center justify-center py-8">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[var(--accent-color)]"></div>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {/* Seat Summary */}
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+                    <div className="p-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg">
+                      <div className="text-sm text-blue-600 dark:text-blue-400 mb-1">Total Seats</div>
+                      <div className="text-2xl font-bold text-blue-900 dark:text-blue-100">
+                        {licenseInfo?.limits?.maxSeats || 20}
+                      </div>
+                    </div>
+                    <div className="p-4 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg">
+                      <div className="text-sm text-green-600 dark:text-green-400 mb-1">Used Seats</div>
+                      <div className="text-2xl font-bold text-green-900 dark:text-green-100">
+                        {licenseSeats.filter(s => s.bindingStatus === 'active').length}
+                      </div>
+                    </div>
+                    <div className="p-4 bg-purple-50 dark:bg-purple-900/20 border border-purple-200 dark:border-purple-800 rounded-lg">
+                      <div className="text-sm text-purple-600 dark:text-purple-400 mb-1">Remaining Seats</div>
+                      <div className="text-2xl font-bold text-purple-900 dark:text-purple-100">
+                        {(licenseInfo?.limits?.maxSeats || 20) - licenseSeats.filter(s => s.bindingStatus === 'active').length}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Seat List */}
+                  <div>
+                    <div className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">Active Team Members</div>
+                    {licenseSeats.length > 0 ? (
+                      <div className="border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden">
+                        <table className="w-full">
+                          <thead className="bg-gray-50 dark:bg-gray-800">
+                            <tr>
+                              <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">User</th>
+                              <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Email</th>
+                              <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Role</th>
+                              <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Status</th>
+                              <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Last Activity</th>
+                              <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Actions</th>
+                            </tr>
+                          </thead>
+                          <tbody className="bg-white dark:bg-gray-900 divide-y divide-gray-200 dark:divide-gray-700">
+                            {licenseSeats.map((seat, index) => (
+                              <tr key={index} className="hover:bg-gray-50 dark:hover:bg-gray-800">
+                                <td className="px-4 py-3 text-sm text-gray-900 dark:text-gray-100">
+                                  <div className="flex items-center gap-2">
+                                    <User size={16} className="text-gray-400" />
+                                    {seat.deviceName}
+                                  </div>
+                                </td>
+                                <td className="px-4 py-3 text-sm text-gray-600 dark:text-gray-400">{seat.ownerEmail}</td>
+                                <td className="px-4 py-3 text-sm">
+                                  {editingRoleForSeat === seat.bindingId ? (
+                                    <div className="flex items-center gap-2">
+                                      <select
+                                        value={seat.role}
+                                        onChange={(e) => {
+                                          const newRole = e.target.value;
+                                          setRoleUpdateModal({
+                                            isOpen: true,
+                                            seat: { ...seat, oldRole: seat.role, newRole },
+                                            newRole
+                                          });
+                                        }}
+                                        disabled={updatingRoleForSeat === seat.bindingId}
+                                        className="px-2 py-1 text-xs border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
+                                      >
+                                        <option value="Viewer">Viewer</option>
+                                        <option value="Editor">Editor</option>
+                                        <option value="Deployer">Deployer</option>
+                                        <option value="Approver">Approver</option>
+                                        <option value="Admin">Admin</option>
+                                      </select>
+                                      <button
+                                        onClick={() => setEditingRoleForSeat(null)}
+                                        className="text-xs text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
+                                      >
+                                        Cancel
+                                      </button>
+                                    </div>
+                                  ) : (
+                                    <div className="flex items-center gap-2">
+                                      <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                                        seat.role === 'Admin'
+                                          ? 'bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-300'
+                                          : seat.role === 'Approver'
+                                          ? 'bg-orange-100 dark:bg-orange-900/30 text-orange-800 dark:text-orange-300'
+                                          : seat.role === 'Deployer'
+                                          ? 'bg-purple-100 dark:bg-purple-900/30 text-purple-800 dark:text-purple-300'
+                                          : seat.role === 'Editor'
+                                          ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300'
+                                          : 'bg-gray-100 dark:bg-gray-900/30 text-gray-800 dark:text-gray-300'
+                                      }`}>
+                                        {seat.role}
+                                      </span>
+                                      <button
+                                        onClick={() => setEditingRoleForSeat(seat.bindingId)}
+                                        className="text-gray-400 hover:text-[var(--accent-color)] transition-colors"
+                                        title="Edit role"
+                                      >
+                                        <Edit2 size={14} />
+                                      </button>
+                                    </div>
+                                  )}
+                                </td>
+                                <td className="px-4 py-3 text-sm">
+                                  <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                                    seat.bindingStatus === 'active'
+                                      ? 'bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300'
+                                      : 'bg-yellow-100 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-300'
+                                  }`}>
+                                    {seat.bindingStatus}
+                                  </span>
+                                </td>
+                                <td className="px-4 py-3 text-sm text-gray-600 dark:text-gray-400">
+                                  {seat.lastActivity ? (
+                                    <div className="flex flex-col">
+                                      <span>{new Date(seat.lastActivity).toLocaleDateString()}</span>
+                                      <span className="text-xs text-gray-400">{new Date(seat.lastActivity).toLocaleTimeString()}</span>
+                                    </div>
+                                  ) : (
+                                    'N/A'
+                                  )}
+                                </td>
+                                <td className="px-4 py-3 text-sm text-right">
+                                  <button
+                                    onClick={() => {
+                                      setRemoveSeatModal({ isOpen: true, seat });
+                                    }}
+                                    disabled={seat.role === 'Admin'}
+                                    className="px-3 py-1 text-xs font-medium text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                                    title={seat.role === 'Admin' ? 'Cannot remove admin seat' : 'Remove this seat'}
+                                  >
+                                    Remove
+                                  </button>
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    ) : (
+                      <div className="p-4 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-md text-center text-gray-600 dark:text-gray-400">
+                        No seats assigned yet
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+            </Card>
+          )}
+
+          {/* Non-Admin Message */}
+          {!isAdmin && (licenseInfo?.licenseType?.toLowerCase() === 'teams' || licenseInfo?.licenseType?.toLowerCase() === 'enterprise') && (
+            <Card className="p-6">
+              <div className="p-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-md">
+                <div className="flex items-center gap-2 text-blue-900 dark:text-blue-100">
+                  <Shield size={20} />
+                  <p>Seat management is only available to administrators. Contact your admin to manage license seats.</p>
+                </div>
+              </div>
+            </Card>
+          )}
+        </div>
+      )}
+
+      {/* RBAC Save Success Dialog */}
+      {rbacSaveSuccess && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl p-6 max-w-md w-full mx-4">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-12 h-12 rounded-full bg-green-100 dark:bg-green-900/30 flex items-center justify-center">
+                <CheckCircle2 className="w-6 h-6 text-green-600 dark:text-green-400" />
+              </div>
+              <div>
+                <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Success</h3>
+                <p className="text-sm text-gray-600 dark:text-gray-400">RBAC settings saved successfully</p>
+              </div>
+            </div>
+            <button
+              onClick={() => setRbacSaveSuccess(false)}
+              className="w-full px-4 py-2 bg-[var(--accent-color)] text-white rounded-lg hover:bg-[var(--accent-hover)] transition-colors font-medium"
+            >
+              OK
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Role Update Confirmation Modal */}
+      {roleUpdateModal?.isOpen && roleUpdateModal.seat && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl p-6 max-w-md w-full mx-4">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-12 h-12 rounded-full bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center">
+                <Shield className="w-6 h-6 text-blue-600 dark:text-blue-400" />
+              </div>
+              <div>
+                <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Confirm Role Change</h3>
+                <p className="text-sm text-gray-600 dark:text-gray-400">Update user permissions</p>
+              </div>
+            </div>
+            
+            <div className="mb-6 p-4 bg-gray-50 dark:bg-gray-900 rounded-lg">
+              <div className="text-sm text-gray-700 dark:text-gray-300 mb-2">
+                <strong>User:</strong> {roleUpdateModal.seat.ownerEmail || roleUpdateModal.seat.email}
+              </div>
+              <div className="flex items-center gap-2 text-sm">
+                <span className="text-gray-600 dark:text-gray-400">Role:</span>
+                <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                  roleUpdateModal.seat.oldRole === 'Admin' ? 'bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-300' :
+                  roleUpdateModal.seat.oldRole === 'Approver' ? 'bg-orange-100 dark:bg-orange-900/30 text-orange-800 dark:text-orange-300' :
+                  roleUpdateModal.seat.oldRole === 'Deployer' ? 'bg-purple-100 dark:bg-purple-900/30 text-purple-800 dark:text-purple-300' :
+                  roleUpdateModal.seat.oldRole === 'Editor' ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300' :
+                  'bg-gray-100 dark:bg-gray-900/30 text-gray-800 dark:text-gray-300'
+                }`}>
+                  {roleUpdateModal.seat.oldRole}
+                </span>
+                <span className="text-gray-400">→</span>
+                <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                  roleUpdateModal.newRole === 'Admin' ? 'bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-300' :
+                  roleUpdateModal.newRole === 'Approver' ? 'bg-orange-100 dark:bg-orange-900/30 text-orange-800 dark:text-orange-300' :
+                  roleUpdateModal.newRole === 'Deployer' ? 'bg-purple-100 dark:bg-purple-900/30 text-purple-800 dark:text-purple-300' :
+                  roleUpdateModal.newRole === 'Editor' ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300' :
+                  'bg-gray-100 dark:bg-gray-900/30 text-gray-800 dark:text-gray-300'
+                }`}>
+                  {roleUpdateModal.newRole}
+                </span>
+              </div>
+            </div>
+
+            <p className="text-sm text-gray-600 dark:text-gray-400 mb-6">
+              Are you sure you want to change this user's role? This will update their permissions immediately.
+            </p>
+
+            <div className="flex gap-3">
+              <button
+                onClick={() => setRoleUpdateModal(null)}
+                className="flex-1 px-4 py-2 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors font-medium"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => {
+                  updateSeatRole(roleUpdateModal.seat.bindingId, roleUpdateModal.newRole);
+                  setRoleUpdateModal(null);
+                }}
+                className="flex-1 px-4 py-2 bg-[var(--accent-color)] text-white rounded-lg hover:bg-[var(--accent-hover)] transition-colors font-medium"
+              >
+                Confirm
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Role Update Success Modal */}
+      {roleUpdateSuccess?.isOpen && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl p-6 max-w-md w-full mx-4">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-12 h-12 rounded-full bg-green-100 dark:bg-green-900/30 flex items-center justify-center">
+                <CheckCircle2 className="w-6 h-6 text-green-600 dark:text-green-400" />
+              </div>
+              <div>
+                <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Role Updated Successfully</h3>
+                <p className="text-sm text-gray-600 dark:text-gray-400">User permissions have been changed</p>
+              </div>
+            </div>
+
+            <div className="mb-6 p-4 bg-gray-50 dark:bg-gray-900 rounded-lg">
+              <div className="text-sm text-gray-700 dark:text-gray-300 mb-2">
+                <strong>User:</strong> {roleUpdateSuccess.email}
+              </div>
+              <div className="flex items-center gap-2 text-sm">
+                <span className="text-gray-600 dark:text-gray-400">Role changed from</span>
+                <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                  roleUpdateSuccess.oldRole === 'Admin' ? 'bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-300' :
+                  roleUpdateSuccess.oldRole === 'Approver' ? 'bg-orange-100 dark:bg-orange-900/30 text-orange-800 dark:text-orange-300' :
+                  roleUpdateSuccess.oldRole === 'Deployer' ? 'bg-purple-100 dark:bg-purple-900/30 text-purple-800 dark:text-purple-300' :
+                  roleUpdateSuccess.oldRole === 'Editor' ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300' :
+                  'bg-gray-100 dark:bg-gray-900/30 text-gray-800 dark:text-gray-300'
+                }`}>
+                  {roleUpdateSuccess.oldRole}
+                </span>
+                <span className="text-gray-400">to</span>
+                <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                  roleUpdateSuccess.newRole === 'Admin' ? 'bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-300' :
+                  roleUpdateSuccess.newRole === 'Approver' ? 'bg-orange-100 dark:bg-orange-900/30 text-orange-800 dark:text-orange-300' :
+                  roleUpdateSuccess.newRole === 'Deployer' ? 'bg-purple-100 dark:bg-purple-900/30 text-purple-800 dark:text-purple-300' :
+                  roleUpdateSuccess.newRole === 'Editor' ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300' :
+                  'bg-gray-100 dark:bg-gray-900/30 text-gray-800 dark:text-gray-300'
+                }`}>
+                  {roleUpdateSuccess.newRole}
+                </span>
+              </div>
+            </div>
+
+            <p className="text-sm text-gray-600 dark:text-gray-400 mb-6">
+              The change has been logged in the audit trail.
+            </p>
+
+            <button
+              onClick={() => setRoleUpdateSuccess(null)}
+              className="w-full px-4 py-2 bg-[var(--accent-color)] text-white rounded-lg hover:bg-[var(--accent-hover)] transition-colors font-medium"
+            >
+              OK
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Remove Seat Confirmation Modal */}
+      {removeSeatModal?.isOpen && removeSeatModal.seat && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl p-6 max-w-md w-full mx-4">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-12 h-12 rounded-full bg-red-100 dark:bg-red-900/30 flex items-center justify-center">
+                <AlertTriangle className="w-6 h-6 text-red-600 dark:text-red-400" />
+              </div>
+              <div>
+                <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Remove Seat</h3>
+                <p className="text-sm text-gray-600 dark:text-gray-400">Revoke user access</p>
+              </div>
+            </div>
+            
+            <div className="mb-6 p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
+              <div className="text-sm text-gray-700 dark:text-gray-300 mb-2">
+                <strong>User:</strong> {removeSeatModal.seat.ownerEmail}
+              </div>
+              <div className="text-sm text-gray-700 dark:text-gray-300 mb-2">
+                <strong>Device:</strong> {removeSeatModal.seat.deviceName}
+              </div>
+              <div className="flex items-center gap-2 text-sm">
+                <span className="text-gray-600 dark:text-gray-400">Role:</span>
+                <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                  removeSeatModal.seat.role === 'Admin' ? 'bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-300' :
+                  removeSeatModal.seat.role === 'Approver' ? 'bg-orange-100 dark:bg-orange-900/30 text-orange-800 dark:text-orange-300' :
+                  removeSeatModal.seat.role === 'Deployer' ? 'bg-purple-100 dark:bg-purple-900/30 text-purple-800 dark:text-purple-300' :
+                  removeSeatModal.seat.role === 'Editor' ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300' :
+                  'bg-gray-100 dark:bg-gray-900/30 text-gray-800 dark:text-gray-300'
+                }`}>
+                  {removeSeatModal.seat.role}
+                </span>
+              </div>
+            </div>
+
+            <div className="mb-6 p-3 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg">
+              <p className="text-sm text-yellow-800 dark:text-yellow-200">
+                <strong>Warning:</strong> This action will:
+              </p>
+              <ul className="text-sm text-yellow-700 dark:text-yellow-300 mt-2 ml-4 list-disc">
+                <li>Deactivate the user's device immediately</li>
+                <li>Revoke all access to the platform</li>
+                <li>Free up one license seat</li>
+                <li>Log this action in the audit trail</li>
+              </ul>
+            </div>
+
+            <p className="text-sm text-gray-600 dark:text-gray-400 mb-6">
+              Are you sure you want to remove this seat? This action cannot be undone.
+            </p>
+
+            <div className="flex gap-3">
+              <button
+                onClick={() => setRemoveSeatModal(null)}
+                className="flex-1 px-4 py-2 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors font-medium"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => {
+                  removeSeat(removeSeatModal.seat.bindingId);
+                  setRemoveSeatModal(null);
+                }}
+                className="flex-1 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors font-medium"
+              >
+                Remove Seat
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Remove Seat Success Modal */}
+      {removeSeatSuccess?.isOpen && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl p-6 max-w-md w-full mx-4">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-12 h-12 rounded-full bg-green-100 dark:bg-green-900/30 flex items-center justify-center">
+                <CheckCircle2 className="w-6 h-6 text-green-600 dark:text-green-400" />
+              </div>
+              <div>
+                <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Seat Removed Successfully</h3>
+                <p className="text-sm text-gray-600 dark:text-gray-400">User access has been revoked</p>
+              </div>
+            </div>
+
+            <div className="mb-6 p-4 bg-gray-50 dark:bg-gray-900 rounded-lg">
+              <div className="text-sm text-gray-700 dark:text-gray-300 mb-2">
+                <strong>Removed user:</strong> {removeSeatSuccess.email}
+              </div>
+              <div className="text-sm text-green-700 dark:text-green-300">
+                ✓ Device access deactivated<br />
+                ✓ License seat freed up<br />
+                ✓ Action logged in audit trail
+              </div>
+            </div>
+
+            <p className="text-sm text-gray-600 dark:text-gray-400 mb-6">
+              The user will no longer have access to the platform. You can reassign this seat to another user.
+            </p>
+
+            <button
+              onClick={() => setRemoveSeatSuccess(null)}
+              className="w-full px-4 py-2 bg-[var(--accent-color)] text-white rounded-lg hover:bg-[var(--accent-hover)] transition-colors font-medium"
+            >
+              OK
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

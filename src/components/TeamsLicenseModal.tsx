@@ -210,12 +210,12 @@ export function TeamsLicenseModal({ isOpen, onClose, onBack }: TeamsLicenseModal
         className="bg-white dark:bg-gray-800 rounded-lg shadow-xl w-full max-w-3xl max-h-[90vh] overflow-y-auto"
       >
         {/* Header */}
-        <div className="bg-gradient-to-r from-green-500 to-green-600 text-white p-8 rounded-t-lg">
+        <div className="bg-[var(--accent-color)] text-white p-8 rounded-t-lg">
           <div className="flex items-center space-x-4">
             <Users size={28} />
             <div>
               <h2 className="text-2xl font-bold">Teams License</h2>
-              <p className="text-green-100 text-sm mt-1">
+              <p className="text-white/80 text-sm mt-1">
                 {isValidating && licenseKey.length >= 20 && 'Checking license status...'}
                 {mode === 'setup' && step === 'license' && !isValidating && 'Enter your Teams license key'}
                 {mode === 'setup' && step === 'setup' && 'Setup your organization'}
@@ -230,7 +230,7 @@ export function TeamsLicenseModal({ isOpen, onClose, onBack }: TeamsLicenseModal
         <div className="p-8">
           {isValidating && licenseKey.length >= 20 && (
             <div className="text-center py-12">
-              <Loader2 className="animate-spin mx-auto mb-4 text-green-600" size={48} />
+              <Loader2 className="animate-spin mx-auto mb-4 [var(--accent-color)]" size={48} />
               <p className="text-gray-600 dark:text-gray-400">Checking license status...</p>
             </div>
           )}
@@ -242,10 +242,10 @@ export function TeamsLicenseModal({ isOpen, onClose, onBack }: TeamsLicenseModal
               animate={{ opacity: 1, x: 0 }}
               className="space-y-6"
             >
-              <div className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-700 rounded-lg p-5">
+              <div className="bg-[var(--accent-color)]/5 dark:bg-[var(--accent-color)]/10 border border-[var(--accent-color)]/20 dark:border-[var(--accent-color)]/30 rounded-lg p-5">
                 <div className="flex items-start space-x-3">
-                  <Info className="text-green-600 dark:text-green-400 mt-0.5" size={18} />
-                  <div className="text-sm text-green-800 dark:text-green-200">
+                  <Info className="[var(--accent-color)] dark:[var(--accent-light)] mt-0.5" size={18} />
+                  <div className="text-sm [var(--accent-dark)] dark:[var(--accent-light)]">
                     <p className="font-semibold mb-2">New Teams License Setup</p>
                     <p>Enter your Teams license key to begin the setup process.</p>
                   </div>
@@ -266,7 +266,7 @@ export function TeamsLicenseModal({ isOpen, onClose, onBack }: TeamsLicenseModal
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">
-                  <Key size={18} className="inline mr-2 text-green-600" />
+                  <Key size={18} className="inline mr-2 [var(--accent-color)]" />
                   Teams License Key
                 </label>
                 <input
@@ -274,7 +274,7 @@ export function TeamsLicenseModal({ isOpen, onClose, onBack }: TeamsLicenseModal
                   value={licenseKey}
                   onChange={handleLicenseKeyChange}
                   placeholder="1111-1111-1111-1111"
-                  className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-green-500 focus:border-green-500 font-mono text-lg"
+                  className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-[var(--accent-color)] focus:border-[var(--accent-color)] font-mono text-lg"
                   disabled={isValidating}
                 />
               </div>
@@ -342,7 +342,7 @@ export function TeamsLicenseModal({ isOpen, onClose, onBack }: TeamsLicenseModal
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  <Mail size={18} className="inline mr-2 text-green-600" />
+                  <Mail size={18} className="inline mr-2 [var(--accent-color)]" />
                   Admin Email
                 </label>
                 <input
@@ -369,7 +369,7 @@ export function TeamsLicenseModal({ isOpen, onClose, onBack }: TeamsLicenseModal
                         ...prev,
                         deploymentApproval: e.target.checked
                       }))}
-                      className="w-4 h-4 text-green-600 focus:ring-green-500"
+                      className="w-4 h-4 [var(--accent-color)] focus:ring-[var(--accent-color)]"
                     />
                     <span className="text-sm text-gray-700 dark:text-gray-300">Require deployment approval</span>
                   </label>
@@ -381,7 +381,7 @@ export function TeamsLicenseModal({ isOpen, onClose, onBack }: TeamsLicenseModal
                         ...prev,
                         configChangeApproval: e.target.checked
                       }))}
-                      className="w-4 h-4 text-green-600 focus:ring-green-500"
+                      className="w-4 h-4 [var(--accent-color)] focus:ring-[var(--accent-color)]"
                     />
                     <span className="text-sm text-gray-700 dark:text-gray-300">Config change approval</span>
                   </label>
@@ -393,7 +393,7 @@ export function TeamsLicenseModal({ isOpen, onClose, onBack }: TeamsLicenseModal
                         ...prev,
                         twoPersonRule: e.target.checked
                       }))}
-                      className="w-4 h-4 text-green-600 focus:ring-green-500"
+                      className="w-4 h-4 [var(--accent-color)] focus:ring-[var(--accent-color)]"
                     />
                     <span className="text-sm text-gray-700 dark:text-gray-300">Two-person approval rule</span>
                   </label>
@@ -405,7 +405,7 @@ export function TeamsLicenseModal({ isOpen, onClose, onBack }: TeamsLicenseModal
                         ...prev,
                         restrictCriticalDeploys: e.target.checked
                       }))}
-                      className="w-4 h-4 text-green-600 focus:ring-green-500"
+                      className="w-4 h-4 [var(--accent-color)] focus:ring-[var(--accent-color)]"
                     />
                     <span className="text-sm text-gray-700 dark:text-gray-300">Restrict critical deployments</span>
                   </label>
@@ -525,10 +525,10 @@ export function TeamsLicenseModal({ isOpen, onClose, onBack }: TeamsLicenseModal
               animate={{ opacity: 1, x: 0 }}
               className="space-y-6"
             >
-              <div className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-700 rounded-lg p-5">
+              <div className="bg-[var(--accent-color)]/5 dark:bg-[var(--accent-color)]/10 border border-[var(--accent-color)]/20 dark:border-[var(--accent-color)]/30 rounded-lg p-5">
                 <div className="flex items-start space-x-3">
-                  <Users className="text-green-600 dark:text-green-400 mt-0.5" size={18} />
-                  <div className="text-sm text-green-800 dark:text-green-200">
+                  <Users className="[var(--accent-color)] dark:[var(--accent-light)] mt-0.5" size={18} />
+                  <div className="text-sm [var(--accent-dark)] dark:[var(--accent-light)]">
                     <p className="font-semibold mb-2">Claim Your Seat</p>
                     <p>Available seats: {licenseInfo?.availableSeats || 0}</p>
                   </div>
@@ -548,7 +548,7 @@ export function TeamsLicenseModal({ isOpen, onClose, onBack }: TeamsLicenseModal
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  <Mail size={18} className="inline mr-2 text-green-600" />
+                  <Mail size={18} className="inline mr-2 [var(--accent-color)]" />
                   Your Email
                 </label>
                 <input
@@ -582,7 +582,7 @@ export function TeamsLicenseModal({ isOpen, onClose, onBack }: TeamsLicenseModal
               animate={{ opacity: 1, scale: 1 }}
               className="text-center py-8"
             >
-              <CheckCircle size={64} className="text-green-500 mx-auto mb-4" />
+              <CheckCircle size={64} className="[var(--accent-color)] mx-auto mb-4" />
               <h3 className="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-2">
                 Teams License Activated!
               </h3>
@@ -613,7 +613,7 @@ export function TeamsLicenseModal({ isOpen, onClose, onBack }: TeamsLicenseModal
                 }
               }}
               disabled={!licenseKey || licenseKey.length < 19 || isValidating}
-              className="px-8 py-3 bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 disabled:bg-gray-400 text-white rounded-lg font-semibold disabled:cursor-not-allowed"
+              className="px-8 py-3 bg-[var(--accent-color)] hover:bg-[var(--accent-hover)] disabled:bg-gray-400 text-white rounded-lg font-semibold disabled:cursor-not-allowed"
             >
               Next
             </button>
@@ -646,7 +646,7 @@ export function TeamsLicenseModal({ isOpen, onClose, onBack }: TeamsLicenseModal
               onClick={() => {
                 if (onClose) onClose()
               }}
-              className="px-8 py-3 bg-gradient-to-r from-green-500 to-green-600 text-white rounded-lg font-semibold"
+              className="px-8 py-3 bg-[var(--accent-color)] hover:bg-[var(--accent-hover)] text-white rounded-lg font-semibold"
             >
               Continue to App
             </button>

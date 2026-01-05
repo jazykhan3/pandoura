@@ -21,12 +21,14 @@ import {
   Eye,
   AlertCircle,
   Info,
+  Server,
 } from 'lucide-react'
 import type { Version, BranchStage, Release, Snapshot, SafetyCheckResults, SafetyCheck } from '../types'
 import { versionApi } from '../services/api'
 import { deploymentApi } from '../services/api'
 import { Dialog } from '../components/Dialog'
 import { useProjectStore } from '../store/projectStore'
+import deviceAuth from '../utils/deviceAuth'
 
 const stageColors: Record<BranchStage, string> = {
   main: 'text-purple-600 dark:text-purple-400 bg-purple-50 dark:bg-purple-900/30',
@@ -560,22 +562,39 @@ export function VersioningCenter() {
     try {
       // Simulate loading snapshot files from the version
       const snapshot = snapshots.find(s => s.id === snapshotId)
-      if (snapshot) {
-        // Get the version files for this snapshot
-        const versionResult = await versionApi.getVersionById(snapshot.versionId)
-        if (versionResult.success && versionResult.version.files) {
-          setSnapshotFiles(versionResult.version.files)
-        } else {
-          // Mock realistic snapshot files if API doesn't return them
-          const mockFiles = [
-            { filePath: 'src/Main_Program.st', changeType: 'modified', size: 2456 },
-            { filePath: 'src/FB_PIDController.st', changeType: 'added', size: 1234 },
-            { filePath: 'tags/Process_Tags.json', changeType: 'modified', size: 3421 },
-            { filePath: 'tags/IO_Mapping.json', changeType: 'modified', size: 1876 },
-            { filePath: 'config/Runtime_Config.json', changeType: 'added', size: 789 },
-          ]
-          setSnapshotFiles(mockFiles)
-        }
+      if (!snapshot) {
+        console.warn('Snapshot not found:', snapshotId)
+        setSnapshotFiles([])
+        return
+      }
+
+      // Check if snapshot has versionId
+      if (!snapshot.versionId) {
+        console.warn('Snapshot has no versionId:', snapshot)
+        // Use mock files as fallback
+        const mockFiles = [
+          { filePath: 'src/Main_Program.st', changeType: 'modified', size: 2456 },
+          { filePath: 'src/FB_PIDController.st', changeType: 'added', size: 1234 },
+          { filePath: 'tags/Process_Tags.json', changeType: 'modified', size: 3421 },
+        ]
+        setSnapshotFiles(mockFiles)
+        return
+      }
+
+      // Get the version files for this snapshot
+      const versionResult = await versionApi.getVersionById(snapshot.versionId)
+      if (versionResult.success && versionResult.version?.files) {
+        setSnapshotFiles(versionResult.version.files)
+      } else {
+        // Mock realistic snapshot files if API doesn't return them
+        const mockFiles = [
+          { filePath: 'src/Main_Program.st', changeType: 'modified', size: 2456 },
+          { filePath: 'src/FB_PIDController.st', changeType: 'added', size: 1234 },
+          { filePath: 'tags/Process_Tags.json', changeType: 'modified', size: 3421 },
+          { filePath: 'tags/IO_Mapping.json', changeType: 'modified', size: 1876 },
+          { filePath: 'config/Runtime_Config.json', changeType: 'added', size: 789 },
+        ]
+        setSnapshotFiles(mockFiles)
       }
     } catch (error) {
       console.error('Failed to load snapshot files:', error)
@@ -761,10 +780,18 @@ export function VersioningCenter() {
       try {
         // Call backend API to export to L5X
         console.log('🌐 Calling export API...')
+        
+        // Get session token for authentication
+        const sessionToken = await deviceAuth.getSessionToken()
+        if (!sessionToken) {
+          throw new Error('No authentication token available')
+        }
+        
         const response = await fetch(`/api/deploy/export/rockwell`, {
           method: 'POST',
           headers: {
-            'Content-Type': 'application/json'
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${sessionToken}`
           },
           body: JSON.stringify({
             projectId: activeProject?.id,
@@ -1865,48 +1892,77 @@ export function VersioningCenter() {
                         No snapshots yet. Create your first snapshot!
                       </div>
                     ) : (
-                      snapshots.map((snapshot) => (
-                        <motion.div
-                          key={snapshot.id}
-                          initial={{ opacity: 0, y: 10 }}
-                          animate={{ opacity: 1, y: 0 }}
-                          onClick={() => setSelectedSnapshot(snapshot)}
-                          className={`border rounded-lg p-4 hover:shadow-md transition-all cursor-pointer ${
-                            selectedSnapshot?.id === snapshot.id
-                              ? 'border-[#FF6A00] bg-orange-50 dark:bg-orange-900/20'
-                              : 'bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-600'
-                          }`}
-                        >
-                          <div className="flex items-start justify-between">
-                            <div className="flex items-center gap-3 mb-2">
-                              <Package size={20} className="text-gray-400" />
-                              <div>
-                                <h3 className="text-base font-semibold text-gray-800 dark:text-gray-100">{snapshot.name}</h3>
-                                <p className="text-sm text-gray-600 dark:text-gray-400">{snapshot.description}</p>
+                      snapshots.map((snapshot) => {
+                        // Check if this is an auto-generated snapshot
+                        const metadata = snapshot.metadata as any
+                        const isAutoSnapshot = metadata?.auto_generated === true
+                        const source = metadata?.source
+                        const runtimeName = metadata?.runtime_name
+                        
+                        return (
+                          <motion.div
+                            key={snapshot.id}
+                            initial={{ opacity: 0, y: 10 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            onClick={() => setSelectedSnapshot(snapshot)}
+                            className={`border rounded-lg p-4 hover:shadow-md transition-all cursor-pointer ${
+                              selectedSnapshot?.id === snapshot.id
+                                ? 'border-[#FF6A00] bg-orange-50 dark:bg-orange-900/20'
+                                : 'bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-600'
+                            }`}
+                          >
+                            <div className="flex items-start justify-between">
+                              <div className="flex items-center gap-3 mb-2">
+                                <Package size={20} className={isAutoSnapshot ? 'text-blue-500' : 'text-gray-400'} />
+                                <div>
+                                  <div className="flex items-center gap-2">
+                                    <h3 className="text-base font-semibold text-gray-800 dark:text-gray-100">{snapshot.name}</h3>
+                                    {isAutoSnapshot && (
+                                      <span className="px-2 py-0.5 text-xs rounded-full bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300 flex items-center gap-1">
+                                        <Server size={12} />
+                                        Auto
+                                      </span>
+                                    )}
+                                  </div>
+                                  <p className="text-sm text-gray-600 dark:text-gray-400">
+                                    {snapshot.description}
+                                    {isAutoSnapshot && source === 'plc-pull' && runtimeName && (
+                                      <span className="block text-xs text-blue-600 dark:text-blue-400 mt-1">
+                                        📡 Pulled from {runtimeName}
+                                      </span>
+                                    )}
+                                  </p>
+                                </div>
                               </div>
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation()
+                                  setSelectedSnapshot(snapshot)
+                                  setSelectedSnapshotForRelease(snapshot.id)
+                                  setShowCreateRelease(true)
+                                }}
+                                disabled={snapshotHasRelease(snapshot.id)}
+                                className={`px-3 py-1.5 text-xs rounded transition-colors flex items-center gap-1 ${
+                                  snapshotHasRelease(snapshot.id)
+                                    ? 'bg-gray-300 dark:bg-gray-600 text-gray-500 dark:text-gray-400 cursor-not-allowed'
+                                    : 'bg-[#FF6A00] text-white hover:bg-[#E55F00]'
+                                }`}
+                              >
+                                <Package size={14} />
+                                {snapshotHasRelease(snapshot.id) ? 'Release Exists' : 'Create Release'}
+                              </button>
                             </div>
-                            <button
-                              onClick={() => {
-                                setSelectedSnapshot(snapshot)
-                                setSelectedSnapshotForRelease(snapshot.id)
-                                setShowCreateRelease(true)
-                              }}
-                              disabled={snapshotHasRelease(snapshot.id)}
-                              className={`px-3 py-1.5 text-xs rounded transition-colors flex items-center gap-1 ${
-                                snapshotHasRelease(snapshot.id)
-                                  ? 'bg-gray-300 dark:bg-gray-600 text-gray-500 dark:text-gray-400 cursor-not-allowed'
-                                  : 'bg-[#FF6A00] text-white hover:bg-[#E55F00]'
-                              }`}
-                            >
-                              <Package size={14} />
-                              {snapshotHasRelease(snapshot.id) ? 'Release Exists' : 'Create Release'}
-                            </button>
-                          </div>
-                          <div className="text-sm text-gray-600 dark:text-gray-400">
-                            Created {new Date(snapshot.createdAt).toLocaleDateString()} by {snapshot.createdBy}
-                          </div>
-                        </motion.div>
-                      ))
+                            <div className="text-sm text-gray-600 dark:text-gray-400">
+                              Created {new Date(snapshot.createdAt).toLocaleDateString()} by {snapshot.createdBy}
+                              {isAutoSnapshot && metadata.items_pulled > 0 && (
+                                <span className="ml-2 text-xs text-blue-600 dark:text-blue-400">
+                                  • {metadata.items_pulled} items pulled
+                                </span>
+                              )}
+                            </div>
+                          </motion.div>
+                        )
+                      })
                     )}
                   </div>
                 )}
@@ -1924,6 +1980,48 @@ export function VersioningCenter() {
                 <h2 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-4 uppercase tracking-wide">Snapshot Details</h2>
                 
                 <div className="space-y-4">
+                  {/* Auto-Snapshot Badge */}
+                  {selectedSnapshot.metadata && (selectedSnapshot.metadata as any).auto_generated && (
+                    <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-3">
+                      <div className="flex items-center gap-2 mb-2">
+                        <Server size={16} className="text-blue-600 dark:text-blue-400" />
+                        <h3 className="text-sm font-semibold text-blue-800 dark:text-blue-300">Auto-Generated Snapshot</h3>
+                      </div>
+                      <div className="text-xs text-blue-700 dark:text-blue-300 space-y-1">
+                        {(selectedSnapshot.metadata as any).source === 'plc-pull' && (
+                          <>
+                            <p>📡 Source: PLC Pull</p>
+                            {(selectedSnapshot.metadata as any).runtime_name && (
+                              <p>🔌 Runtime: {(selectedSnapshot.metadata as any).runtime_name}</p>
+                            )}
+                            {(selectedSnapshot.metadata as any).items_pulled > 0 && (
+                              <p>📊 Items Pulled: {(selectedSnapshot.metadata as any).items_pulled}</p>
+                            )}
+                            {(selectedSnapshot.metadata as any).breakdown && (
+                              <div className="mt-2 pt-2 border-t border-blue-200 dark:border-blue-800">
+                                <p className="font-medium mb-1">Breakdown:</p>
+                                <ul className="ml-4 space-y-0.5">
+                                  {(selectedSnapshot.metadata as any).breakdown.programs > 0 && (
+                                    <li>• Programs: {(selectedSnapshot.metadata as any).breakdown.programs}</li>
+                                  )}
+                                  {(selectedSnapshot.metadata as any).breakdown.tags > 0 && (
+                                    <li>• Tags: {(selectedSnapshot.metadata as any).breakdown.tags}</li>
+                                  )}
+                                  {(selectedSnapshot.metadata as any).breakdown.types > 0 && (
+                                    <li>• Data Types: {(selectedSnapshot.metadata as any).breakdown.types}</li>
+                                  )}
+                                  {(selectedSnapshot.metadata as any).breakdown.constants > 0 && (
+                                    <li>• Constants: {(selectedSnapshot.metadata as any).breakdown.constants}</li>
+                                  )}
+                                </ul>
+                              </div>
+                            )}
+                          </>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                  
                   {/* Snapshot Info */}
                   <div>
                     <h3 className="text-xs font-medium text-gray-600 dark:text-gray-400 mb-2">Information</h3>

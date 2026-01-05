@@ -89,10 +89,11 @@ export function ShadowRuntime() {
     }, 1000)
 
     return () => {
+      console.log('🧹 Cleaning up Shadow Runtime polling intervals')
       clearInterval(dataInterval)
       clearInterval(logicPollInterval)
     }
-  }, [syncStatus.latency, isRunning])
+  }, []) // Empty dependency array - only run once when page loads
 
   return (
     <div className="space-y-6">
